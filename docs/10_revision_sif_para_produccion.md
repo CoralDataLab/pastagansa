@@ -23,6 +23,8 @@ ORDER BY primera_posicion;
 
 El endpoint autenticado `GET /v1/sif/records/transition-audit` ofrece el mismo inventario de solo lectura, aislado por empresa, agrupado además por entorno AEAT, tipo de registro e identificador del software capturado. Indica si este último cumple el formato de dos caracteres y cuántos XML están congelados, indisponibles o son anteriores al mecanismo de snapshot. `historicalChainReviewRequired=true` significa que hay registros previos que requieren una decisión documentada; `false` solo significa que esta base no contiene registros SIF para esa empresa. Ninguno de los dos valores certifica conformidad ni autoriza a enlazar, descartar o reiniciar la cadena. La integridad técnica se comprueba aparte con `GET /v1/sif/records/verification`.
 
+Para inspeccionarlo sin gestionar tokens en la terminal, la sesión web ofrece **Configuración → Inventario histórico SIF**. La ruta web `GET /api/sif/records/transition-audit` reenvía la consulta con el usuario y la empresa seleccionada; no expone la API privada ni permite mutaciones.
+
 El modo `NO_VERIFACTU` continúa disponible únicamente con `aeat_environment = TEST` para pruebas técnicas. El servicio rechaza nuevas emisiones en ese modo si la factura apunta a `PRODUCTION`, aunque una configuración antigua siga guardada. `VERIFACTU` sigue bloqueado hasta implementar la remisión. No confundir esta restricción de producto con una certificación normativa del entorno de pruebas.
 
 ## Identificador del producto

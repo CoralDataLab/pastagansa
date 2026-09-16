@@ -8,6 +8,7 @@ test("completes the sales flow from registration to payment", async ({
   test.setTimeout(90_000);
   const suffix = Date.now();
   const controlledRecipient = process.env.E2E_SMTP_RECIPIENT;
+  expect((await page.request.get("/api/sif/records/transition-audit")).status()).toBe(401);
   await page.goto("/acceso");
   await expectNoSeriousAccessibilityViolations(page, "access screen");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
@@ -223,6 +224,40 @@ test("completes the sales flow from registration to payment", async ({
   await expect(page.getByText("Registro SIF", { exact: true })).toBeVisible();
   await expect(page.getByText("No aplica (SIF desactivado)")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page, "issued rectification");
+
+  await page.goto("/configuracion");
+  const sifAudit = page.getByRole("region", { name: "Inventario histórico SIF" });
+  await expect(sifAudit).toContainText("0 registros SIF");
+  await expect(sifAudit).toContainText("Sin registros históricos en esta base");
+  await expect(sifAudit).toContainText("no certifica conformidad");
+
+  const session = await page.evaluate(async () => {
+    const response = await fetch("/api/auth/session");
+    if (!response.ok) throw new Error(`Session HTTP ${response.status}`);
+    return response.json() as Promise<{ membership: { company: { id: string } } }>;
+  });
+  await page.route("**/api/sif/records/transition-audit", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        companyId: session.membership.company.id,
+        totalRecords: 2,
+        historicalChainReviewRequired: true,
+        groups: [{
+          sifMode: "DISABLED", aeatEnvironment: "PRODUCTION", recordType: "REGISTRATION",
+          softwareId: "PASTAGANSA", softwareIdValid: false, records: 2,
+          frozenXmlRecords: 0, unavailableXmlRecords: 0, legacyXmlRecords: 2,
+          firstPosition: "1", lastPosition: "2",
+        }],
+      }),
+    });
+  });
+  await page.reload();
+  await expect(sifAudit).toContainText("2 registros SIF");
+  await expect(sifAudit).toContainText("PASTAGANSA");
+  await expect(sifAudit).toContainText("Formato no válido o ausente");
+  await expect(sifAudit).toContainText("2 anteriores al snapshot");
 });
 
 test("completes a purchase through payment and bank reconciliation", async ({

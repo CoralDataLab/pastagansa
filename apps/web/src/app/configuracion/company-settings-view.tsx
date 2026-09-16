@@ -11,6 +11,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { FormEvent, useState } from "react";
+import { SifTransitionAudit } from "./sif-transition-audit";
 
 const maxLogoBytes = 512 * 1024;
 
@@ -189,6 +190,9 @@ export function CompanySettingsView() {
             {form.sifMode === "NO_VERIFACTU" && <p className="notice" role="status">Modo experimental, solo para pruebas AEAT: todavía no cumple los requisitos de firma y registro de eventos. No lo uses para facturas reales. Las facturas nuevas incluirán un QR fiscal de 34 mm; las ya emitidas no se modifican.</p>}
             <a className="secondary-button" href="/api/company/sif-declaration">Descargar borrador de declaración responsable</a>
           </section>
+          {session.data?.membership.role.permissions.includes("sif_record.read") && (
+            <SifTransitionAudit companyId={session.data.membership.company.id} />
+          )}
           <section className="company-settings-card" aria-labelledby="logo-title">
             <h2 id="logo-title">Logo</h2>
             <p>PNG o JPEG, hasta 512 KiB. No aceptamos SVG por seguridad.</p>
