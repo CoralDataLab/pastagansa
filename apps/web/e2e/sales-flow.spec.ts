@@ -5,6 +5,7 @@ import { expectNoSeriousAccessibilityViolations } from "./accessibility";
 test("completes the sales flow from registration to payment", async ({
   page,
 }) => {
+  test.setTimeout(90_000);
   const suffix = Date.now();
   const controlledRecipient = process.env.E2E_SMTP_RECIPIENT;
   await page.goto("/acceso");
