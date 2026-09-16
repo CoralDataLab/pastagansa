@@ -13,6 +13,15 @@ export interface SifRegistrationHashInput {
   generatedAt: string;
 }
 
+/** Fields prescribed by AEAT for a RegistroAnulacion hash. */
+export interface SifCancellationHashInput {
+  issuerTaxId: string;
+  invoiceNumber: string;
+  issueDate: string;
+  previousHash?: string | null;
+  generatedAt: string;
+}
+
 export function canonicalRegistrationHashInput(
   input: SifRegistrationHashInput,
 ) {
@@ -33,6 +42,25 @@ export function canonicalRegistrationHashInput(
 export function hashSifRegistration(input: SifRegistrationHashInput) {
   return createHash("sha256")
     .update(canonicalRegistrationHashInput(input), "utf8")
+    .digest("hex")
+    .toUpperCase();
+}
+
+export function canonicalCancellationHashInput(input: SifCancellationHashInput) {
+  return [
+    ["IDEmisorFacturaAnulada", input.issuerTaxId],
+    ["NumSerieFacturaAnulada", input.invoiceNumber],
+    ["FechaExpedicionFacturaAnulada", input.issueDate],
+    ["Huella", input.previousHash ?? ""],
+    ["FechaHoraHusoGenRegistro", input.generatedAt],
+  ]
+    .map(([name, value]) => `${name}=${value.trim()}`)
+    .join("&");
+}
+
+export function hashSifCancellation(input: SifCancellationHashInput) {
+  return createHash("sha256")
+    .update(canonicalCancellationHashInput(input), "utf8")
     .digest("hex")
     .toUpperCase();
 }

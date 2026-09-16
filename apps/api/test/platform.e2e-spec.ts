@@ -577,6 +577,35 @@ describe("platform integrity", () => {
       .send({ sequenceId: sequence.body.id })
       .expect(200);
     expect(retriedIssue.body.fullNumber).toBe(issuedInvoice.body.fullNumber);
+    await authed(accountB.accessToken, tenantB)
+      .post(`/v1/sif/records/${invoiceDraft.body.id}/cancellation`)
+      .expect(404);
+    const sifCancellation = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/sif/records/${invoiceDraft.body.id}/cancellation`)
+      .expect(200);
+    expect(sifCancellation.body).toMatchObject({
+      invoiceId: invoiceDraft.body.id,
+      recordType: "CANCELLATION",
+      chainPosition: "2",
+      invoiceNumber: "F2026-00001",
+      invoiceType: "F1",
+    });
+    const retriedSifCancellation = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/sif/records/${invoiceDraft.body.id}/cancellation`)
+      .expect(200);
+    expect(retriedSifCancellation.body.id).toBe(sifCancellation.body.id);
+    const cancelledInvoiceSif = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records?invoiceId=${invoiceDraft.body.id}`)
+      .expect(200);
+    expect(cancelledInvoiceSif.body).toHaveLength(2);
+    expect(cancelledInvoiceSif.body.map(({ recordType }: { recordType: string }) => recordType)).toEqual([
+      "REGISTRATION",
+      "CANCELLATION",
+    ]);
+    await authed(accountA.accessToken, tenantA)
+      .get("/v1/sif/records/verification")
+      .expect(200)
+      .expect(({ body }) => expect(body).toMatchObject({ valid: true, recordsChecked: 2 }));
     const originalLedger = await authed(accountA.accessToken, tenantA)
       .get("/v1/tax-ledger")
       .expect(200);

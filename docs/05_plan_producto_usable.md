@@ -286,11 +286,16 @@ Gate:
 
 ## Orden inmediato de implementación
 
-1. Continuar U6A —documentos reales y comunicación— con U6-03 (entrega por email).
-   U6-01 y U6-02, perfil de empresa y snapshots/PDF históricos, están implementados
-   localmente y a la espera de validación de staging dentro de su gate de salida.
-2. Retomar SIF/VERI*FACTU tras U6A. U6B —cartera y recordatorios— queda subordinado al
-   calendario SIF y no desplaza este punto de control.
+1. Cerrar el gate U6A con U6-08: validar en staging perfil, snapshots/PDF y entrega
+   por email contra un buzón controlado, ejecutar el restore drill y guardar la
+   evidencia E2E/WCAG. U6-01, U6-02 y U6-03, incluida la entrega unificada de
+   facturas y presupuestos, ya están implementados localmente; SMTP de staging queda
+   configurado y pendiente de esa aceptación externa.
+2. Continuar SIF/VERI*FACTU. La anulación append-only ya se incorpora como registro
+   encadenado e idempotente, sin reescribir la factura ni sus efectos contables o de
+   IVA; el siguiente bloque es generar XML de alta/anulación y preparar la remisión
+   al entorno de pruebas AEAT. U6B —cartera y recordatorios— no desplaza este punto
+   de control.
 
 El backlog detallado, dependencias y criterios de aceptación de U6 están en
 [Operativa de documentos y cobros](09_plan_operativa_documentos_cobros.md).

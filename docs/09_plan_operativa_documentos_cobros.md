@@ -238,6 +238,13 @@ cuenta bancaria o imagen de marca.
 **Dependencias:** U6-02  
 **Entrega:** U6A
 
+**Estado real (16/09/2026):** implementado localmente. El outbox único conserva las
+entregas históricas de factura y admite presupuestos, con PDF del snapshot adjunto,
+destinatario/plantillas configurables, idempotencia, leases, reintentos e historial
+visible tras recargar. La aplicación explica la indisponibilidad y mantiene descarga
+PDF si SMTP no está configurado; staging ya recibe la configuración, pero el envío a un
+buzón controlado y el gate E2E remoto de U6A siguen pendientes.
+
 ### Historia
 
 Como usuario comercial quiero enviar facturas y presupuestos desde Pastagansa y saber

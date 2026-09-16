@@ -1,7 +1,9 @@
 import {
+  canonicalCancellationHashInput,
   canonicalRegistrationHashInput,
   formatSifIssueDate,
   formatSifTimestamp,
+  hashSifCancellation,
   hashSifRegistration,
 } from "./sif-hash-v1";
 
@@ -36,6 +38,23 @@ describe("AEAT SIF registration hash v0.1.2", () => {
         generatedAt: "2024-01-01T19:20:35+01:00",
       }),
     ).toBe("F7B94CFD8924EDFF273501B01EE5153E4CE8F259766F88CF6ACB8935802A2B97");
+  });
+
+  it("matches the official cancellation test vector", () => {
+    const cancellation = {
+      issuerTaxId: "89890001K",
+      invoiceNumber: "12345679/G34",
+      issueDate: "01-01-2024",
+      previousHash:
+        "F7B94CFD8924EDFF273501B01EE5153E4CE8F259766F88CF6ACB8935802A2B97",
+      generatedAt: "2024-01-01T19:20:40+01:00",
+    };
+    expect(canonicalCancellationHashInput(cancellation)).toBe(
+      "IDEmisorFacturaAnulada=89890001K&NumSerieFacturaAnulada=12345679/G34&FechaExpedicionFacturaAnulada=01-01-2024&Huella=F7B94CFD8924EDFF273501B01EE5153E4CE8F259766F88CF6ACB8935802A2B97&FechaHoraHusoGenRegistro=2024-01-01T19:20:40+01:00",
+    );
+    expect(hashSifCancellation(cancellation)).toBe(
+      "177547C0D57AC74748561D054A9CEC14B4C4EA23D1BEFD6F2E69E3A388F90C68",
+    );
   });
 
   it("formats dates and the applicable Spanish timezone offset", () => {

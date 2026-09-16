@@ -32,6 +32,7 @@ export async function GET(
       journalEntry: journalPage.data[0] ?? null,
       taxEntry: taxPage.data[0] ?? null,
       sifRecord: sifRecords[0] ?? null,
+      sifRecords,
       sifVerification: await sifVerification.json(),
     });
   } catch (error) {

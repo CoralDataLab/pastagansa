@@ -191,6 +191,17 @@ export interface InvoiceTrace {
     hashAlgorithm: string;
     specificationVersion: string;
   };
+  sifRecords: Array<{
+    id: string;
+    recordType: "REGISTRATION" | "CANCELLATION";
+    chainPosition: string;
+    invoiceType: string;
+    generatedAt: string;
+    previousRecordHash: string | null;
+    recordHash: string;
+    hashAlgorithm: string;
+    specificationVersion: string;
+  }>;
   sifVerification: {
     valid: boolean;
     recordsChecked: number;

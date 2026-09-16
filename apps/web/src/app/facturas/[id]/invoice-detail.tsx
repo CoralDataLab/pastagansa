@@ -859,6 +859,18 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                     ? `Cadena SIF verificada · ${trace.data.sifVerification.recordsChecked} registros`
                     : `Cadena SIF con incidencia · ${trace.data.sifVerification.firstInvalid?.reason ?? "revisar registro"}`}
                 </small>
+                {trace.data.sifRecords.some(
+                  (record) => record.recordType === "CANCELLATION",
+                ) && (
+                  <small>
+                    Anulación SIF · posición{" "}
+                    {
+                      trace.data.sifRecords.find(
+                        (record) => record.recordType === "CANCELLATION",
+                      )?.chainPosition
+                    }
+                  </small>
+                )}
                 <dl>
                   <div>
                     <dt>Huella</dt>

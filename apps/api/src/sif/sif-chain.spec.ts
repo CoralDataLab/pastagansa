@@ -1,5 +1,5 @@
 import { SifRecordType } from "@prisma/client";
-import { hashSifRegistration } from "./sif-hash-v1";
+import { hashSifCancellation, hashSifRegistration } from "./sif-hash-v1";
 import { type SifChainRecord, verifySifChain } from "./sif-chain";
 
 const input = {
@@ -16,6 +16,7 @@ const input = {
 function record(overrides: Partial<SifChainRecord> = {}): SifChainRecord {
   return {
     id: "record-1",
+    invoiceId: "invoice-1",
     recordType: SifRecordType.REGISTRATION,
     chainPosition: 1n,
     issuerTaxId: input.issuerTaxId,
@@ -64,5 +65,65 @@ describe("SIF chain verification", () => {
     ]);
     expect(result.valid).toBe(false);
     expect(result.firstInvalid?.reason).toMatch(/hash/i);
+  });
+
+  it("accepts a cancellation linked to an earlier registration", () => {
+    const registration = record();
+    const cancellationInput = {
+      issuerTaxId: input.issuerTaxId,
+      invoiceNumber: input.invoiceNumber,
+      issueDate: input.issueDate,
+      previousHash: registration.recordHash,
+      generatedAt: "2027-01-01T12:01:00+01:00",
+    };
+    const cancellation = record({
+      id: "record-2",
+      recordType: SifRecordType.CANCELLATION,
+      chainPosition: 2n,
+      previousRecordId: registration.id,
+      previousRecordHash: registration.recordHash,
+      recordHash: hashSifCancellation(cancellationInput),
+      payload: {
+        hashInput: cancellationInput,
+        cancellationOf: {
+          registrationId: registration.id,
+          registrationHash: registration.recordHash,
+        },
+      },
+    });
+    expect(verifySifChain([registration, cancellation])).toEqual({
+      valid: true,
+      recordsChecked: 2,
+      firstInvalid: null,
+    });
+  });
+
+  it("rejects a cancellation that does not identify its registration", () => {
+    const registration = record();
+    const cancellationInput = {
+      issuerTaxId: input.issuerTaxId,
+      invoiceNumber: input.invoiceNumber,
+      issueDate: input.issueDate,
+      previousHash: registration.recordHash,
+      generatedAt: "2027-01-01T12:01:00+01:00",
+    };
+    const cancellation = record({
+      id: "record-2",
+      recordType: SifRecordType.CANCELLATION,
+      chainPosition: 2n,
+      previousRecordId: registration.id,
+      previousRecordHash: registration.recordHash,
+      recordHash: hashSifCancellation(cancellationInput),
+      payload: {
+        hashInput: cancellationInput,
+        cancellationOf: {
+          registrationId: "different-registration",
+          registrationHash: registration.recordHash,
+        },
+      },
+    });
+    const result = verifySifChain([registration, cancellation]);
+    expect(result.valid).toBe(false);
+    expect(result.firstInvalid?.reason).toMatch(/does not identify/i);
   });
 });
