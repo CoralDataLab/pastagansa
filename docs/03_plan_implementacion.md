@@ -703,6 +703,9 @@ reproduce los dos vectores oficiales de alta. PostgreSQL valida pertenencia a un
 factura emitida, continuidad, hash anterior, orden temporal, append-only y RLS. La
 exportación de nuevos registros F1 estándar, rectificativas R4 por diferencias y anulaciones usa una copia XML congelada
 en el `payload` al generar el registro; los históricos usan lectura compatible. La
+API expone un inventario read-only de transición por empresa, modo, entorno, tipo de
+registro e identificador de software, sin decidir automáticamente cómo iniciar una
+cadena reglamentaria a partir de registros de prueba. La
 trazabilidad web muestra posición, algoritmo, versión y huella abreviada. Cada factura
 conserva una clasificación SIF inmutable: F1 para facturas completas y R1–R5 para
 rectificativas. La web permite crear un abono total eligiendo R1–R4 según el motivo

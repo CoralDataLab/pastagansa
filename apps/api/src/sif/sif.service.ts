@@ -55,6 +55,55 @@ export class SifService {
     return verifySifChain(records);
   }
 
+  /** Inventory only: it never declares a historical chain suitable for regulated use. */
+  async transitionAudit() {
+    const scope = this.scope();
+    const groups = await this.tenant.db.$queryRaw<Array<{
+      sifMode: string;
+      aeatEnvironment: string;
+      recordType: string;
+      softwareId: string | null;
+      records: number;
+      frozenXmlRecords: number;
+      unavailableXmlRecords: number;
+      legacyXmlRecords: number;
+      firstPosition: string;
+      lastPosition: string;
+    }>>`
+      SELECT i.sif_mode::text AS "sifMode",
+             i.aeat_environment::text AS "aeatEnvironment",
+             r.record_type::text AS "recordType",
+             r.software_snapshot->>'softwareId' AS "softwareId",
+             COUNT(*)::int AS "records",
+             COUNT(*) FILTER (WHERE r.payload ? 'aeatXml')::int AS "frozenXmlRecords",
+             COUNT(*) FILTER (WHERE r.payload ? 'xmlSnapshotUnavailable')::int AS "unavailableXmlRecords",
+             COUNT(*) FILTER (WHERE NOT (r.payload ? 'aeatXml')
+                               AND NOT (r.payload ? 'xmlSnapshotUnavailable'))::int AS "legacyXmlRecords",
+             MIN(r.chain_position)::text AS "firstPosition",
+             MAX(r.chain_position)::text AS "lastPosition"
+      FROM sif_records r
+      JOIN invoices i ON i.id = r.invoice_id
+        AND i.organization_id = r.organization_id
+        AND i.company_id = r.company_id
+      WHERE r.organization_id = CAST(${scope.organizationId} AS uuid)
+        AND r.company_id = CAST(${scope.companyId} AS uuid)
+      GROUP BY i.sif_mode, i.aeat_environment, r.record_type,
+               r.software_snapshot->>'softwareId'
+      ORDER BY MIN(r.chain_position), r.record_type
+    `;
+    const totalRecords = groups.reduce((sum, group) => sum + group.records, 0);
+    return {
+      companyId: scope.companyId,
+      totalRecords,
+      historicalChainReviewRequired: totalRecords > 0,
+      groups: groups.map((group) => ({
+        ...group,
+        softwareIdValid: group.softwareId !== null && /^[A-Z0-9]{2}$/.test(group.softwareId),
+      })),
+      note: "This is a read-only historical inventory, not a compliance decision or authorization to reuse, discard, or restart a SIF chain.",
+    };
+  }
+
   /**
    * Produces one unsigned AEAT XML batch for inspection/validation. It never
    * changes the chain and intentionally does not transmit it to AEAT.

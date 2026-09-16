@@ -2,6 +2,34 @@ import { RectificationImpact, SifMode, SifRecordType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { SifService } from "./sif.service";
 
+describe("SifService transition audit", () => {
+  it("flags an experimental legacy group without changing its records", async () => {
+    const queryRaw = jest.fn().mockResolvedValue([{
+      sifMode: "DISABLED", aeatEnvironment: "PRODUCTION",
+      recordType: "REGISTRATION", softwareId: "PASTAGANSA",
+      records: 4, frozenXmlRecords: 0, unavailableXmlRecords: 0,
+      legacyXmlRecords: 4, firstPosition: "1", lastPosition: "4",
+    }]);
+    const service = new SifService({
+      required: {
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+      },
+      db: { $queryRaw: queryRaw },
+    } as never, {} as never);
+
+    await expect(service.transitionAudit()).resolves.toMatchObject({
+      totalRecords: 4,
+      historicalChainReviewRequired: true,
+      groups: [{
+        sifMode: "DISABLED", softwareId: "PASTAGANSA",
+        softwareIdValid: false, legacyXmlRecords: 4,
+      }],
+    });
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("SifService XML export", () => {
   const findFirst = jest.fn();
   const service = new SifService(

@@ -620,6 +620,27 @@ describe("platform integrity", () => {
       .get("/v1/sif/records/verification")
       .expect(200)
       .expect(({ body }) => expect(body).toMatchObject({ valid: true, recordsChecked: 2 }));
+    const transitionAudit = await authed(accountA.accessToken, tenantA)
+      .get("/v1/sif/records/transition-audit")
+      .expect(200);
+    expect(transitionAudit.body).toMatchObject({
+      companyId: tenantA.companyId,
+      totalRecords: 2,
+      historicalChainReviewRequired: true,
+      groups: [
+        { sifMode: "NO_VERIFACTU", aeatEnvironment: "TEST", recordType: "REGISTRATION", softwareId: "PG", softwareIdValid: true, records: 1, frozenXmlRecords: 0, unavailableXmlRecords: 1, legacyXmlRecords: 0, firstPosition: "1", lastPosition: "1" },
+        { sifMode: "NO_VERIFACTU", aeatEnvironment: "TEST", recordType: "CANCELLATION", softwareId: "PG", softwareIdValid: true, records: 1, frozenXmlRecords: 1, unavailableXmlRecords: 0, legacyXmlRecords: 0, firstPosition: "2", lastPosition: "2" },
+      ],
+    });
+    await authed(accountB.accessToken, tenantB)
+      .get("/v1/sif/records/transition-audit")
+      .expect(200)
+      .expect(({ body }) => expect(body).toMatchObject({
+        companyId: tenantB.companyId,
+        totalRecords: 0,
+        historicalChainReviewRequired: false,
+        groups: [],
+      }));
     const originalLedger = await authed(accountA.accessToken, tenantA)
       .get("/v1/tax-ledger")
       .expect(200);

@@ -16,6 +16,12 @@ export class SifController {
     return this.sif.createCancellation(invoiceId);
   }
 
+  @Get("transition-audit")
+  @RequirePermissions("sif_record.read")
+  transitionAudit() {
+    return this.sif.transitionAudit();
+  }
+
   @Get("verification")
   @RequirePermissions("sif_record.read")
   verification() {
