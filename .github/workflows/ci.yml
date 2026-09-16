@@ -52,6 +52,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm audit --audit-level=high
+      - name: Validate production deployment configuration
+        run: |
+          bash -n scripts/production-common.sh scripts/production-up.sh scripts/production-backup.sh scripts/production-restore-drill.sh scripts/production-first-use-check.sh
+          docker compose --env-file .env.production.example -f docker-compose.production.yml config --quiet
       - name: Verify staging images and restore drill
         env:
           POSTGRES_ADMIN_PASSWORD: ci-staging-admin-password
@@ -80,3 +84,24 @@ jobs:
           DIRECT_DATABASE_URL: postgresql://pastagansa_admin:ci-staging-admin-password@postgres:5432/pastagansa?schema=public
           JWT_SECRET: ci-staging-secret-with-at-least-32-characters
         run: docker compose --env-file .env.staging -f docker-compose.staging.yml down -v
+      - name: Verify fresh production install and upgrade drill
+        run: |
+          cp .env.production.example .env.production
+          sed -i \
+            -e 's/replace-with-a-long-random-production-admin-password/ci-production-admin-password/g' \
+            -e 's/replace-with-a-long-random-production-app-password/ci-production-app-password/g' \
+            -e 's/replace-with-at-least-32-random-production-characters/ci-production-secret-with-at-least-32-characters/g' \
+            -e 's/WEB_PORT=3101/WEB_PORT=3102/' .env.production
+          chmod 600 .env.production
+          ./scripts/production-up.sh init
+          docker compose --env-file .env.production -f docker-compose.production.yml exec -T api sh -c 'test ! -e /app/scripts/seed-demo.mjs'
+          backup_file="$(./scripts/production-backup.sh)"
+          ./scripts/production-restore-drill.sh "$backup_file"
+          ./scripts/production-up.sh upgrade
+      - name: Stop disposable production smoke stack
+        if: always()
+        run: |
+          if [[ -f .env.production ]]; then
+            source scripts/production-common.sh
+            "${production_compose[@]}" down -v
+          fi

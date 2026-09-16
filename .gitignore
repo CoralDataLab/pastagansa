@@ -8,6 +8,7 @@ dist
 .env.*
 !.env.example
 !.env.staging.example
+!.env.production.example
 backups/
 coverage
 .DS_Store

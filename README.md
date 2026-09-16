@@ -65,3 +65,12 @@ Consulta [la guía de operación](docs/06_operacion_staging.md) antes de exponer
 entorno, actualizar el esquema o restaurar datos. Una vez publicado con HTTPS, el
 workflow manual **Staging acceptance** ejecuta los dos recorridos y las auditorías de
 accesibilidad contra la URL real.
+
+## Producción independiente
+
+La configuración de producción usa un proyecto Compose, volumen PostgreSQL y archivo
+de secretos distintos. No se arranca con los scripts de staging ni se importa su base
+de datos. Consulta [la guía de producción](docs/11_operacion_produccion.md) para la
+primera instalación, actualizaciones con backup y ensayo de restauración. El proxy
+HTTPS y los backups cifrados fuera de la VM son requisitos operativos pendientes de
+configurar en la nueva instancia antes de emitir facturas reales.
