@@ -31,6 +31,18 @@ jobs:
       - run: npm install --global npm@11.19.1
       - run: npm ci
       - run: npm run db:generate
+      - name: Create CI application role
+        run: |
+          docker run --rm --network host \
+            --volume "$PWD/docker/postgres/init-app-role.sh:/init-app-role.sh:ro" \
+            --env PGHOST=127.0.0.1 \
+            --env PGPORT=5432 \
+            --env POSTGRES_USER=pastagansa_admin \
+            --env POSTGRES_DB=pastagansa \
+            --env PGPASSWORD=pastagansa_admin \
+            --env PASTAGANSA_APP_PASSWORD=pastagansa_app \
+            postgres:17-alpine \
+            sh /init-app-role.sh
       - run: npm run db:deploy
       - run: npm run lint
       - run: npm run build
