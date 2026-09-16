@@ -30,6 +30,7 @@ jobs:
           cache: npm
       - run: npm install --global npm@11.19.1
       - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
       - run: npm run db:generate
       - name: Create CI application role
         run: |

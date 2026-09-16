@@ -15,12 +15,12 @@ export class CollectionsService {
 
   async summary(query: Pick<CollectionsQueryDto, "asOf" | "contactId" | "text" | "status">) {
     const asOf = await this.asOf(query.asOf);
-    const rows = await this.rows({ ...query, asOf, limit: 100_000 });
     const summary = emptySummary();
     const operational = { open: new Decimal(0), promised: new Decimal(0), disputed: new Decimal(0) };
     const byCustomer = new Map<string, { contactId: string; customer: string; amount: Decimal; count: number }>();
     const forecast = { days30: new Decimal(0), days60: new Decimal(0), days90: new Decimal(0) };
-    for (const row of rows) {
+    for await (const row of this.scan({ ...query, asOf })) {
+      if (!matches(row, query)) continue;
       summary.total = summary.total.plus(row.amountDue);
       summary.count += 1;
       if (row.bucket) summary[row.bucket] = summary[row.bucket].plus(row.amountDue);
@@ -50,10 +50,14 @@ export class CollectionsService {
   async invoices(query: CollectionsQueryDto) {
     const asOf = await this.asOf(query.asOf);
     const cursor = query.cursor ? decodeCursor(query.cursor, this.cursorQuery(query, asOf)) : undefined;
-    const rows = await this.rows({ ...query, asOf, limit: query.limit + 1, cursorId: cursor?.id });
-    const filtered = rows.filter((row) => (!query.bucket || row.bucket === query.bucket) && (!query.status || row.operationalStatus === query.status));
+    const filtered: CollectionRow[] = [];
+    for await (const row of this.scan({ ...query, asOf }, cursor?.id)) {
+      if (!matches(row, query)) continue;
+      filtered.push(row);
+      if (filtered.length > query.limit) break;
+    }
     const hasMore = filtered.length > query.limit;
-    const data = hasMore ? filtered.slice(0, -1) : filtered;
+    const data = hasMore ? filtered.slice(0, query.limit) : filtered;
     const last = data.at(-1);
     return {
       asOf,
@@ -64,17 +68,29 @@ export class CollectionsService {
 
   async csv(query: CollectionsQueryDto) {
     const asOf = await this.asOf(query.asOf);
-    const rows = await this.rows({ ...query, asOf, limit: 100_000 });
-    const filtered = rows.filter((row) => (!query.bucket || row.bucket === query.bucket) && (!query.status || row.operationalStatus === query.status));
-    await this.audit.record("collections.exported", "collections", undefined, { asOf, count: filtered.length, filters: { contactId: query.contactId ?? null, bucket: query.bucket ?? null, status: query.status ?? null, text: query.text ?? null } });
-    const content = renderCsv([
-      ["Cliente", "Factura", "Vencimiento", "Días vencida", "Saldo", "Tramo", "Estado operativo", "Último evento", "Próxima acción"],
-      ...filtered.map((row) => [row.customerLegalName, row.fullNumber ?? row.draftCode, row.dueDate ?? "", row.daysOverdue > 0 ? String(row.daysOverdue) : "0", row.amountDue.toFixed(2), row.bucket ?? "", row.operationalStatus, row.lastEvent?.type ?? "", row.nextAction ?? ""]),
-    ]);
+    const csvRows = [["Cliente", "Factura", "Vencimiento", "Días vencida", "Saldo", "Tramo", "Estado operativo", "Último evento", "Próxima acción"]];
+    let count = 0;
+    for await (const row of this.scan({ ...query, asOf })) {
+      if (!matches(row, query)) continue;
+      count += 1;
+      csvRows.push([row.customerLegalName, row.fullNumber ?? row.draftCode, row.dueDate ?? "", row.daysOverdue > 0 ? String(row.daysOverdue) : "0", row.amountDue.toFixed(2), row.bucket ?? "", row.operationalStatus, row.lastEvent?.type ?? "", row.nextAction ?? ""]);
+    }
+    await this.audit.record("collections.exported", "collections", undefined, { asOf, count, filters: { contactId: query.contactId ?? null, bucket: query.bucket ?? null, status: query.status ?? null, text: query.text ?? null } });
+    const content = renderCsv(csvRows);
     return { filename: `cartera-${asOf}.csv`, content: Buffer.from(content, "utf8") };
   }
 
-  private async rows(input: CollectionsQueryDto & { asOf: string; limit: number; cursorId?: string }) {
+  private async *scan(input: Pick<CollectionsQueryDto, "contactId" | "text" | "bucket" | "status"> & { asOf: string }, cursorId?: string): AsyncGenerator<CollectionRow> {
+    let nextCursor = cursorId;
+    while (true) {
+      const batch = await this.rows({ ...input, limit: 500, cursorId: nextCursor });
+      for (const row of batch) yield row;
+      if (batch.length < 500) return;
+      nextCursor = batch[batch.length - 1].id;
+    }
+  }
+
+  private async rows(input: Pick<CollectionsQueryDto, "contactId" | "text"> & { asOf: string; limit: number; cursorId?: string }) {
     const scope = this.scope();
     const where: Prisma.InvoiceWhereInput = {
       ...scope, documentType: DocumentType.INVOICE, amountDue: { gt: 0 }, status: { in: payableStatuses },
@@ -113,6 +129,8 @@ export class CollectionsService {
 }
 
 function emptySummary() { return { total: new Decimal(0), count: 0, DUE_THIS_WEEK: new Decimal(0), OVERDUE_1_7: new Decimal(0), OVERDUE_8_30: new Decimal(0), OVERDUE_31_60: new Decimal(0), OVERDUE_61_90: new Decimal(0), OVERDUE_90_PLUS: new Decimal(0) }; }
+type CollectionRow = Awaited<ReturnType<CollectionsService["rows"]>>[number];
+function matches(row: CollectionRow, query: Pick<CollectionsQueryDto, "bucket" | "status">) { return (!query.bucket || row.bucket === query.bucket) && (!query.status || row.operationalStatus === query.status); }
 function isoDate(value: Date) { return value.toISOString().slice(0, 10); }
 export function daysBetween(start: string, end: string) { return Math.round((Date.parse(`${end}T12:00:00Z`) - Date.parse(`${start}T12:00:00Z`)) / 86_400_000); }
 export function classifyBucket(dueDate: string | null, asOf: string): CollectionBucket | null { if (!dueDate) return null; const days = daysBetween(dueDate, asOf); if (days < -7) return null; if (days <= 0) return "DUE_THIS_WEEK"; if (days <= 7) return "OVERDUE_1_7"; if (days <= 30) return "OVERDUE_8_30"; if (days <= 60) return "OVERDUE_31_60"; if (days <= 90) return "OVERDUE_61_90"; return "OVERDUE_90_PLUS"; }

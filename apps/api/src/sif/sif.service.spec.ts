@@ -38,6 +38,13 @@ describe("SifService XML export", () => {
       "two uppercase letters or digits",
     );
   });
+
+  it("keeps the hashed timestamp after the company timezone changes", async () => {
+    findFirst.mockResolvedValue(record());
+    const file = await service.exportXml("33333333-3333-4333-8333-333333333333");
+    expect(file.content.toString("utf8")).toContain("2026-09-16T12:00:00+02:00");
+    expect(file.content.toString("utf8")).not.toContain("2026-09-16T06:00:00-04:00");
+  });
 });
 
 function record(profile: { softwareId?: string } = {}) {
@@ -51,6 +58,7 @@ function record(profile: { softwareId?: string } = {}) {
     taxTotal: new Decimal("21.00"),
     total: new Decimal("121.00"),
     generatedAt: new Date("2026-09-16T10:00:00.000Z"),
+    payload: { hashInput: { generatedAt: "2026-09-16T12:00:00+02:00" } },
     recordHash: "A".repeat(64),
     softwareSnapshot: {
       producerName: "Coral Data Lab, S.L.",
@@ -68,7 +76,7 @@ function record(profile: { softwareId?: string } = {}) {
       customerTaxId: "B76543210",
       notes: null,
       sifInvoiceType: "F1",
-      company: { timezone: "Europe/Madrid" },
+      company: { timezone: "America/New_York" },
       lines: [{ description: "Consulting" }],
       taxLines: [
         {

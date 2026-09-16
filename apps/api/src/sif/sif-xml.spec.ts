@@ -1,4 +1,14 @@
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
 import { renderSifAeatXml } from "./sif-xml";
+
+const schema = join(__dirname, "xsd", "SuministroLR.xsd");
+function expectValidAeatXml(xml: string) {
+  const result = spawnSync("xmllint", ["--noout", "--schema", schema, "-"], { input: xml, encoding: "utf8" });
+  expect(result.error).toBeUndefined();
+  expect(result.status).toBe(0);
+  expect(result.stderr).toContain("validates");
+}
 
 const software = {
   producerName: "Coral Data Lab, S.L.",
@@ -40,6 +50,7 @@ describe("AEAT SIF XML", () => {
     expect(xml).toContain("<sf:NombreRazon>Client &lt;one&gt;</sf:NombreRazon>");
     expect(xml).toContain("<sf:DescripcionOperacion>Services &amp; support</sf:DescripcionOperacion>");
     expect(xml).toContain("<sf:TipoHuella>01</sf:TipoHuella>");
+    expectValidAeatXml(xml);
   });
 
   it("renders cancellation identity and the previous chain record", () => {
@@ -61,5 +72,6 @@ describe("AEAT SIF XML", () => {
     expect(xml).toContain("<sf:IDEmisorFacturaAnulada>B12345674</sf:IDEmisorFacturaAnulada>");
     expect(xml).toContain("<sf:Huella>" + "B".repeat(64) + "</sf:Huella>");
     expect(xml).toContain("<sf:Huella>" + "C".repeat(64) + "</sf:Huella>");
+    expectValidAeatXml(xml);
   });
 });

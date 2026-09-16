@@ -166,6 +166,13 @@ export class QuotesService {
   async update(id: string, input: UpdateQuoteDto) {
     const data = await this.build(input);
     const scope = this.scope();
+    await this.lockQuote(id);
+    const pendingDelivery = await this.tenant.db.documentDelivery.findFirst({
+      where: { quoteId: id, ...scope, status: { in: ["PENDING", "PROCESSING"] } },
+      select: { id: true },
+    });
+    if (pendingDelivery)
+      throw new ConflictException("Quote cannot be edited while an email delivery is pending");
     const changed = await this.tenant.db.quote.updateMany({
       where: { id, ...scope, status: QuoteStatus.DRAFT },
       data: data.document,
@@ -203,6 +210,13 @@ export class QuotesService {
     const allowedFrom = transitions[status];
     if (!allowedFrom || !allowedFrom.includes(expectedStatus))
       throw new BadRequestException(`Cannot transition a quote to ${status}`);
+    await this.lockQuote(id);
+    const pendingDelivery = await this.tenant.db.documentDelivery.findFirst({
+      where: { quoteId: id, ...this.scope(), status: { in: ["PENDING", "PROCESSING"] } },
+      select: { id: true },
+    });
+    if (pendingDelivery)
+      throw new ConflictException("Quote status cannot change while an email delivery is pending");
     const issuer = status === QuoteStatus.SENT
       ? await this.currentIssuerSnapshot()
       : undefined;
@@ -263,6 +277,17 @@ export class QuotesService {
       invoiceId: invoice.id,
     });
     return invoice;
+  }
+
+  private async lockQuote(id: string) {
+    const scope = this.scope();
+    await this.tenant.db.$queryRaw`
+      SELECT "id" FROM "quotes"
+      WHERE "id" = CAST(${id} AS uuid)
+        AND "organization_id" = CAST(${scope.organizationId} AS uuid)
+        AND "company_id" = CAST(${scope.companyId} AS uuid)
+      FOR UPDATE
+    `;
   }
 
   private async build(input: CreateQuoteDto | UpdateQuoteDto) {

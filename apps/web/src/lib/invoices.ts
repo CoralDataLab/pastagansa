@@ -100,6 +100,7 @@ export type InvoiceEmailInput = z.infer<typeof invoiceEmailInputSchema>;
 
 export interface InvoiceEmailDelivery {
   id: string;
+  idempotencyKey: string;
   purpose?: "DOCUMENT_DELIVERY" | "PAYMENT_REMINDER";
   recipient: string;
   subject: string;

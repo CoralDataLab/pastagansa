@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deliveryRetryStorageKey } from "./delivery-retry";
+import { deliveryRetryStorageKey, reusableDeliveryKey } from "./delivery-retry";
 
 describe("delivery retry storage key", () => {
   it("keeps retries for the same delivery together", () => {
@@ -43,5 +43,11 @@ describe("delivery retry storage key", () => {
         "Presupuesto P-002",
       ),
     ).not.toBe(initial);
+  });
+
+  it("rotates only a failed delivery key", () => {
+    expect(reusableDeliveryKey("old", [{ idempotencyKey: "old", status: "FAILED" }])).toBeNull();
+    expect(reusableDeliveryKey("old", [{ idempotencyKey: "old", status: "PENDING" }])).toBe("old");
+    expect(reusableDeliveryKey("old", [{ idempotencyKey: "old", status: "SENT" }])).toBe("old");
   });
 });

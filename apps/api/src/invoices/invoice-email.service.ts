@@ -73,6 +73,7 @@ export class InvoiceEmailService {
 
   async enqueueQuote(quoteId: string, input: SendDocumentEmailDto, idempotencyKey: string) {
     const scope = this.scope();
+    await this.lockQuote(quoteId);
     const quote = await this.tenant.db.quote.findFirst({
       where: { id: quoteId, ...scope },
       select: { id: true, status: true, code: true, customerEmail: true, customerLegalName: true },
@@ -191,6 +192,17 @@ export class InvoiceEmailService {
     });
     if (!company) throw new NotFoundException("Company not found");
     await this.tenant.db.quote.updateMany({ where: { id: quoteId, ...scope, status: QuoteStatus.DRAFT }, data: captureIssuerSnapshot(company) });
+  }
+
+  private async lockQuote(quoteId: string) {
+    const scope = this.scope();
+    await this.tenant.db.$queryRaw`
+      SELECT "id" FROM "quotes"
+      WHERE "id" = CAST(${quoteId} AS uuid)
+        AND "organization_id" = CAST(${scope.organizationId} AS uuid)
+        AND "company_id" = CAST(${scope.companyId} AS uuid)
+      FOR UPDATE
+    `;
   }
 
   private profile() {

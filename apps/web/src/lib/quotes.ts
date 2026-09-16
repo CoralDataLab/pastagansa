@@ -35,6 +35,7 @@ export const quoteEmailInputSchema = z.object({
 export type QuoteEmailInput = z.infer<typeof quoteEmailInputSchema>;
 export interface QuoteEmailDelivery {
   id: string;
+  idempotencyKey: string;
   recipient: string;
   subject: string;
   status: "PENDING" | "PROCESSING" | "SENT" | "FAILED";

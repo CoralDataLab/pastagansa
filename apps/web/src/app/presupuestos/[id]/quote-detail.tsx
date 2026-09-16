@@ -8,7 +8,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { CommercialTimeline } from "@/components/commercial-timeline";
 import { formatMoney } from "@/lib/catalog";
-import { deliveryRetryStorageKey } from "@/lib/delivery-retry";
+import { deliveryRetryStorageKey, reusableDeliveryKey } from "@/lib/delivery-retry";
 import { formatInvoiceDate } from "@/lib/invoices";
 import {
   quoteCode,
@@ -238,7 +238,7 @@ function QuoteEmailPanel({ quote }: { quote: Quote }) {
         input.recipient,
         input.subject ?? "",
       );
-      const key = quoteEmailKey(quote.id, sessionStorage.getItem(storageName));
+      const key = quoteEmailKey(quote.id, reusableDeliveryKey(sessionStorage.getItem(storageName), deliveries.data ?? []));
       sessionStorage.setItem(storageName, key);
       return requestJson<QuoteEmailDelivery>(`/api/quotes/${quote.id}/email`, {
         method: "POST", headers: { "content-type": "application/json" },

@@ -8,7 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { CommercialTimeline } from "@/components/commercial-timeline";
 import { PaymentReminderDialog } from "@/components/payment-reminder-dialog";
 import { formatMoney } from "@/lib/catalog";
-import { deliveryRetryStorageKey } from "@/lib/delivery-retry";
+import { deliveryRetryStorageKey, reusableDeliveryKey } from "@/lib/delivery-retry";
 import {
   formatInvoiceDate,
   invoiceEmailKey,
@@ -498,7 +498,7 @@ function EmailPanel({ invoice }: { invoice: Invoice }) {
       );
       const key = invoiceEmailKey(
         invoice.id,
-        sessionStorage.getItem(storageName),
+        reusableDeliveryKey(sessionStorage.getItem(storageName), deliveries.data ?? []),
       );
       sessionStorage.setItem(storageName, key);
       const delivery = await requestJson<InvoiceEmailDelivery>(

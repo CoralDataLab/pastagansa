@@ -77,7 +77,6 @@ export class SifService {
             customerTaxId: true,
             notes: true,
             sifInvoiceType: true,
-            company: { select: { timezone: true } },
             lines: { select: { description: true }, orderBy: { position: "asc" } },
             taxLines: {
               select: {
@@ -109,10 +108,7 @@ export class SifService {
     const common = {
       previousRecord,
       software,
-      generatedAt: formatSifTimestamp(
-        record.generatedAt,
-        record.invoice.company.timezone,
-      ),
+      generatedAt: historicalTimestamp(record.payload),
       recordHash: record.recordHash,
     };
     const registration = () => {
@@ -398,6 +394,16 @@ export class SifService {
     if (!companyId) throw new Error("Company context is required");
     return { organizationId, companyId };
   }
+}
+
+function historicalTimestamp(payload: Prisma.JsonValue): string {
+  const hashInput = payload && typeof payload === "object" && !Array.isArray(payload)
+    ? payload.hashInput : null;
+  const timestamp = hashInput && typeof hashInput === "object" && !Array.isArray(hashInput)
+    ? hashInput.generatedAt : null;
+  if (typeof timestamp !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/.test(timestamp))
+    throw new ConflictException("Stored SIF hash timestamp is missing or invalid");
+  return timestamp;
 }
 
 function presentSifRecord(record: SifRecord) {
