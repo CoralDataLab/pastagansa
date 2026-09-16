@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { CommercialTimeline } from "@/components/commercial-timeline";
 import { PaymentReminderDialog } from "@/components/payment-reminder-dialog";
 import { formatMoney } from "@/lib/catalog";
+import { deliveryRetryStorageKey } from "@/lib/delivery-retry";
 import {
   formatInvoiceDate,
   invoiceEmailKey,
@@ -489,7 +490,12 @@ function EmailPanel({ invoice }: { invoice: Invoice }) {
   });
   const send = useMutation({
     mutationFn: async (payload: InvoiceEmailInput) => {
-      const storageName = `pastagansa:email:${invoice.id}`;
+      const storageName = deliveryRetryStorageKey(
+        "invoice",
+        invoice.id,
+        payload.recipient,
+        payload.subject,
+      );
       const key = invoiceEmailKey(
         invoice.id,
         sessionStorage.getItem(storageName),
@@ -503,7 +509,6 @@ function EmailPanel({ invoice }: { invoice: Invoice }) {
           body: JSON.stringify({ ...payload, idempotencyKey: key }),
         },
       );
-      sessionStorage.removeItem(storageName);
       return delivery;
     },
     onSuccess: async (delivery) => {

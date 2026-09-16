@@ -243,7 +243,9 @@ entregas históricas de factura y admite presupuestos, con PDF del snapshot adju
 destinatario/plantillas configurables, idempotencia, leases, reintentos e historial
 visible tras recargar. La aplicación explica la indisponibilidad y mantiene descarga
 PDF si SMTP no está configurado; staging ya recibe la configuración, pero el envío a un
-buzón controlado y el gate E2E remoto de U6A siguen pendientes.
+buzón controlado y el gate E2E remoto de U6A siguen pendientes. La web conserva la
+misma clave idempotente para un reintento del mismo documento, destinatario y asunto;
+cambiar el destinatario o asunto inicia explícitamente una entrega distinta.
 
 ### Historia
 

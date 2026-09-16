@@ -8,6 +8,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { CommercialTimeline } from "@/components/commercial-timeline";
 import { formatMoney } from "@/lib/catalog";
+import { deliveryRetryStorageKey } from "@/lib/delivery-retry";
 import { formatInvoiceDate } from "@/lib/invoices";
 import {
   quoteCode,
@@ -230,10 +231,20 @@ function QuoteEmailPanel({ quote }: { quote: Quote }) {
     refetchInterval: (query) => query.state.data?.some((delivery) => delivery.status === "PENDING" || delivery.status === "PROCESSING") ? 5_000 : false,
   });
   const send = useMutation({
-    mutationFn: (input: QuoteEmailInput) => requestJson<QuoteEmailDelivery>(`/api/quotes/${quote.id}/email`, {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...input, idempotencyKey: quoteEmailKey(quote.id) }),
-    }),
+    mutationFn: (input: QuoteEmailInput) => {
+      const storageName = deliveryRetryStorageKey(
+        "quote",
+        quote.id,
+        input.recipient,
+        input.subject ?? "",
+      );
+      const key = quoteEmailKey(quote.id, sessionStorage.getItem(storageName));
+      sessionStorage.setItem(storageName, key);
+      return requestJson<QuoteEmailDelivery>(`/api/quotes/${quote.id}/email`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...input, idempotencyKey: key }),
+      });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["quote-email-deliveries", quote.id] });
       await queryClient.invalidateQueries({ queryKey: ["quote", quote.id] });
