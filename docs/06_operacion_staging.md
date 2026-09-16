@@ -95,6 +95,13 @@ E2E_ALLOW_REMOTE_WRITE=1 \
 npm run test:staging
 ```
 
+Si SMTP está activo, para encolar una entrega real durante el recorrido de venta hay
+que añadir `E2E_SMTP_RECIPIENT=buzon-controlado@tu-dominio.example`. El destinatario
+debe ser un buzón controlado y, al terminar, se debe comprobar manualmente que el PDF
+recibido coincide con el descargado por el navegador. Sin esa variable, la prueba
+cubre de forma segura tanto la interfaz con SMTP disponible como la alternativa de
+descarga cuando no lo está, pero no envía ningún correo.
+
 La confirmación `E2E_ALLOW_REMOTE_WRITE=1` es obligatoria porque la prueba crea dos
 organizaciones y documentos ficticios. Solo debe apuntar a un staging aislado, nunca a
 producción. El guion de evaluación humana está en

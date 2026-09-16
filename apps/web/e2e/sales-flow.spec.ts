@@ -6,6 +6,7 @@ test("completes the sales flow from registration to payment", async ({
   page,
 }) => {
   const suffix = Date.now();
+  const controlledRecipient = process.env.E2E_SMTP_RECIPIENT;
   await page.goto("/acceso");
   await expectNoSeriousAccessibilityViolations(page, "access screen");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
@@ -29,6 +30,8 @@ test("completes the sales flow from registration to payment", async ({
     .getByRole("button", { name: "Nuevo contacto" })
     .click();
   await page.getByLabel("Razón social *").fill("Cliente E2E SL");
+  if (controlledRecipient)
+    await page.getByLabel("Correo de facturación").fill(controlledRecipient);
   await page.getByRole("button", { name: "Guardar contacto" }).click();
   await expect(page.getByRole("status")).toContainText(
     "Cliente E2E SL ya está en tu cartera",
@@ -149,13 +152,27 @@ test("completes the sales flow from registration to payment", async ({
   const pdf = await readFile(downloadPath!);
   expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
 
-  await expect(
-    page.getByRole("button", { name: "Enviar por email" }),
-  ).toBeDisabled();
-  await expect(page.getByText("Correo no configurado")).toBeVisible();
-  await expect(
-    page.getByText("Descarga el PDF para compartirlo manualmente"),
-  ).toBeVisible();
+  const emailButton = page.getByRole("button", { name: "Enviar por email" });
+  if (await emailButton.isDisabled()) {
+    await expect(page.getByText("Correo no configurado")).toBeVisible();
+    await expect(
+      page.getByText("Descarga el PDF para compartirlo manualmente"),
+    ).toBeVisible();
+  } else {
+    await expect(page.getByText("Correo no configurado")).toHaveCount(0);
+    if (controlledRecipient) {
+      await emailButton.click();
+      const emailDialog = page.getByRole("dialog", { name: "Enviar por email" });
+      await emailDialog
+        .getByLabel("Destinatario")
+        .fill(controlledRecipient);
+      await emailDialog.getByRole("button", { name: "Confirmar envío" }).click();
+      await expect(page.getByRole("status")).toContainText(
+        `Correo preparado para ${controlledRecipient}`,
+      );
+      await expect(page.getByText(controlledRecipient, { exact: true })).toBeVisible();
+    }
+  }
 
   await page.getByRole("button", { name: "Registrar cobro" }).click();
   await expect(page.getByLabel("Importe")).toHaveValue("121.00");
