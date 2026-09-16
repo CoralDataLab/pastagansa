@@ -84,5 +84,11 @@ CREATE POLICY "company_document_logos_tenant_isolation" ON "company_document_log
     AND "company_id" = NULLIF(current_setting('app.company_id', true), '')::uuid
   );
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON "company_document_profiles" TO pastagansa_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON "company_document_logos" TO pastagansa_app;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pastagansa_app') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON "company_document_profiles" TO pastagansa_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON "company_document_logos" TO pastagansa_app;
+  END IF;
+END
+$$;
