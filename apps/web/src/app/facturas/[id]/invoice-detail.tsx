@@ -762,10 +762,24 @@ function deliveryStatusLabel(status: InvoiceEmailDelivery["status"]) {
 }
 
 function TracePanel({ invoice }: { invoice: Invoice }) {
+  const queryClient = useQueryClient();
+  const [notice, setNotice] = useState("");
   const trace = useQuery({
     queryKey: ["invoice-trace", invoice.id],
     queryFn: () =>
       requestJson<InvoiceTrace>(`/api/invoices/${invoice.id}/trace`),
+  });
+  const cancelSifRecord = useMutation({
+    mutationFn: () =>
+      requestJson(`/api/sif/records/${invoice.id}/cancellation`, {
+        method: "POST",
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["invoice-trace", invoice.id],
+      });
+      setNotice("Se ha añadido el registro SIF de anulación.");
+    },
   });
   return (
     <section
@@ -888,6 +902,49 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                     <dd>{trace.data.sifRecord.specificationVersion}</dd>
                   </div>
                 </dl>
+                <div className="trace-actions">
+                  {trace.data.sifRecords.map((record) => (
+                    <a
+                      className="secondary-button compact"
+                      href={`/api/sif/records/${record.id}/xml`}
+                      key={record.id}
+                    >
+                      Descargar XML {record.recordType === "REGISTRATION" ? "de alta" : "de anulación"}
+                    </a>
+                  ))}
+                  {!trace.data.sifRecords.some(
+                    (record) => record.recordType === "CANCELLATION",
+                  ) && (
+                    <button
+                      className="secondary-button compact"
+                      disabled={cancelSifRecord.isPending}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "Esto añade un registro SIF de anulación. No cancela la factura, el asiento contable ni el IVA. ¿Continuar?",
+                          )
+                        )
+                          cancelSifRecord.mutate();
+                      }}
+                      type="button"
+                    >
+                      {cancelSifRecord.isPending
+                        ? "Anulando registro…"
+                        : "Anular registro SIF"}
+                    </button>
+                  )}
+                </div>
+                {notice && <small role="status">{notice}</small>}
+                {cancelSifRecord.error && (
+                  <p className="form-error">{cancelSifRecord.error.message}</p>
+                )}
+                {!trace.data.sifRecords.some(
+                  (record) => record.recordType === "CANCELLATION",
+                ) && (
+                  <small>
+                    La corrección económica exige emitir una factura rectificativa.
+                  </small>
+                )}
               </>
             ) : (
               <strong>No encontrado</strong>

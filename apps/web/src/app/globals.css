@@ -1975,6 +1975,12 @@ a {
   font-weight: 750;
   margin: 0;
 }
+.trace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
 .check-field {
   align-items: center;
   display: flex;
