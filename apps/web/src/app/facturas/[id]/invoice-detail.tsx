@@ -947,7 +947,11 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                 )}
               </>
             ) : (
-              <strong>No encontrado</strong>
+              <strong>
+                {invoice.sifMode === "DISABLED"
+                  ? "No aplica (SIF desactivado)"
+                  : "No encontrado"}
+              </strong>
             )}
           </article>
         </div>

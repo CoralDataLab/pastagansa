@@ -60,6 +60,10 @@ describe("platform integrity", () => {
       "B12345674",
     );
     const tenant = await tenantFor(email);
+    await authed(account.accessToken, tenant)
+      .patch("/v1/companies/current")
+      .send({ sifMode: "NO_VERIFACTU" })
+      .expect(409);
     const updated = await authed(account.accessToken, tenant)
       .patch("/v1/companies/current")
       .send({
@@ -347,6 +351,14 @@ describe("platform integrity", () => {
     await authed(accountA.accessToken, tenantA)
       .patch("/v1/companies/current")
       .send({
+        sifMode: "NO_VERIFACTU",
+        aeatEnvironment: "TEST",
+        sifSoftwareProducerName: "Test Producer",
+        sifSoftwareProducerTaxId: "B12345674",
+        sifSoftwareName: "PastaGansa",
+        sifSoftwareId: "PG",
+        sifSoftwareVersion: "0.1.0",
+        sifInstallationNumber: "platform-test",
         documentProfile: {
           tradeName: "Profile A",
           addressLine1: "Calle Snapshot 1",

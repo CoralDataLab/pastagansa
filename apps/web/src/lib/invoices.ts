@@ -35,6 +35,7 @@ export interface Invoice {
     | "CANCELLED"
     | "RECTIFIED";
   documentType: "INVOICE" | "CREDIT_NOTE";
+  sifMode: "DISABLED" | "NO_VERIFACTU" | "VERIFACTU";
   sifInvoiceType: "F1" | "R1" | "R2" | "R3" | "R4" | "R5";
   rectificationKind: "TOTAL" | "PARTIAL" | "DIFFERENCE" | null;
   rectificationImpact: "DECREASE" | "INCREASE" | null;

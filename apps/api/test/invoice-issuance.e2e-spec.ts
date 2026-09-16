@@ -76,6 +76,19 @@ describe("invoice issuance concurrency", () => {
       companyId: membership.companyId!,
       userId: membership.userId,
     };
+    await tenantRequest(account.body.accessToken, tenant)
+      .patch("/v1/companies/current")
+      .send({
+        sifMode: "NO_VERIFACTU",
+        aeatEnvironment: "TEST",
+        sifSoftwareProducerName: "Issuance Org",
+        sifSoftwareProducerTaxId: "B12345674",
+        sifSoftwareName: "PastaGansa",
+        sifSoftwareId: "PG",
+        sifSoftwareVersion: "0.1.0",
+        sifInstallationNumber: "concurrency-test",
+      })
+      .expect(200);
     const contact = await tenantRequest(account.body.accessToken, tenant)
       .post("/v1/contacts")
       .send({
@@ -225,6 +238,16 @@ describe("invoice issuance concurrency", () => {
         );
       });
     });
+    await tenantRequest(account.body.accessToken, tenant)
+      .patch("/v1/companies/current")
+      .send({ sifMode: "DISABLED" })
+      .expect(200);
+    const losingCollisionIndex = collision.findIndex(({ status }) => status === "rejected");
+    const disabledInvoiceId = drafts[100 + losingCollisionIndex];
+    const disabledInvoice = await issue(disabledInvoiceId, "disabled-invoice");
+    expect(disabledInvoice.sifMode).toBe("DISABLED");
+    expect(await admin.sifRecord.count({ where: { invoiceId: disabledInvoiceId } })).toBe(0);
+    expect(await admin.sifRecord.count({ where: { companyId: tenant.companyId } })).toBe(101);
     await expect(
       admin.invoice.update({
         where: { id: drafts[0] },
@@ -271,6 +294,7 @@ describe("invoice issuance concurrency", () => {
         .set("x-company-id", tenant.companyId);
     return {
       post: (path: string) => apply(request(app.getHttpServer()).post(path)),
+      patch: (path: string) => apply(request(app.getHttpServer()).patch(path)),
     };
   }
 });

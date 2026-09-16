@@ -195,8 +195,7 @@ test("completes the sales flow from registration to payment", async ({
   await expect(page.getByText(/Asiento #\d+/)).toBeVisible();
   await expect(page.getByText("Libro de IVA")).toBeVisible();
   await expect(page.getByText("Registro SIF", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Alta · posición 1/)).toBeVisible();
-  await expect(page.getByText(/AEAT-HASH-0\.1\.2/)).toBeVisible();
+  await expect(page.getByText("No aplica (SIF desactivado)")).toBeVisible();
 
   await page.getByRole("button", { name: "Rectificar factura" }).click();
   const rectificationDialog = page.getByRole("dialog", {
@@ -220,8 +219,8 @@ test("completes the sales flow from registration to payment", async ({
   await page.getByRole("button", { name: "Emitir definitivamente" }).click();
   await expect(page.getByRole("heading", { name: "RE2E-0001" })).toBeVisible();
   await page.getByRole("link", { name: "Ver trazabilidad" }).click();
-  await expect(page.getByText(/Alta · posición 2/)).toBeVisible();
-  await expect(page.getByText(/tipo R1/)).toBeVisible();
+  await expect(page.getByText("Registro SIF", { exact: true })).toBeVisible();
+  await expect(page.getByText("No aplica (SIF desactivado)")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page, "issued rectification");
 });
 

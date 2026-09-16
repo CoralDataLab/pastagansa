@@ -2,11 +2,34 @@
 
 Estado a 2026-09-16: **no hay certificación final del producto**. Los XML de alta y anulación de la prueba en staging validan contra el XSD y encadenan correctamente, pero esto no demuestra conformidad integral ni recepción por la AEAT.
 
+## Facturación transitoria con SIF desactivado
+
+Desde este cambio, una factura nueva emitida con `sif_mode = DISABLED` no añade un registro a `sif_records` ni incorpora QR fiscal. La factura, su asiento y su libro de IVA se siguen generando. La trazabilidad muestra «No aplica (SIF desactivado)». Los registros creados anteriormente bajo `DISABLED` permanecen inmutables y consultables; un reintento idempotente no los modifica.
+
+`DISABLED` es una opción transitoria para facturación anterior a la fecha obligatoria de adaptación, no una modalidad conforme al RRSIF. No habilitarla como alternativa a VERI*FACTU o NO VERI*FACTU después del plazo aplicable. Antes de activar una modalidad adaptada, decidir y probar expresamente cómo se inicia o continúa la cadena respecto de los registros de prueba históricos, sin reescribirlos.
+
+Puerta de corte para cada empresa real: comprobar en su propia base de datos que no se han importado registros de staging y obtener un inventario de solo lectura de cualquier cadena existente. Una instalación de producción sin registros SIF previos podrá empezar con `PrimerRegistro=S`; si existen registros experimentales, no asumir que son una cadena reglamentaria ni enlazarlos o descartarlos automáticamente. La decisión de continuidad requiere revisión fiscal/técnica y una prueba en el entorno AEAT antes de habilitar la remisión.
+
+```sql
+SELECT i.sif_mode, r.record_type, COUNT(*) AS registros,
+       MIN(r.chain_position) AS primera_posicion,
+       MAX(r.chain_position) AS ultima_posicion
+FROM sif_records r
+JOIN invoices i ON i.id = r.invoice_id
+WHERE r.company_id = '00000000-0000-0000-0000-000000000000'::uuid
+GROUP BY i.sif_mode, r.record_type
+ORDER BY primera_posicion;
+```
+
+El modo `NO_VERIFACTU` continúa disponible únicamente con `aeat_environment = TEST` para pruebas técnicas. El servicio rechaza nuevas emisiones en ese modo si la factura apunta a `PRODUCTION`, aunque una configuración antigua siga guardada. `VERIFACTU` sigue bloqueado hasta implementar la remisión. No confundir esta restricción de producto con una certificación normativa del entorno de pruebas.
+
 ## Identificador del producto
 
 `PG` figura en los XML de staging de PastaGansa. La [AEAT indica que el productor elige el código](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/certificacion-sistemas-informaticos-declaracion-responsable.html): dos letras mayúsculas o dígitos, estable en el tiempo y no reutilizado para otro producto del mismo productor. La adopción formal de `PG` debe constar en la declaración responsable de la versión correspondiente; los datos de prueba y la configuración de una empresa no constituyen esa decisión.
 
 La descarga `/api/company/sif-declaration` genera expresamente un **borrador**, no una declaración firmada. No retirar esa advertencia ni suscribirlo hasta completar revisión técnica y normativa. El [modo no VERI*FACTU exige firma de registros y registro de eventos](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/cuestiones-generales/modalidades-cumplimiento-obligaciones.html); ambos siguen pendientes en este proyecto. El XML exportado es sin firma y no se remite a la AEAT.
+
+Para registros nuevos en el entorno de pruebas, el XML de alta F1 estándar o de anulación que se pueda construir queda congelado en el `payload` append-only en la misma transacción que el registro. La descarga usa ese XML, no reconstruye los datos fiscales en una versión futura del software. Si la factura no pertenece al subconjunto soportado, queda guardada la razón de indisponibilidad y la descarga no la reinterpreta. Los registros históricos anteriores a este cambio continúan con el exportador de compatibilidad. Esto **no** amplía la cobertura fiscal ni constituye remisión o certificación AEAT.
 
 ## Registros históricos con identificador inválido
 

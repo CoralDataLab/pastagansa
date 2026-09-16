@@ -61,6 +61,13 @@ export class CompaniesService {
     if (input.sifMode === SifMode.VERIFACTU)
       throw new ConflictException("VERI*FACTU cannot be enabled until AEAT transmission is configured");
     const company = await this.current();
+    if (
+      (input.sifMode ?? company.sifMode) === SifMode.NO_VERIFACTU &&
+      (input.aeatEnvironment ?? company.aeatEnvironment) === "PRODUCTION"
+    )
+      throw new ConflictException(
+        "NO VERI*FACTU is not production-ready; use the AEAT test environment only",
+      );
     if (input.sifMode === SifMode.NO_VERIFACTU && company.country !== "ES")
       throw new ConflictException("El QR fiscal AEAT solo está disponible para empresas españolas");
     const { documentProfile, ...companyInput } = input;
