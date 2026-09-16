@@ -1,4 +1,4 @@
-import { SifMode, SifRecordType } from "@prisma/client";
+import { RectificationImpact, SifMode, SifRecordType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { SifService } from "./sif.service";
 
@@ -68,9 +68,71 @@ describe("SifService XML export", () => {
     await expect(service.exportXml("33333333-3333-4333-8333-333333333333"))
       .rejects.toThrow("customer's tax identifier");
   });
+
+  it("does not reconstruct a historical rectification from mutable invoice data", async () => {
+    findFirst.mockResolvedValue({ ...(record() as Record<string, unknown>), invoiceType: "R4" });
+
+    await expect(service.exportXml("33333333-3333-4333-8333-333333333333"))
+      .rejects.toThrow("original immutable snapshot");
+  });
 });
 
 describe("SifService registration profile", () => {
+  it.each([
+    [RectificationImpact.DECREASE, "-100.00", "-21.00", "-121.00"],
+    [RectificationImpact.INCREASE, "100.00", "21.00", "121.00"],
+  ])("freezes an R4 difference XML with %s impact", async (impact, base, tax, total) => {
+    const create = jest.fn().mockImplementation(({ data }) =>
+      Promise.resolve({ ...data, chainPosition: 1n }),
+    );
+    const service = new SifService({
+      required: {
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+      },
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          id: "33333333-3333-4333-8333-333333333333",
+          status: "ISSUED", fullNumber: "R2026-0001", sifMode: SifMode.NO_VERIFACTU,
+          aeatEnvironment: "TEST", documentType: "CREDIT_NOTE", rectificationImpact: impact,
+          issuerLegalName: "Coral Data Lab", issuerTaxId: "B12345674",
+          customerLegalName: "Client S.L.", customerTaxId: "B76543210",
+          sifInvoiceType: "R4", notes: null,
+          originalInvoice: {
+            issuerTaxId: "B12345674", fullNumber: "F2026-0009",
+            issueDate: new Date("2026-09-15T00:00:00.000Z"),
+          },
+          issueDate: new Date("2026-09-16T00:00:00.000Z"),
+          taxTotal: new Decimal("21.00"), total: new Decimal("121.00"),
+          lines: [{ description: "Price correction" }],
+          taxLines: [{
+            taxableBase: new Decimal("100.00"), taxRate: new Decimal("21"),
+            taxAmount: new Decimal("21.00"), subject: true, exempt: false,
+            reverseCharge: false, surchargeRate: null, surchargeAmount: new Decimal("0"),
+          }],
+          company: {
+            timezone: "Europe/Madrid",
+            sifSoftwareProducerName: "Coral Data Lab", sifSoftwareProducerTaxId: "B12345674",
+            sifSoftwareName: "PastaGansa", sifSoftwareId: "PG",
+            sifSoftwareVersion: "0.1.0", sifInstallationNumber: "test-1",
+          },
+        }) },
+      },
+    } as never, { record: jest.fn() } as never);
+
+    await service.createRegistration("33333333-3333-4333-8333-333333333333");
+
+    const data = create.mock.calls[0][0].data;
+    expect(data.payload.aeatXml).toContain("<sf:TipoRectificativa>I</sf:TipoRectificativa>");
+    expect(data.payload.aeatXml).toContain("<sf:NumSerieFactura>F2026-0009</sf:NumSerieFactura>");
+    expect(data.payload.aeatXml).toContain(`<sf:BaseImponibleOimporteNoSujeto>${base}</sf:BaseImponibleOimporteNoSujeto>`);
+    expect(data.payload.aeatXml).toContain(`<sf:CuotaRepercutida>${tax}</sf:CuotaRepercutida>`);
+    expect(data.payload.aeatXml).toContain(`<sf:ImporteTotal>${total}</sf:ImporteTotal>`);
+    expect(data.total).toBe(total);
+  });
+
   it("stores supported registration XML with the immutable SIF record", async () => {
     const create = jest.fn().mockImplementation(({ data }) =>
       Promise.resolve({ ...data, chainPosition: 1n }),

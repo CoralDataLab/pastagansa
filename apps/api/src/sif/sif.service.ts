@@ -106,6 +106,10 @@ export class SifService {
       };
     const snapshotUnavailable = storedXmlSnapshotUnavailable(record.payload);
     if (snapshotUnavailable) throw new ConflictException(snapshotUnavailable);
+    if (record.recordType === SifRecordType.REGISTRATION && record.invoiceType !== "F1")
+      throw new ConflictException(
+        "Historical rectification XML cannot be reconstructed without its original immutable snapshot",
+      );
 
     const software = readSoftwareSnapshot(record.softwareSnapshot);
     const previousRecord: SifXmlPreviousRecord | null = record.previousRecord
@@ -192,6 +196,9 @@ export class SifService {
         customerLegalName: true,
         customerTaxId: true,
         notes: true,
+        originalInvoice: {
+          select: { issuerTaxId: true, fullNumber: true, issueDate: true },
+        },
         lines: { select: { description: true }, orderBy: { position: "asc" } },
         taxLines: {
           select: {
@@ -497,7 +504,14 @@ function storedXmlSnapshotUnavailable(payload: Prisma.JsonValue): string | null 
 
 type RegistrationInvoice = {
   issuerLegalName: string;
+  issuerTaxId: string;
   sifInvoiceType: string;
+  rectificationImpact?: RectificationImpact | null;
+  originalInvoice?: {
+    issuerTaxId: string;
+    fullNumber: string | null;
+    issueDate: Date;
+  } | null;
   customerLegalName: string;
   customerTaxId: string | null;
   notes: string | null;
@@ -509,10 +523,13 @@ function registrationXmlRecord(
   invoice: RegistrationInvoice,
   meta: Omit<SifXmlRegistration, "kind" | "issuerLegalName" | "customer" | "description" | "taxLines">,
 ): SifXmlRegistration {
-  if (invoice.sifInvoiceType !== "F1")
+  if (invoice.sifInvoiceType !== "F1" && invoice.sifInvoiceType !== "R4")
     throw new ConflictException(
-      "SIF XML export for rectifying invoices requires the pending rectification mapping",
+      "SIF XML export supports F1 and R4 difference rectifications only; other rectifications require operation-date mapping",
     );
+  const rectification = invoice.sifInvoiceType === "R4"
+    ? differenceRectification(invoice)
+    : undefined;
   if (!invoice.customerTaxId)
     throw new ConflictException(
       "SIF XML export requires the customer's tax identifier",
@@ -536,10 +553,36 @@ function registrationXmlRecord(
   return {
     kind: "REGISTRATION",
     issuerLegalName: invoice.issuerLegalName,
+    ...(rectification ? { rectification } : {}),
     customer: { legalName: invoice.customerLegalName, taxId: invoice.customerTaxId },
     description,
-    taxLines,
+    taxLines: rectification && invoice.rectificationImpact === RectificationImpact.DECREASE
+      ? taxLines.map((line) => ({
+          ...line,
+          taxableBase: new Decimal(line.taxableBase).negated().toFixed(2),
+          taxAmount: new Decimal(line.taxAmount).negated().toFixed(2),
+        }))
+      : taxLines,
     ...meta,
+  };
+}
+
+function differenceRectification(invoice: RegistrationInvoice): NonNullable<SifXmlRegistration["rectification"]> {
+  if (!invoice.rectificationImpact || !invoice.originalInvoice?.fullNumber)
+    throw new ConflictException(
+      "SIF XML export requires the rectification impact and original invoice identity",
+    );
+  if (invoice.originalInvoice.issuerTaxId !== invoice.issuerTaxId)
+    throw new ConflictException(
+      "SIF XML export cannot link a rectification to an invoice with a different issuer tax ID",
+    );
+  return {
+    type: "I",
+    original: {
+      issuerTaxId: invoice.originalInvoice.issuerTaxId,
+      invoiceNumber: invoice.originalInvoice.fullNumber,
+      issueDate: formatSifIssueDate(invoice.originalInvoice.issueDate),
+    },
   };
 }
 

@@ -31,6 +31,8 @@ La descarga `/api/company/sif-declaration` genera expresamente un **borrador**, 
 
 Para registros nuevos en el entorno de pruebas, el XML de alta F1 estándar o de anulación que se pueda construir queda congelado en el `payload` append-only en la misma transacción que el registro. La descarga usa ese XML, no reconstruye los datos fiscales en una versión futura del software. Si la factura no pertenece al subconjunto soportado, queda guardada la razón de indisponibilidad y la descarga no la reinterpreta. Los registros históricos anteriores a este cambio continúan con el exportador de compatibilidad. Esto **no** amplía la cobertura fiscal ni constituye remisión o certificación AEAT.
 
+También se congela XML para las rectificativas **R4 por diferencias** con IVA ordinario soportado: se incluye `TipoRectificativa=I`, la identificación de la factura original y las bases, cuotas y totales con signo negativo en las disminuciones. La clave «I» describe la forma de expresar la corrección, no el valor `rectificationKind` interno. No se reconstruye XML de rectificativas históricas sin snapshot. R1–R3 siguen sin exportarse: la AEAT exige la fecha de operación original y el modelo aún no la conserva de manera fiable. R5 y la sustitución `S` también siguen pendientes. Validar el caso fiscal concreto y la respuesta AEAT antes de ampliar la cobertura o usarlo fuera de pruebas.
+
 ## Registros históricos con identificador inválido
 
 El perfil del productor se guarda en cada registro SIF. Cambiar la configuración de la empresa no reescribe perfiles históricos. El exportador XML rechaza un identificador fuera de `^[A-Z0-9]{2}$`; **no sustituir silenciosamente el valor histórico por `PG` ni modificar registros append-only**.

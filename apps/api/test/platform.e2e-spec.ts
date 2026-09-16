@@ -2,7 +2,9 @@ import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { PrismaClient } from "@prisma/client";
 import * as argon2 from "argon2";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { join } from "node:path";
 import request = require("supertest");
 import type { Test as SupertestTest } from "supertest";
 import { AppModule } from "../src/app.module";
@@ -2058,6 +2060,61 @@ describe("platform integrity", () => {
     ).rejects.toThrow(
       /purchase invoice approval count does not match its decisions/,
     );
+
+    const r4Customer = await authed(accountA.accessToken, tenantA)
+      .post("/v1/contacts")
+      .send({
+        legalName: "R4 XML Customer",
+        taxId: "00000000T",
+        isCustomer: true,
+        isSupplier: false,
+      })
+      .expect(201);
+    const r4Original = await authed(accountA.accessToken, tenantA)
+      .post("/v1/invoices")
+      .send(invoice(r4Customer.body.id))
+      .expect(201);
+    const r4IssuedOriginal = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r4Original.body.id}/issue`)
+      .set("idempotency-key", "issue-r4-original-a")
+      .send({ sequenceId: sequence.body.id })
+      .expect(200);
+    const r4Draft = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r4Original.body.id}/rectifications`)
+      .send({
+        sifInvoiceType: "R4",
+        kind: "PARTIAL",
+        impact: "DECREASE",
+        reason: "Correction of the agreed service price",
+        issueDate: "2026-09-16",
+        lines: [{ description: "Price correction", quantity: 1, unitPrice: 20, taxRate: 21 }],
+      })
+      .expect(201);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r4Draft.body.id}/issue`)
+      .set("idempotency-key", "issue-r4-difference-a")
+      .send({ sequenceId: creditSequence.body.id })
+      .expect(200);
+    const r4Records = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records?invoiceId=${r4Draft.body.id}`)
+      .expect(200);
+    expect(r4Records.body).toHaveLength(1);
+    const r4XmlResponse = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records/${r4Records.body[0].id}/xml`)
+      .expect("content-type", /application\/xml/)
+      .expect(200);
+    const r4Xml = r4XmlResponse.text ?? r4XmlResponse.body.toString("utf8");
+    expect(r4Xml).toContain("<sf:TipoFactura>R4</sf:TipoFactura>");
+    expect(r4Xml).toContain("<sf:TipoRectificativa>I</sf:TipoRectificativa>");
+    expect(r4Xml).toContain(`<sf:NumSerieFactura>${r4IssuedOriginal.body.fullNumber}</sf:NumSerieFactura>`);
+    expect(r4Xml).toContain("<sf:BaseImponibleOimporteNoSujeto>-20.00</sf:BaseImponibleOimporteNoSujeto>");
+    expect(r4Xml).toContain("<sf:CuotaRepercutida>-4.20</sf:CuotaRepercutida>");
+    expect(r4Xml).toContain("<sf:ImporteTotal>-24.20</sf:ImporteTotal>");
+    const r4SchemaCheck = spawnSync("xmllint", [
+      "--noout", "--schema", join(__dirname, "../src/sif/xsd/SuministroLR.xsd"), "-",
+    ], { input: r4Xml, encoding: "utf8" });
+    expect(r4SchemaCheck.error).toBeUndefined();
+    expect(r4SchemaCheck.status).toBe(0);
 
     const refreshes = await Promise.all([
       request(app.getHttpServer())

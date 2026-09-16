@@ -74,4 +74,42 @@ describe("AEAT SIF XML", () => {
     expect(xml).toContain("<sf:Huella>" + "C".repeat(64) + "</sf:Huella>");
     expectValidAeatXml(xml);
   });
+
+  it("renders an R4 difference rectification with the original invoice identity", () => {
+    const xml = renderSifAeatXml({
+      header,
+      record: {
+        kind: "REGISTRATION",
+        issuerTaxId: "B12345674",
+        invoiceNumber: "R2026-0001",
+        issueDate: "16-09-2026",
+        issuerLegalName: header.issuerLegalName,
+        invoiceType: "R4",
+        rectification: {
+          type: "I",
+          original: {
+            issuerTaxId: "B12345674",
+            invoiceNumber: "F2026-0001",
+            issueDate: "15-09-2026",
+          },
+        },
+        customer: { legalName: "Client", taxId: "B76543210" },
+        description: "Partial refund",
+        taxLines: [{ taxableBase: "-100.00", taxRate: "21.00", taxAmount: "-21.00", reverseCharge: false }],
+        taxTotal: "-21.00",
+        total: "-121.00",
+        previousRecord: null,
+        software,
+        generatedAt: "2026-09-16T12:00:00+02:00",
+        recordHash: "A".repeat(64),
+      },
+    });
+
+    expect(xml).toContain("<sf:TipoFactura>R4</sf:TipoFactura>");
+    expect(xml).toContain("<sf:TipoRectificativa>I</sf:TipoRectificativa>");
+    expect(xml).toContain("<sf:NumSerieFactura>F2026-0001</sf:NumSerieFactura>");
+    expect(xml).toContain("<sf:BaseImponibleOimporteNoSujeto>-100.00</sf:BaseImponibleOimporteNoSujeto>");
+    expect(xml).not.toContain("<sf:ImporteRectificacion>");
+    expectValidAeatXml(xml);
+  });
 });

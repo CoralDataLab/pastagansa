@@ -701,7 +701,7 @@ no crean registro SIF ni QR fiscal; los registros anteriores permanecen intactos
 versionado como `AEAT-HASH-0.1.2`, utiliza SHA-256, UTF-8 y hexadecimal en mayúsculas y
 reproduce los dos vectores oficiales de alta. PostgreSQL valida pertenencia a una
 factura emitida, continuidad, hash anterior, orden temporal, append-only y RLS. La
-exportación de nuevos registros F1 estándar y anulaciones usa una copia XML congelada
+exportación de nuevos registros F1 estándar, rectificativas R4 por diferencias y anulaciones usa una copia XML congelada
 en el `payload` al generar el registro; los históricos usan lectura compatible. La
 trazabilidad web muestra posición, algoritmo, versión y huella abreviada. Cada factura
 conserva una clasificación SIF inmutable: F1 para facturas completas y R1–R5 para
@@ -714,9 +714,9 @@ registro y la verificación rechaza enlaces o huellas alteradas. No modifica la 
 su asiento ni el libro de IVA: una corrección económica se realiza mediante rectificativa.
 El QR fiscal no VERI*FACTU aparece en la factura, y cada registro captura el perfil del
 productor; existe además un borrador descargable de declaración responsable. Ya se puede
-descargar un lote XML AEAT, unsigned y sin remisión, por registro de alta F1 estándar o
-anulación: conserva la cabecera, encadenamiento, perfil de software y huella históricos.
-El exportador rechaza explícitamente rectificativas y desgloses exentos, no sujetos o con
+descargar un lote XML AEAT, unsigned y sin remisión, por registro de alta F1 estándar,
+R4 por diferencias o anulación: conserva la cabecera, encadenamiento, perfil de software
+y huella históricos. El exportador rechaza R1–R3, R5 y desgloses exentos, no sujetos o con
 recargo hasta modelar sus claves AEAT, en vez de inventar campos fiscales. También limita
 desde configuración el perfil de software a los máximos del XSD, incluido el identificador
 de dos caracteres. Pendientes remisión, firma/eventos NO VERI*FACTU, soporte de toda la

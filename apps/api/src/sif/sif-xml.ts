@@ -38,6 +38,10 @@ export type SifXmlRegistration = SifXmlBaseRecord & {
   issueDate: string;
   issuerLegalName: string;
   invoiceType: string;
+  rectification?: {
+    type: "I";
+    original: { issuerTaxId: string; invoiceNumber: string; issueDate: string };
+  };
   customer: { legalName: string; taxId: string };
   description: string;
   taxLines: Array<{
@@ -97,6 +101,18 @@ function registration(record: SifXmlRegistration) {
     "      </sf:IDFactura>",
     element("sf:NombreRazonEmisor", record.issuerLegalName, 6),
     element("sf:TipoFactura", record.invoiceType, 6),
+    ...(record.rectification
+      ? [
+          element("sf:TipoRectificativa", record.rectification.type, 6),
+          "      <sf:FacturasRectificadas>",
+          "        <sf:IDFacturaRectificada>",
+          element("sf:IDEmisorFactura", record.rectification.original.issuerTaxId, 10),
+          element("sf:NumSerieFactura", record.rectification.original.invoiceNumber, 10),
+          element("sf:FechaExpedicionFactura", record.rectification.original.issueDate, 10),
+          "        </sf:IDFacturaRectificada>",
+          "      </sf:FacturasRectificadas>",
+        ]
+      : []),
     element("sf:DescripcionOperacion", record.description, 6),
     "      <sf:Destinatarios>",
     "        <sf:IDDestinatario>",
