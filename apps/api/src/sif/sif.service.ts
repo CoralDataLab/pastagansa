@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   DocumentType,
   InvoiceStatus,
@@ -172,21 +176,22 @@ export class SifService {
     });
     if (existing) return presentSifRecord(existing);
 
+    const invoice = await this.tenant.db.invoice.findFirst({
+      where: { id: invoiceId, ...scope },
+      select: { id: true, status: true, company: { select: { timezone: true } } },
+    });
+    if (!invoice) throw new NotFoundException("Invoice not found");
+    if (invoice.status === InvoiceStatus.DRAFT)
+      throw new ConflictException(
+        "Only an issued invoice can generate a SIF cancellation",
+      );
+
     const registration = await this.tenant.db.sifRecord.findFirst({
       where: { invoiceId, recordType: SifRecordType.REGISTRATION, ...scope },
     });
     if (!registration)
       throw new ConflictException(
         "Only an invoice with a SIF registration can be cancelled",
-      );
-
-    const invoice = await this.tenant.db.invoice.findFirst({
-      where: { id: invoiceId, ...scope },
-      select: { id: true, status: true, company: { select: { timezone: true } } },
-    });
-    if (!invoice || invoice.status === InvoiceStatus.DRAFT)
-      throw new ConflictException(
-        "Only an issued invoice can generate a SIF cancellation",
       );
 
     const previous = await this.tenant.db.sifRecord.findFirst({
