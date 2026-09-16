@@ -710,8 +710,14 @@ anulada y encadenado al último registro de la empresa; una repetición devuelve
 registro y la verificación rechaza enlaces o huellas alteradas. No modifica la factura,
 su asiento ni el libro de IVA: una corrección económica se realiza mediante rectificativa.
 El QR fiscal no VERI*FACTU aparece en la factura, y cada registro captura el perfil del
-productor; existe además un borrador descargable de declaración responsable. Pendientes
-XML completo, sender VERI\*FACTU, firma/eventos NO VERI\*FACTU y validación contra AEAT.
+productor; existe además un borrador descargable de declaración responsable. Ya se puede
+descargar un lote XML AEAT, unsigned y sin remisión, por registro de alta F1 estándar o
+anulación: conserva la cabecera, encadenamiento, perfil de software y huella históricos.
+El exportador rechaza explícitamente rectificativas y desgloses exentos, no sujetos o con
+recargo hasta modelar sus claves AEAT, en vez de inventar campos fiscales. También limita
+desde configuración el perfil de software a los máximos del XSD, incluido el identificador
+de dos caracteres. Pendientes remisión, firma/eventos NO VERI*FACTU, soporte de toda la
+casuística fiscal y validación end-to-end contra AEAT.
 
 ## Sprint A — Modelo
 

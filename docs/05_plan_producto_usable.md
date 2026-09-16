@@ -293,9 +293,10 @@ Gate:
    configurado y pendiente de esa aceptación externa.
 2. Continuar SIF/VERI*FACTU. La anulación append-only ya se incorpora como registro
    encadenado e idempotente, sin reescribir la factura ni sus efectos contables o de
-   IVA; el siguiente bloque es generar XML de alta/anulación y preparar la remisión
-   al entorno de pruebas AEAT. U6B —cartera y recordatorios— no desplaza este punto
-   de control.
+   IVA. El exportador XML AEAT de alta F1 estándar y anulación ya está disponible para
+   inspección, sin firma ni transmisión; el siguiente bloque es validarlo contra XSD y
+   preparar la remisión al entorno de pruebas AEAT. U6B —cartera y recordatorios— no
+   desplaza este punto de control.
 
 El backlog detallado, dependencias y criterios de aceptación de U6 están en
 [Operativa de documentos y cobros](09_plan_operativa_documentos_cobros.md).

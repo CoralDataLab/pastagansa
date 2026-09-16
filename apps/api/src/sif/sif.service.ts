@@ -23,6 +23,11 @@ import {
 } from "./sif-hash-v1";
 import { verifySifChain } from "./sif-chain";
 import { captureSifSoftwareSnapshot } from "./sif-software-profile";
+import {
+  renderSifAeatXml,
+  type SifXmlPreviousRecord,
+  type SifXmlSoftware,
+} from "./sif-xml";
 
 @Injectable()
 export class SifService {
@@ -46,6 +51,141 @@ export class SifService {
       orderBy: { chainPosition: "asc" },
     });
     return verifySifChain(records);
+  }
+
+  /**
+   * Produces one unsigned AEAT XML batch for inspection/validation. It never
+   * changes the chain and intentionally does not transmit it to AEAT.
+   */
+  async exportXml(recordId: string) {
+    const record = await this.tenant.db.sifRecord.findFirst({
+      where: { id: recordId, ...this.scope() },
+      include: {
+        previousRecord: {
+          select: {
+            issuerTaxId: true,
+            invoiceNumber: true,
+            invoiceIssueDate: true,
+            recordHash: true,
+          },
+        },
+        invoice: {
+          select: {
+            issuerLegalName: true,
+            issuerTaxId: true,
+            customerLegalName: true,
+            customerTaxId: true,
+            notes: true,
+            sifInvoiceType: true,
+            company: { select: { timezone: true } },
+            lines: { select: { description: true }, orderBy: { position: "asc" } },
+            taxLines: {
+              select: {
+                taxableBase: true,
+                taxRate: true,
+                taxAmount: true,
+                subject: true,
+                exempt: true,
+                reverseCharge: true,
+                surchargeRate: true,
+                surchargeAmount: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!record) throw new NotFoundException("SIF record not found");
+
+    const software = readSoftwareSnapshot(record.softwareSnapshot);
+    const previousRecord: SifXmlPreviousRecord | null = record.previousRecord
+      ? {
+          issuerTaxId: record.previousRecord.issuerTaxId,
+          invoiceNumber: record.previousRecord.invoiceNumber,
+          issueDate: formatSifIssueDate(record.previousRecord.invoiceIssueDate),
+          hash: record.previousRecord.recordHash,
+        }
+      : null;
+    const common = {
+      previousRecord,
+      software,
+      generatedAt: formatSifTimestamp(
+        record.generatedAt,
+        record.invoice.company.timezone,
+      ),
+      recordHash: record.recordHash,
+    };
+    const registration = () => {
+      if (record.invoice.sifInvoiceType !== "F1")
+        throw new ConflictException(
+          "SIF XML export for rectifying invoices requires the pending rectification mapping",
+        );
+      if (!record.invoice.customerTaxId)
+        throw new ConflictException(
+          "SIF XML export requires the customer's tax identifier",
+        );
+      const taxLines = aggregateTaxLines(record.invoice.taxLines);
+      if (!taxLines.length || taxLines.length > 12)
+        throw new ConflictException(
+          "SIF XML export requires between one and twelve supported VAT breakdown lines",
+        );
+      const description = [
+        ...record.invoice.lines.map((line) => line.description.trim()),
+        record.invoice.notes?.trim(),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+        .slice(0, 500);
+      if (!description)
+        throw new ConflictException(
+          "SIF XML export requires an invoice operation description",
+        );
+      return {
+        kind: "REGISTRATION" as const,
+        issuerTaxId: record.issuerTaxId,
+        invoiceNumber: record.invoiceNumber,
+        issueDate: formatSifIssueDate(record.invoiceIssueDate),
+        issuerLegalName: record.invoice.issuerLegalName,
+        invoiceType: record.invoiceType,
+        customer: {
+          legalName: record.invoice.customerLegalName,
+          taxId: record.invoice.customerTaxId,
+        },
+        description,
+        taxLines,
+        taxTotal: record.taxTotal.toFixed(2),
+        total: record.total.toFixed(2),
+        ...common,
+      };
+    };
+
+    const xml =
+      record.recordType === SifRecordType.CANCELLATION
+        ? renderSifAeatXml({
+            header: {
+              issuerLegalName: record.invoice.issuerLegalName,
+              issuerTaxId: record.invoice.issuerTaxId,
+            },
+            record: {
+              kind: "CANCELLATION",
+              issuerTaxId: record.issuerTaxId,
+              invoiceNumber: record.invoiceNumber,
+              issueDate: formatSifIssueDate(record.invoiceIssueDate),
+              ...common,
+            },
+          })
+        : renderSifAeatXml({
+            header: {
+              issuerLegalName: record.invoice.issuerLegalName,
+              issuerTaxId: record.invoice.issuerTaxId,
+            },
+            record: registration(),
+          });
+
+    return {
+      filename: `sif-${record.chainPosition.toString()}-${record.recordType.toLowerCase()}.xml`,
+      content: Buffer.from(xml, "utf8"),
+    };
   }
 
   async createRegistration(invoiceId: string) {
@@ -262,4 +402,76 @@ export class SifService {
 
 function presentSifRecord(record: SifRecord) {
   return { ...record, chainPosition: record.chainPosition.toString() };
+}
+
+function readSoftwareSnapshot(value: Prisma.JsonValue): SifXmlSoftware {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new ConflictException("SIF XML export requires a complete software snapshot");
+  const snapshot = value as Record<string, unknown>;
+  const fields = [
+    "producerName",
+    "producerTaxId",
+    "softwareName",
+    "softwareId",
+    "softwareVersion",
+    "installationNumber",
+  ] as const;
+  const missing = fields.find(
+    (field) => typeof snapshot[field] !== "string" || !snapshot[field],
+  );
+  if (missing)
+    throw new ConflictException("SIF XML export requires a complete software snapshot");
+  if (!/^[A-Z0-9]{2}$/.test(snapshot.softwareId as string))
+    throw new ConflictException(
+      "SIF XML export requires an AEAT software ID of two uppercase letters or digits",
+    );
+  return Object.fromEntries(fields.map((field) => [field, snapshot[field]])) as SifXmlSoftware;
+}
+
+function aggregateTaxLines(
+  source: Array<{
+    taxableBase: Decimal;
+    taxRate: Decimal | null;
+    taxAmount: Decimal;
+    subject: boolean;
+    exempt: boolean;
+    reverseCharge: boolean;
+    surchargeRate: Decimal | null;
+    surchargeAmount: Decimal;
+  }>,
+) {
+  const grouped = new Map<
+    string,
+    { taxableBase: Decimal; taxRate: Decimal; taxAmount: Decimal; reverseCharge: boolean }
+  >();
+  for (const line of source) {
+    if (
+      !line.subject ||
+      line.exempt ||
+      line.taxRate === null ||
+      line.surchargeRate !== null ||
+      !line.surchargeAmount.isZero()
+    )
+      throw new ConflictException(
+        "SIF XML export does not yet support exempt, non-subject, or surcharge VAT lines",
+      );
+    const key = `${line.taxRate.toFixed(2)}:${line.reverseCharge}`;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.taxableBase = existing.taxableBase.add(line.taxableBase);
+      existing.taxAmount = existing.taxAmount.add(line.taxAmount);
+    } else
+      grouped.set(key, {
+        taxableBase: new Decimal(line.taxableBase),
+        taxRate: new Decimal(line.taxRate),
+        taxAmount: new Decimal(line.taxAmount),
+        reverseCharge: line.reverseCharge,
+      });
+  }
+  return [...grouped.values()].map((line) => ({
+    taxableBase: line.taxableBase.toFixed(2),
+    taxRate: line.taxRate.toFixed(2),
+    taxAmount: line.taxAmount.toFixed(2),
+    reverseCharge: line.reverseCharge,
+  }));
 }

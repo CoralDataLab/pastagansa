@@ -179,12 +179,12 @@ export function CompanySettingsView() {
             <div className="contact-form">
               <label className="field"><span>Modo fiscal</span><select disabled={!canUpdate} onChange={(event) => updateCompany("sifMode", event.target.value)} value={form.sifMode}><option value="DISABLED">No incluir QR fiscal</option><option value="NO_VERIFACTU">SIF no VERI*FACTU (QR fiscal)</option></select></label>
               <label className="field"><span>Entorno AEAT</span><select disabled={!canUpdate || form.sifMode === "DISABLED"} onChange={(event) => updateCompany("aeatEnvironment", event.target.value)} value={form.aeatEnvironment}><option value="PRODUCTION">Producción</option><option value="TEST">Pruebas AEAT</option></select></label>
-              <TextField disabled={!canUpdate} label="Productor del software" maxLength={240} onChange={(value) => updateCompany("sifSoftwareProducerName", value)} value={form.sifSoftwareProducerName ?? ""} />
+              <TextField disabled={!canUpdate} label="Productor del software" maxLength={120} onChange={(value) => updateCompany("sifSoftwareProducerName", value)} value={form.sifSoftwareProducerName ?? ""} />
               <TextField disabled={!canUpdate} label="NIF del productor" maxLength={40} onChange={(value) => updateCompany("sifSoftwareProducerTaxId", value)} value={form.sifSoftwareProducerTaxId ?? ""} />
-              <TextField disabled={!canUpdate} label="Nombre del software" maxLength={120} onChange={(value) => updateCompany("sifSoftwareName", value)} value={form.sifSoftwareName ?? ""} />
-              <TextField disabled={!canUpdate} label="Identificador del software" maxLength={120} onChange={(value) => updateCompany("sifSoftwareId", value)} value={form.sifSoftwareId ?? ""} />
-              <TextField disabled={!canUpdate} label="Versión del software" maxLength={60} onChange={(value) => updateCompany("sifSoftwareVersion", value)} value={form.sifSoftwareVersion ?? ""} />
-              <TextField disabled={!canUpdate} label="Nº de instalación" maxLength={120} onChange={(value) => updateCompany("sifInstallationNumber", value)} value={form.sifInstallationNumber ?? ""} />
+              <TextField disabled={!canUpdate} label="Nombre del software" maxLength={30} onChange={(value) => updateCompany("sifSoftwareName", value)} value={form.sifSoftwareName ?? ""} />
+              <TextField disabled={!canUpdate} label="Identificador del software (2 mayúsculas o dígitos AEAT)" maxLength={2} onChange={(value) => updateCompany("sifSoftwareId", value.toUpperCase())} value={form.sifSoftwareId ?? ""} />
+              <TextField disabled={!canUpdate} label="Versión del software" maxLength={50} onChange={(value) => updateCompany("sifSoftwareVersion", value)} value={form.sifSoftwareVersion ?? ""} />
+              <TextField disabled={!canUpdate} label="Nº de instalación" maxLength={100} onChange={(value) => updateCompany("sifInstallationNumber", value)} value={form.sifInstallationNumber ?? ""} />
             </div>
             {form.sifMode === "NO_VERIFACTU" && <p className="notice" role="status">Las facturas nuevas incluirán un QR fiscal de 34 mm. Las ya emitidas no se modifican. Completa los datos del productor antes de activar la remisión VERI*FACTU.</p>}
             <a className="secondary-button" href="/api/company/sif-declaration">Descargar borrador de declaración responsable</a>

@@ -1,0 +1,87 @@
+import { SifRecordType } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
+import { SifService } from "./sif.service";
+
+describe("SifService XML export", () => {
+  const findFirst = jest.fn();
+  const service = new SifService(
+    {
+      required: {
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+      },
+      db: { sifRecord: { findFirst } },
+    } as never,
+    {} as never,
+  );
+
+  beforeEach(() => {
+    findFirst.mockReset();
+  });
+
+  it("exports a standard F1 registration without changing the record", async () => {
+    findFirst.mockResolvedValue(record());
+
+    const file = await service.exportXml("33333333-3333-4333-8333-333333333333");
+
+    expect(file.filename).toBe("sif-1-registration.xml");
+    expect(file.content.toString("utf8")).toContain("<sf:RegistroAlta>");
+    expect(file.content.toString("utf8")).toContain("<sf:TipoFactura>F1</sf:TipoFactura>");
+    expect(file.content.toString("utf8")).toContain("<sf:TipoImpositivo>21.00</sf:TipoImpositivo>");
+    expect(findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks an export when the historical software ID cannot meet the AEAT schema", async () => {
+    findFirst.mockResolvedValue(record({ softwareId: "PASTAGANSA" }));
+
+    await expect(service.exportXml("33333333-3333-4333-8333-333333333333")).rejects.toThrow(
+      "two uppercase letters or digits",
+    );
+  });
+});
+
+function record(profile: { softwareId?: string } = {}) {
+  return {
+    recordType: SifRecordType.REGISTRATION,
+    chainPosition: 1n,
+    issuerTaxId: "B12345674",
+    invoiceNumber: "F2026-0001",
+    invoiceIssueDate: new Date("2026-09-16T00:00:00.000Z"),
+    invoiceType: "F1",
+    taxTotal: new Decimal("21.00"),
+    total: new Decimal("121.00"),
+    generatedAt: new Date("2026-09-16T10:00:00.000Z"),
+    recordHash: "A".repeat(64),
+    softwareSnapshot: {
+      producerName: "Coral Data Lab, S.L.",
+      producerTaxId: "B12345674",
+      softwareName: "PastaGansa",
+      softwareId: profile.softwareId ?? "PG",
+      softwareVersion: "0.1.0",
+      installationNumber: "test-1",
+    },
+    previousRecord: null,
+    invoice: {
+      issuerLegalName: "Acme S.L.",
+      issuerTaxId: "B12345674",
+      customerLegalName: "Client S.L.",
+      customerTaxId: "B76543210",
+      notes: null,
+      sifInvoiceType: "F1",
+      company: { timezone: "Europe/Madrid" },
+      lines: [{ description: "Consulting" }],
+      taxLines: [
+        {
+          taxableBase: new Decimal("100.00"),
+          taxRate: new Decimal("21"),
+          taxAmount: new Decimal("21.00"),
+          subject: true,
+          exempt: false,
+          reverseCharge: false,
+          surchargeRate: null,
+          surchargeAmount: new Decimal("0"),
+        },
+      ],
+    },
+  } as never;
+}

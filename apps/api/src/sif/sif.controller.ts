@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common";
+import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, StreamableFile } from "@nestjs/common";
 import { RequirePermissions } from "../authorization/permissions.decorator";
 import { TenantProtected } from "../tenancy/tenant.decorator";
 import { ListSifRecordsDto } from "./dto/list-sif-records.dto";
@@ -20,6 +20,17 @@ export class SifController {
   @RequirePermissions("sif_record.read")
   verification() {
     return this.sif.verifyChain();
+  }
+
+  @Get(":recordId/xml")
+  @RequirePermissions("sif_record.read")
+  async exportXml(@Param("recordId", ParseUUIDPipe) recordId: string) {
+    const file = await this.sif.exportXml(recordId);
+    return new StreamableFile(file.content, {
+      type: "application/xml; charset=utf-8",
+      disposition: `attachment; filename="${file.filename}"`,
+      length: file.content.length,
+    });
   }
 
   @Get()

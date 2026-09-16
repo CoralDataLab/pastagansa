@@ -58,22 +58,22 @@ export class UpdateCompanyDto {
   @IsEnum(AeatEnvironment)
   aeatEnvironment?: AeatEnvironment;
 
-  @IsOptional() @IsString() @MaxLength(240)
+  @IsOptional() @IsString() @MaxLength(120)
   sifSoftwareProducerName?: string | null;
 
   @IsOptional() @IsString() @MaxLength(40)
   sifSoftwareProducerTaxId?: string | null;
 
-  @IsOptional() @IsString() @MaxLength(120)
+  @IsOptional() @IsString() @MaxLength(30)
   sifSoftwareName?: string | null;
 
-  @IsOptional() @IsString() @MaxLength(120)
+  @IsOptional() @Matches(/^[A-Z0-9]{2}$/)
   sifSoftwareId?: string | null;
 
-  @IsOptional() @IsString() @MaxLength(60)
+  @IsOptional() @IsString() @MaxLength(50)
   sifSoftwareVersion?: string | null;
 
-  @IsOptional() @IsString() @MaxLength(120)
+  @IsOptional() @IsString() @MaxLength(100)
   sifInstallationNumber?: string | null;
 
   @IsOptional()
