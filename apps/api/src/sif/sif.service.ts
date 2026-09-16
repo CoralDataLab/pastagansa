@@ -10,6 +10,7 @@ import {
   RectificationImpact,
   SifRecord,
   SifRecordType,
+  SifMode,
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { AuditService } from "../audit/audit.service";
@@ -211,6 +212,7 @@ export class SifService {
         taxTotal: true,
         total: true,
         status: true,
+        sifMode: true,
         company: {
           select: {
             timezone: true,
@@ -231,6 +233,12 @@ export class SifService {
     )
       throw new ConflictException(
         "Only issued invoices can generate a SIF registration",
+      );
+
+    const softwareSnapshot = captureSifSoftwareSnapshot(invoice.company);
+    if (invoice.sifMode === SifMode.NO_VERIFACTU && !softwareSnapshot.configured)
+      throw new ConflictException(
+        "Complete the SIF producer profile with a two-character software ID before issuing invoices in no VERI*FACTU mode",
       );
 
     const previous = await this.tenant.db.sifRecord.findFirst({
@@ -284,7 +292,7 @@ export class SifService {
         recordHash,
         specificationVersion: SIF_HASH_SPECIFICATION_VERSION,
         payload,
-        softwareSnapshot: captureSifSoftwareSnapshot(invoice.company),
+        softwareSnapshot,
       },
     });
     await this.audit.record("sif_record.registered", "sif_record", record.id, {

@@ -19,7 +19,7 @@ export function captureSifSoftwareSnapshot(source: SifSoftwareProfileSource) {
   return {
     version: 1,
     source: "company_sif_software_profile",
-    configured: Object.values(profile).every(Boolean),
+    configured: Object.values(profile).every(Boolean) && /^[A-Z0-9]{2}$/.test(profile.softwareId ?? ""),
     ...profile,
   };
 }

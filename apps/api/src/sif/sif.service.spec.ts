@@ -1,4 +1,4 @@
-import { SifRecordType } from "@prisma/client";
+import { SifMode, SifRecordType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { SifService } from "./sif.service";
 
@@ -44,6 +44,35 @@ describe("SifService XML export", () => {
     const file = await service.exportXml("33333333-3333-4333-8333-333333333333");
     expect(file.content.toString("utf8")).toContain("2026-09-16T12:00:00+02:00");
     expect(file.content.toString("utf8")).not.toContain("2026-09-16T06:00:00-04:00");
+  });
+});
+
+describe("SifService registration profile", () => {
+  it("rejects a legacy software ID before adding a no VERI*FACTU record", async () => {
+    const create = jest.fn();
+    const service = new SifService({
+      required: {
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+      },
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          status: "ISSUED", fullNumber: "F2026-0009", sifMode: SifMode.NO_VERIFACTU,
+          company: {
+            sifSoftwareProducerName: "Coral Data Lab", sifSoftwareProducerTaxId: "B12345674",
+            sifSoftwareName: "Pastagansa", sifSoftwareId: "PASTAGANSA",
+            sifSoftwareVersion: "0.1.0", sifInstallationNumber: "staging-1",
+          },
+        }) },
+      },
+    } as never, {} as never);
+
+    await expect(service.createRegistration("33333333-3333-4333-8333-333333333333")).rejects.toThrow(
+      "two-character software ID",
+    );
+    expect(create).not.toHaveBeenCalled();
   });
 });
 

@@ -7,7 +7,7 @@ describe("SIF software profile snapshot", () => {
         sifSoftwareProducerName: "Coral Data Lab, S.L.",
         sifSoftwareProducerTaxId: "B12345674",
         sifSoftwareName: "Pastagansa",
-        sifSoftwareId: "PASTAGANSA",
+        sifSoftwareId: "PG",
         sifSoftwareVersion: "0.1.0",
         sifInstallationNumber: "staging-1",
       }),
@@ -17,6 +17,18 @@ describe("SIF software profile snapshot", () => {
       producerTaxId: "B12345674",
       softwareName: "Pastagansa",
     });
+  });
+
+  it("does not mark a legacy long identifier as export-ready", () => {
+    const snapshot = captureSifSoftwareSnapshot({
+      sifSoftwareProducerName: "Coral Data Lab, S.L.",
+      sifSoftwareProducerTaxId: "B12345674",
+      sifSoftwareName: "Pastagansa",
+      sifSoftwareId: "PASTAGANSA",
+      sifSoftwareVersion: "0.1.0",
+      sifInstallationNumber: "staging-1",
+    });
+    expect(snapshot).toMatchObject({ configured: false, softwareId: "PASTAGANSA" });
   });
 
   it("marks an incomplete profile without inventing missing values", () => {

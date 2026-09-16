@@ -10,7 +10,7 @@ describe("SifDeclarationPdfService", () => {
         sifSoftwareProducerName: "Coral Data Lab, S.L.",
         sifSoftwareProducerTaxId: "B12345674",
         sifSoftwareName: "Pastagansa",
-        sifSoftwareId: "PASTAGANSA",
+        sifSoftwareId: "PG",
         sifSoftwareVersion: "0.1.0",
         sifInstallationNumber: "test-1",
         documentProfile: {
