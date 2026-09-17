@@ -17,13 +17,13 @@ async function downloadPdf(page: Page) {
   return readFile(path!);
 }
 
-async function expectSentDelivery(page: Page, path: string, recipient: string) {
-  await expect.poll(async () => page.evaluate(async ({ path, recipient }) => {
+async function expectSentDelivery(page: Page, path: string, recipient: string, purpose?: string) {
+  await expect.poll(async () => page.evaluate(async ({ path, recipient, purpose }) => {
     const response = await fetch(path);
     if (!response.ok) return `HTTP ${response.status}`;
-    const deliveries = await response.json() as Array<{ recipient: string; status: string }>;
-    return deliveries.find((delivery) => delivery.recipient === recipient)?.status ?? "MISSING";
-  }, { path, recipient }), { timeout: 30_000 }).toBe("SENT");
+    const deliveries = await response.json() as Array<{ recipient: string; status: string; purpose: string }>;
+    return deliveries.find((delivery) => delivery.recipient === recipient && (!purpose || delivery.purpose === purpose))?.status ?? "MISSING";
+  }, { path, recipient, purpose }), { timeout: 30_000 }).toBe("SENT");
 }
 
 async function expectReceivedPdf(position: number, recipient: string, expectedPdf: Buffer) {
@@ -223,8 +223,14 @@ test("completes the sales flow from registration to payment", async ({
     .locator(".page-heading")
     .getByRole("button", { name: "Nueva factura" })
     .click();
+  const issueDate = new Date();
+  issueDate.setUTCDate(issueDate.getUTCDate() - 45);
+  const dueDate = new Date();
+  dueDate.setUTCDate(dueDate.getUTCDate() - 40);
   await page.getByLabel("Cliente").selectOption({ label: "Cliente E2E SL" });
   await page.getByLabel("Catálogo").selectOption({ label: "Servicio E2E" });
+  await page.locator(".invoice-form").getByLabel("Fecha", { exact: true }).fill(issueDate.toISOString().slice(0, 10));
+  await page.locator(".invoice-form").getByLabel("Vencimiento").fill(dueDate.toISOString().slice(0, 10));
   await page.getByRole("button", { name: "Guardar borrador" }).click();
   await expect(page.getByRole("status")).toContainText(
     "Borrador guardado por 121,00",
@@ -311,9 +317,7 @@ test("completes the sales flow from registration to payment", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await expectNoSeriousAccessibilityViolations(page, "mobile collections workspace");
   await page.setViewportSize({ width: 1280, height: 720 });
-  const future = new Date();
-  future.setUTCDate(future.getUTCDate() + 45);
-  await page.getByLabel("Fecha de referencia").fill(future.toISOString().slice(0, 10));
+  await page.getByLabel("Fecha de referencia").fill(new Date().toISOString().slice(0, 10));
   await page.getByLabel("Tramo").selectOption("OVERDUE_31_60");
   await expect(page.locator(".collections-table")).toContainText("FE2E-0001");
   await expect(page.getByRole("region", { name: "Resumen de cartera" }).locator("article", { hasText: "Vencido" })).toContainText("121,00 €");
@@ -324,8 +328,11 @@ test("completes the sales flow from registration to payment", async ({
     await collectionDrawer.getByRole("button", { name: "Preparar recordatorio" }).click();
     const reminder = page.getByRole("dialog", { name: "Preparar recordatorio" });
     await expect(reminder).toContainText(controlledRecipient);
+    await expect(reminder).toContainText(new Intl.DateTimeFormat("es-ES", { timeZone: "UTC" }).format(dueDate));
+    await expect(reminder).not.toContainText("sin fecha de vencimiento");
     await reminder.getByRole("button", { name: "Enviar 1 recordatorio" }).click();
     await expect(page.getByRole("status")).toContainText("1 recordatorio preparado");
+    await expectSentDelivery(page, `/api/invoices/${new URL(invoiceUrl).pathname.split("/").at(-1)}/email-deliveries`, controlledRecipient, "PAYMENT_REMINDER");
     await expectReceivedPdf(3, controlledRecipient, invoicePdfAfter);
   }
   await collectionDrawer.getByLabel("Comentario").fill("Pago prometido en U6");

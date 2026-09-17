@@ -2,19 +2,20 @@
 
 ## Estado del gate
 
-El 17/09/2026 el candidato U6A/U6B superó la validación local y la suite remota
-E2E/WCAG pasó sobre el staging HTTPS. El usuario confirma que desplegó `c80a752`,
-realizó una prueba de restauración, recibió tres correos con PDF en un buzón controlado y
-completó la prueba manual sin incidencias. **U6-08 sigue abierto** porque la suite
-remota verde se ejecutó desde `e1b4b62`, no desde el SHA desplegado confirmado, y
-`E2E_SMTP_RECIPIENT` estaba vacío: el envío automatizado se omitió. Falta repetir la
-aceptación con el destinatario configurado sobre la versión final desplegada y
-completar el acta de la prueba moderada.
+El 17/09/2026 el candidato U6A/U6B superó la validación local. El usuario desplegó
+`2093c97` en el staging HTTPS y [Staging acceptance #35203960073](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35203960073)
+pasó 3/3 con `E2E_SMTP_RECIPIENT` configurado. Se observaron los tres correos en el
+buzón controlado y se abrieron sus PDF. **U6-08 sigue abierto:** el recordatorio
+recibido decía «venció el sin fecha de vencimiento». La causa era que Cartera usaba el
+plazo pendiente y la plantilla leía solo la fecha de vencimiento de la factura. La
+corrección local usa el primer plazo sin cobrar y bloquea los avisos de vencida antes
+de la fecha real; necesita desplegarse y repetir el gate remoto. También falta
+completar el acta de la prueba moderada y los registros de restore drill.
 
 | Comprobación local | Resultado |
 | --- | --- |
 | Lint y build de API/web | Correctos |
-| Unitarias API/web | 78/78 y 39/39 |
+| Unitarias API/web | 81/81 y 39/39 tras la corrección del recordatorio |
 | Integración PostgreSQL | 5/5 |
 | Chromium, accesibilidad, perfil, snapshots, Cartera y cobro | 3/3 |
 | SMTP capturado: presupuesto, factura y recordatorio con PDF | 3/3; adjuntos comparados visualmente con descargas |
@@ -59,12 +60,17 @@ concretas antes de dar la prueba moderada por cerrada.
 
 | Evidencia remota | Resultado / enlace |
 | --- | --- |
-| SHA, URL y fecha de despliegue | Usuario confirma `c80a752` en `https://ledger.coraldatalab.com` el 17/09/2026; imagen no verificada desde el host |
-| Backup previo y restore drill posterior | Usuario confirma restauración correcta; faltan evidencia del backup previo, ruta/registro y recuentos remotos |
-| Workflow E2E/WCAG HTTPS | [Staging acceptance #35199672024](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35199672024): 3/3 sobre `e1b4b62`, correcto el 17/09/2026; destinatario SMTP vacío, envío omitido; repetir sobre SHA final desplegado |
-| Buzón controlado y adjuntos | Usuario confirma recepción manual de presupuesto, factura y recordatorio con PDF; faltan identificación del buzón y estados `SENT` documentados |
-| Inspección PDF una/varias páginas | Pendiente |
-| Prueba moderada y clasificación de hallazgos | Usuario comunica «Todo OK sin problema»; pendiente acta con participante administrativo independiente, tareas, tiempos, ayudas y hallazgos |
+| SHA, URL y fecha de despliegue | Usuario confirma `2093c97` en `https://ledger.coraldatalab.com` el 17/09/2026; build, API, web, PostgreSQL y healthchecks correctos |
+| Backup previo y restore drill posterior | Usuario confirma backup previo y restauración correcta; faltan ruta/registro y recuentos remotos |
+| Workflow E2E/WCAG HTTPS | [Staging acceptance #35203960073](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35203960073): 3/3 sobre `2093c97` con destinatario obligatorio; repetir tras el arreglo del recordatorio |
+| Buzón controlado y adjuntos | Verificados en Proton Mail el 17/09/2026 a las 11:14–11:15: presupuesto `P2026-0001`, factura `FE2E-0001` y recordatorio de esa factura; tres PDF adjuntos; presupuesto y factura previsualizados con total 121,00 €; el PDF del recordatorio también se abre |
+| Inspección PDF una/varias páginas | Previsualizados los tres adjuntos de una página en el buzón; inspección remota de variantes multipágina pendiente |
+| Prueba moderada y clasificación de hallazgos | Usuario comunica «Todo OK sin problema»; pendiente acta con participante administrativo independiente, tareas, tiempos y ayudas; incidencia alta posterior en texto del recordatorio, corregida localmente y pendiente de despliegue |
+
+La suite local tras la corrección pasó 3/3 en Chromium con SMTP de captura y compara
+los PDF recibidos con las descargas. El E2E ahora comprueba además el estado `SENT`
+del recordatorio y usa una factura realmente vencida, sin adelantar artificialmente
+la fecha de referencia de Cartera.
 
 ## Correo y cola bloqueada
 

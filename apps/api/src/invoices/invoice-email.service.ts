@@ -216,6 +216,7 @@ export class InvoiceEmailService {
         where: { id: invoiceId, ...scope },
         select: {
           id: true, status: true, fullNumber: true, customerEmail: true, customerLegalName: true, issuerLegalName: true, amountDue: true, dueDate: true, currency: true,
+          installments: { select: { dueDate: true, amount: true, paidAmount: true }, orderBy: [{ dueDate: "asc" }, { position: "asc" }] },
           commercialEvents: {
             where: { type: { in: [CommercialDocumentEventType.SENT, CommercialDocumentEventType.DELIVERY_FAILED, CommercialDocumentEventType.DISPUTED, CommercialDocumentEventType.PAYMENT_PROMISED] } },
             select: { type: true }, orderBy: [{ effectiveAt: "desc" }, { id: "desc" }], take: 1,
@@ -223,10 +224,13 @@ export class InvoiceEmailService {
         },
       }),
       this.profile(),
-      this.tenant.db.company.findFirst({ where: { id: scope.companyId, organizationId: scope.organizationId }, select: { legalName: true } }),
+      this.tenant.db.company.findFirst({ where: { id: scope.companyId, organizationId: scope.organizationId }, select: { legalName: true, timezone: true } }),
     ]);
     if (!invoice) throw new NotFoundException("Invoice not found");
     const disputed = invoice.commercialEvents[0]?.type === CommercialDocumentEventType.DISPUTED;
+    const dueDate = invoice.installments.find((installment) => installment.amount.greaterThan(installment.paidAmount))?.dueDate ?? invoice.dueDate;
+    const dueDateIso = dueDate?.toISOString().slice(0, 10) ?? null;
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: company?.timezone ?? "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     const reminderStatuses: InvoiceStatus[] = [InvoiceStatus.ISSUED, InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE];
     const reason = !invoice.fullNumber || !reminderStatuses.includes(invoice.status)
       ? "Solo pueden recordarse facturas emitidas"
@@ -236,19 +240,25 @@ export class InvoiceEmailService {
           ? "La factura está en disputa y se excluye del envío masivo"
         : !(recipient?.trim() || invoice.customerEmail)
           ? "La factura no tiene un email de facturación"
+          : !dueDateIso
+            ? "La factura no tiene fecha de vencimiento"
+          : template === "DUE_SOON" && dueDateIso < today
+            ? "La factura ya ha vencido; elige un aviso de factura vencida"
+          : template !== "DUE_SOON" && dueDateIso >= today
+            ? "La factura aún no ha vencido; elige próximo vencimiento"
           : null;
     const definition = reminderTemplates[template];
     const parameters = {
       ...parametersFor("la factura", invoice.fullNumber ?? "", invoice.customerLegalName, company?.legalName ?? invoice.issuerLegalName),
       amount_due: formatMoney(invoice.amountDue.toString(), invoice.currency),
-      due_date: invoice.dueDate ? formatDate(invoice.dueDate) : "sin fecha de vencimiento",
+      due_date: dueDate ? formatDate(dueDate) : "",
       payment_instructions: profile?.paymentInstructions ?? "",
       bank_iban: profile?.bankIban ? `IBAN: ${profile.bankIban}` : "",
     };
     return {
       eligible: !reason,
       reason,
-      invoice: { id: invoice.id, number: invoice.fullNumber, amountDue: invoice.amountDue.toFixed(2), currency: invoice.currency, dueDate: invoice.dueDate?.toISOString().slice(0, 10) ?? null, disputed },
+      invoice: { id: invoice.id, number: invoice.fullNumber, amountDue: invoice.amountDue.toFixed(2), currency: invoice.currency, dueDate: dueDateIso, disputed },
       recipient: recipient?.trim() || invoice.customerEmail || null,
       definition,
       parameters,
