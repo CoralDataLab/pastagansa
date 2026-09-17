@@ -2,6 +2,12 @@
 
 Estado a 2026-09-16: **no hay certificación final del producto**. Los XML de alta y anulación de la prueba en staging validan contra el XSD y encadenan correctamente, pero esto no demuestra conformidad integral ni recepción por la AEAT.
 
+El [contraste técnico del 17/09/2026](13_contraste_xml_aeat.md) confirmó los XSD locales
+frente a los publicados por la AEAT y revisó el WSDL y las validaciones v1.2.2. A partir
+de esa revisión, no se exporta XML para inversión del sujeto pasivo ni para tipos IVA
+fuera del subconjunto ordinario `0`, `4`, `10`, `21`: requieren un mapeo específico antes
+de poder superar las reglas de negocio de la AEAT.
+
 ## Facturación transitoria con SIF desactivado
 
 Desde este cambio, una factura nueva emitida con `sif_mode = DISABLED` no añade un registro a `sif_records` ni incorpora QR fiscal. La factura, su asiento y su libro de IVA se siguen generando. La trazabilidad muestra «No aplica (SIF desactivado)». Los registros creados anteriormente bajo `DISABLED` permanecen inmutables y consultables; un reintento idempotente no los modifica.

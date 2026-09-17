@@ -206,6 +206,53 @@ describe("SifService registration profile", () => {
     expect(data.payload.aeatXml).toContain("<sf:NumSerieFactura>F2026-0009</sf:NumSerieFactura>");
   });
 
+  it.each([
+    ["reverse charge", new Decimal("21"), true, "reverse-charge"],
+    ["unsupported VAT rate", new Decimal("13"), false, "standard VAT rates"],
+  ])("keeps the SIF record but withholds invalid AEAT XML for %s", async (_case, taxRate, reverseCharge, reason) => {
+    const create = jest.fn().mockImplementation(({ data }) =>
+      Promise.resolve({ ...data, chainPosition: 1n }),
+    );
+    const service = new SifService({
+      required: {
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+      },
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          id: "33333333-3333-4333-8333-333333333333",
+          status: "ISSUED", fullNumber: "F2026-0009", sifMode: SifMode.NO_VERIFACTU,
+          aeatEnvironment: "TEST", documentType: "INVOICE", rectificationImpact: null,
+          issuerLegalName: "Coral Data Lab", issuerTaxId: "B12345674",
+          customerLegalName: "Client S.L.", customerTaxId: "B76543210",
+          sifInvoiceType: "F1", notes: null,
+          issueDate: new Date("2026-09-16T00:00:00.000Z"),
+          taxTotal: new Decimal("21.00"), total: new Decimal("121.00"),
+          lines: [{ description: "Consulting" }],
+          taxLines: [{
+            taxableBase: new Decimal("100.00"), taxRate,
+            taxAmount: new Decimal("21.00"), subject: true, exempt: false,
+            reverseCharge, surchargeRate: null, surchargeAmount: new Decimal("0"),
+          }],
+          company: {
+            timezone: "Europe/Madrid",
+            sifSoftwareProducerName: "Coral Data Lab", sifSoftwareProducerTaxId: "B12345674",
+            sifSoftwareName: "PastaGansa", sifSoftwareId: "PG",
+            sifSoftwareVersion: "0.1.0", sifInstallationNumber: "test-1",
+          },
+        }) },
+      },
+    } as never, { record: jest.fn() } as never);
+
+    await service.createRegistration("33333333-3333-4333-8333-333333333333");
+
+    const data = create.mock.calls[0][0].data;
+    expect(data.payload.aeatXml).toBeUndefined();
+    expect(data.payload.xmlSnapshotUnavailable).toContain(reason);
+  });
+
   it("does not create a SIF record for a newly issued DISABLED invoice", async () => {
     const create = jest.fn();
     const service = new SifService({

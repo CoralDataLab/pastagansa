@@ -727,7 +727,11 @@ productor; existe además un borrador descargable de declaración responsable. Y
 descargar un lote XML AEAT, unsigned y sin remisión, por registro de alta F1 estándar,
 R4 por diferencias o anulación: conserva la cabecera, encadenamiento, perfil de software
 y huella históricos. El exportador rechaza R1–R3, R5 y desgloses exentos, no sujetos o con
-recargo hasta modelar sus claves AEAT, en vez de inventar campos fiscales. También limita
+recargo, inversión del sujeto pasivo y tipos IVA fuera de `0`, `4`, `10`, `21` hasta
+modelar sus claves y reglas AEAT, en vez de inventar campos fiscales. El contraste
+del 17/09/2026 confirmó los XSD locales, el elemento de entrada WSDL y los tres casos
+sintéticos; la aceptación de negocio por la AEAT sigue pendiente (véase
+`docs/13_contraste_xml_aeat.md`). También limita
 desde configuración el perfil de software a los máximos del XSD, incluido el identificador
 de dos caracteres. Pendientes remisión, firma/eventos NO VERI*FACTU, soporte de toda la
 casuística fiscal y validación end-to-end contra AEAT.

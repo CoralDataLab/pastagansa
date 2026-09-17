@@ -673,20 +673,26 @@ function aggregateTaxLines(
 ) {
   const grouped = new Map<
     string,
-    { taxableBase: Decimal; taxRate: Decimal; taxAmount: Decimal; reverseCharge: boolean }
+    { taxableBase: Decimal; taxRate: Decimal; taxAmount: Decimal }
   >();
   for (const line of source) {
     if (
       !line.subject ||
       line.exempt ||
+      line.reverseCharge ||
       line.taxRate === null ||
       line.surchargeRate !== null ||
       !line.surchargeAmount.isZero()
     )
       throw new ConflictException(
-        "SIF XML export does not yet support exempt, non-subject, or surcharge VAT lines",
+        "SIF XML export does not yet support exempt, non-subject, reverse-charge, or surcharge VAT lines",
       );
-    const key = `${line.taxRate.toFixed(2)}:${line.reverseCharge}`;
+    const taxRate = line.taxRate;
+    if (![0, 4, 10, 21].some((rate) => taxRate.eq(rate)))
+      throw new ConflictException(
+        "SIF XML export supports only current standard VAT rates (0, 4, 10, 21); historical rates require date-aware AEAT validation",
+      );
+    const key = line.taxRate.toFixed(2);
     const existing = grouped.get(key);
     if (existing) {
       existing.taxableBase = existing.taxableBase.add(line.taxableBase);
@@ -696,13 +702,12 @@ function aggregateTaxLines(
         taxableBase: new Decimal(line.taxableBase),
         taxRate: new Decimal(line.taxRate),
         taxAmount: new Decimal(line.taxAmount),
-        reverseCharge: line.reverseCharge,
       });
   }
   return [...grouped.values()].map((line) => ({
     taxableBase: line.taxableBase.toFixed(2),
     taxRate: line.taxRate.toFixed(2),
     taxAmount: line.taxAmount.toFixed(2),
-    reverseCharge: line.reverseCharge,
+    reverseCharge: false as const,
   }));
 }

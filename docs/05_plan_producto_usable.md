@@ -293,8 +293,9 @@ Gate:
    append-only ya se incorpora como registro encadenado e idempotente, sin reescribir
    la factura ni sus efectos contables o de
    IVA. El exportador XML AEAT de alta F1 estándar, R4 por diferencias y anulación
-   valida contra el XSD local; sigue sin firma ni transmisión. El siguiente bloque es
-   preparar y validar la remisión al entorno de pruebas AEAT.
+   se contrastó el 17/09/2026 con XSD, WSDL y validaciones oficiales
+   ([acta](13_contraste_xml_aeat.md)); sigue sin firma ni transmisión. El siguiente
+   bloque es preparar y validar la remisión al entorno de pruebas AEAT.
 
 El backlog detallado, dependencias y criterios de aceptación de U6 están en
 [Operativa de documentos y cobros](09_plan_operativa_documentos_cobros.md).

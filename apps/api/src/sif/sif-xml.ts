@@ -48,7 +48,7 @@ export type SifXmlRegistration = SifXmlBaseRecord & {
     taxableBase: string;
     taxRate: string;
     taxAmount: string;
-    reverseCharge: boolean;
+    reverseCharge: false;
   }>;
   taxTotal: string;
   total: string;
@@ -125,10 +125,10 @@ function registration(record: SifXmlRegistration) {
       "        <sf:DetalleDesglose>",
       element("sf:Impuesto", "01", 10),
       element("sf:ClaveRegimen", "01", 10),
-      element("sf:CalificacionOperacion", line.reverseCharge ? "S2" : "S1", 10),
+      element("sf:CalificacionOperacion", "S1", 10),
       element("sf:TipoImpositivo", line.taxRate, 10),
       element("sf:BaseImponibleOimporteNoSujeto", line.taxableBase, 10),
-      ...(line.reverseCharge ? [] : [element("sf:CuotaRepercutida", line.taxAmount, 10)]),
+      element("sf:CuotaRepercutida", line.taxAmount, 10),
       "        </sf:DetalleDesglose>",
     ]),
     "      </sf:Desglose>",

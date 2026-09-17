@@ -6,3 +6,5 @@ Downloaded on 2026-09-16 from the [AEAT schema index](https://www.agenciatributa
 - `xmldsig-core-schema.xsd`: `https://www.w3.org/TR/xmldsig-core/xmldsig-core-schema.xsd`
 
 The sole local change to the AEAT files is that the XMLDSig import in `SuministroInformacion.xsd` points to the adjacent copy, so tests run without network access. Review upstream schema changes before replacing these fixtures.
+
+Rechecked against the AEAT schema index on 2026-09-17: `SuministroLR.xsd` is byte-for-byte identical; `SuministroInformacion.xsd` differs only at that local XMLDSig import. See `docs/13_contraste_xml_aeat.md` for the WSDL and business-rule review.
