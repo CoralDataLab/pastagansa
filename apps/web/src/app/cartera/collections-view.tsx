@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Route } from "next";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PaymentReminderDialog, type ReminderTarget } from "@/components/payment-reminder-dialog";
 import {
@@ -61,8 +61,10 @@ export function CollectionsView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const filters = collectionFilters(
-    new URLSearchParams(searchParams.toString()),
+  const filtersKey = searchParams.toString();
+  const filters = useMemo(
+    () => collectionFilters(new URLSearchParams(filtersKey)),
+    [filtersKey],
   );
   const [selected, setSelected] = useState<CollectionInvoice>();
   const [selectedReminderIds, setSelectedReminderIds] = useState<string[]>([]);
@@ -70,6 +72,11 @@ export function CollectionsView() {
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [notice, setNotice] = useState("");
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const pendingFiltersRef = useRef(filters);
+
+  useEffect(() => {
+    pendingFiltersRef.current = filters;
+  }, [filters]);
 
   const invoices = useQuery({
     queryKey: ["collections", filters],
@@ -157,7 +164,8 @@ export function CollectionsView() {
   });
 
   function updateFilters(patch: Partial<CollectionsFilters>) {
-    const next = { ...filters, ...patch };
+    const next = { ...pendingFiltersRef.current, ...patch };
+    pendingFiltersRef.current = next;
     const params = new URLSearchParams();
     if (next.asOf) params.set("asOf", next.asOf);
     if (next.bucket) params.set("bucket", next.bucket);
