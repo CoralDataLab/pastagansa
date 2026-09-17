@@ -2,15 +2,16 @@
 
 ## Estado del gate
 
-El 17/09/2026 el candidato U6A/U6B superó la validación local. El usuario desplegó
-`2093c97` en el staging HTTPS y [Staging acceptance #35203960073](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35203960073)
-pasó 3/3 con `E2E_SMTP_RECIPIENT` configurado. Se observaron los tres correos en el
-buzón controlado y se abrieron sus PDF. **U6-08 sigue abierto:** el recordatorio
-recibido decía «venció el sin fecha de vencimiento». La causa era que Cartera usaba el
-plazo pendiente y la plantilla leía solo la fecha de vencimiento de la factura. La
-corrección local usa el primer plazo sin cobrar y bloquea los avisos de vencida antes
-de la fecha real; necesita desplegarse y repetir el gate remoto. También falta
-completar el acta de la prueba moderada y los registros de restore drill.
+**U6-08 cerrado el 17/09/2026 para U6A/U6B.** El usuario desplegó
+`bb337bb23b419b39d966e6f048b278328519a416` en el staging HTTPS y
+[Staging acceptance #35209998357](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35209998357)
+pasó 3/3 con `E2E_SMTP_RECIPIENT` configurado. Se recibieron los tres correos nuevos
+con PDF en el buzón controlado. El recordatorio ya muestra el vencimiento real
+(`8/8/2026`): queda resuelta la incidencia alta observada en el despliegue anterior,
+cuando decía «venció el sin fecha de vencimiento». La prueba manual independiente
+terminó sin incidencias, con perfil administrativo, Firefox y cero ayudas. No se
+registraron duraciones; tampoco se archivaron el log y los recuentos del restore drill
+del host ni una inspección multipágina realizada directamente en el staging.
 
 | Comprobación local | Resultado |
 | --- | --- |
@@ -53,19 +54,18 @@ SMTP cuando no se configura correo.
    Registrar fecha, SHA, tareas, ayudas e incidencias. No cerrar con incidencias
    críticas o altas abiertas.
 
-Evidencia reunida hasta ahora. Las confirmaciones del usuario se consignan como
+Evidencia del cierre. Las confirmaciones del usuario se consignan como
 declaraciones de la sesión, sin atribuirles comprobaciones automatizadas o registros
-que no se han visto. Falta el acta con participante, tiempos, ayudas y comprobaciones
-concretas antes de dar la prueba moderada por cerrada.
+que no se han visto. Las duraciones de las tareas no quedaron anotadas.
 
 | Evidencia remota | Resultado / enlace |
 | --- | --- |
-| SHA, URL y fecha de despliegue | Usuario confirma `2093c97` en `https://ledger.coraldatalab.com` el 17/09/2026; build, API, web, PostgreSQL y healthchecks correctos |
-| Backup previo y restore drill posterior | Usuario confirma backup previo y restauración correcta; faltan ruta/registro y recuentos remotos |
-| Workflow E2E/WCAG HTTPS | [Staging acceptance #35203960073](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35203960073): 3/3 sobre `2093c97` con destinatario obligatorio; repetir tras el arreglo del recordatorio |
-| Buzón controlado y adjuntos | Verificados en Proton Mail el 17/09/2026 a las 11:14–11:15: presupuesto `P2026-0001`, factura `FE2E-0001` y recordatorio de esa factura; tres PDF adjuntos; presupuesto y factura previsualizados con total 121,00 €; el PDF del recordatorio también se abre |
-| Inspección PDF una/varias páginas | Previsualizados los tres adjuntos de una página en el buzón; inspección remota de variantes multipágina pendiente |
-| Prueba moderada y clasificación de hallazgos | Usuario comunica «Todo OK sin problema»; pendiente acta con participante administrativo independiente, tareas, tiempos y ayudas; incidencia alta posterior en texto del recordatorio, corregida localmente y pendiente de despliegue |
+| SHA, URL y fecha de despliegue | Usuario confirma `bb337bb` en `https://ledger.coraldatalab.com` el 17/09/2026; la URL `/acceso` responde HTTP 200. Para el despliegue previo había confirmado build, API, web, PostgreSQL y healthchecks correctos |
+| Backup previo y restore drill posterior | Usuario confirma backup previo y restauración correcta; faltan ruta/registro y recuentos remotos. La restauración aislada local/CI igualó 43 migraciones y recuentos `1:1:1:1:1` |
+| Workflow E2E/WCAG HTTPS | [Staging acceptance #35209998357](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35209998357): 3/3 sobre `bb337bb` con destinatario obligatorio y HTTPS; incluye comprobación de estado `SENT` del recordatorio |
+| Buzón controlado y adjuntos | Verificados en Proton Mail el 17/09/2026 a las 12:22: presupuesto `P2026-0001`, factura `FE2E-0001` y recordatorio de esa factura, remitidos por `facturacion@coraldatalab.com` al buzón controlado, cada uno con su PDF. El nuevo recordatorio dice «venció el 8/8/2026» y mantiene saldo pendiente de 121,00 € |
+| Inspección PDF una/varias páginas | Los adjuntos de una página del despliegue anterior se abrieron en el buzón; las variantes localmente renderizadas de una y cuatro páginas no mostraron recortes ni solapamientos. No consta inspección multipágina directa del staging |
+| Prueba moderada y clasificación de hallazgos | Participante administrativo independiente, Firefox, 0 ayudas; usuario confirma tareas completadas sin incidencias durante la sesión. Duraciones no registradas. La incidencia alta del texto del recordatorio quedó corregida y verificada en el nuevo correo |
 
 La suite local tras la corrección pasó 3/3 en Chromium con SMTP de captura y compara
 los PDF recibidos con las descargas. El E2E ahora comprueba además el estado `SENT`

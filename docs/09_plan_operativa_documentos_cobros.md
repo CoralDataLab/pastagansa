@@ -238,12 +238,12 @@ cuenta bancaria o imagen de marca.
 **Dependencias:** U6-02  
 **Entrega:** U6A
 
-**Estado real (16/09/2026):** implementado localmente. El outbox único conserva las
+**Estado real (17/09/2026):** implementado y aceptado en staging. El outbox único conserva las
 entregas históricas de factura y admite presupuestos, con PDF del snapshot adjunto,
 destinatario/plantillas configurables, idempotencia, leases, reintentos e historial
 visible tras recargar. La aplicación explica la indisponibilidad y mantiene descarga
-PDF si SMTP no está configurado; staging ya recibe la configuración, pero el envío a un
-buzón controlado y el gate E2E remoto de U6A siguen pendientes. La web conserva la
+PDF si SMTP no está configurado; staging entregó presupuesto, factura y recordatorio
+con PDF al buzón controlado y el gate E2E remoto pasó 3/3. La web conserva la
 misma clave idempotente para un reintento del mismo documento, destinatario y asunto;
 cambiar el destinatario o asunto inicia explícitamente una entrega distinta.
 
@@ -582,8 +582,10 @@ perder control sobre destinatario, tono o frecuencia.
 **Dependencias:** issues incluidos en cada release  
 **Entrega:** U6A y U6B
 
-**Estado real (17/09/2026):** candidato local validado; gate remoto y prueba moderada
-pendientes. Evidencia, secuencia de cierre y operación en
+**Estado real (17/09/2026):** U6-08 cerrado para U6A/U6B tras aceptación remota
+3/3 sobre `bb337bb`, recepción de tres PDF en el buzón controlado y prueba moderada
+administrativa sin incidencias. El log y los recuentos del restore drill remoto no
+quedaron archivados; la validación aislada local/CI sí consta. Evidencia y operación en
 [Aceptación y operación U6](12_aceptacion_u6.md).
 
 ### Objetivo
@@ -605,19 +607,19 @@ antes de exponerla a empresas reales.
 
 ### Criterios de aceptación U6A
 
-- [ ] Empresa → perfil → factura/presupuesto → PDF → email se completa sin consola.
-- [ ] Los datos y la representación visual del PDF histórico no cambian después de
+- [x] Empresa → perfil → factura/presupuesto → PDF → email se completa sin consola.
+- [x] Los datos y la representación visual del PDF histórico no cambian después de
       editar el perfil.
-- [ ] El correo recibido contiene el PDF esperado y la entrega aparece en historial.
-- [ ] La caída del proveedor no bloquea emisión ni descarga.
-- [ ] Backup y restore drill validan el nuevo número de migraciones.
+- [x] El correo recibido contiene el PDF esperado y la entrega aparece en historial.
+- [x] La caída del proveedor no bloquea emisión ni descarga.
+- [x] Backup y restore drill validan el nuevo número de migraciones.
 
 ### Criterios de aceptación U6B
 
-- [ ] Cartera → filtro vencidos → recordatorio → promesa → cobro se completa sin consola.
-- [ ] Totales de Cartera, factura, diario y banco no presentan diferencias.
-- [ ] Reintentos y concurrencia no duplican evento, correo ni cobro.
-- [ ] Las rutas críticas superan auditoría WCAG y prueba remota de staging.
+- [x] Cartera → filtro vencidos → recordatorio → promesa → cobro se completa sin consola.
+- [x] Totales de Cartera, factura, diario y banco no presentan diferencias.
+- [x] Reintentos y concurrencia no duplican evento, correo ni cobro.
+- [x] Las rutas críticas superan auditoría WCAG y prueba remota de staging.
 
 ### Rollback
 

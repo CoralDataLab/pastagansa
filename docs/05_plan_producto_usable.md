@@ -287,17 +287,14 @@ Gate:
 
 ## Orden inmediato de implementación
 
-1. Cerrar U6-08 en staging HTTPS: repetir el recorrido de perfil, snapshots/PDF,
-   entrega por email y Cartera con buzón controlado, guardar E2E/WCAG, backup y
-   restore drill y realizar la prueba moderada U6. U6A y el alcance base de U6B
-   pasaron la aceptación local del 17/09/2026; la evidencia pendiente está en
-   [Aceptación y operación U6](12_aceptacion_u6.md).
-2. Continuar SIF/VERI*FACTU. La anulación append-only ya se incorpora como registro
-   encadenado e idempotente, sin reescribir la factura ni sus efectos contables o de
+1. Continuar SIF/VERI*FACTU. U6-08 quedó cerrado para U6A/U6B el 17/09/2026 tras
+   la aceptación remota y la prueba administrativa; el detalle y las salvedades de
+   archivo están en [Aceptación y operación U6](12_aceptacion_u6.md). La anulación
+   append-only ya se incorpora como registro encadenado e idempotente, sin reescribir
+   la factura ni sus efectos contables o de
    IVA. El exportador XML AEAT de alta F1 estándar, R4 por diferencias y anulación
    valida contra el XSD local; sigue sin firma ni transmisión. El siguiente bloque es
-   preparar y validar la remisión al entorno de pruebas AEAT. El cierre remoto de U6B no
-   desplaza este punto de control.
+   preparar y validar la remisión al entorno de pruebas AEAT.
 
 El backlog detallado, dependencias y criterios de aceptación de U6 están en
 [Operativa de documentos y cobros](09_plan_operativa_documentos_cobros.md).

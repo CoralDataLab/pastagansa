@@ -30,10 +30,12 @@
 
 ### Regla operativa de commits
 
-**U6-08:** la aceptación local de U6A/U6B está preparada y validada con E2E/WCAG,
+**U6-08 cerrado para U6A/U6B (17/09/2026):** aceptación local con E2E/WCAG,
 SMTP capturado, PDFs renderizados, seed idempotente, imágenes y restore drill de 43
-migraciones. El gate permanece abierto hasta la aceptación en staging HTTPS con buzón
-controlado y una nueva prueba moderada. Véase `docs/12_aceptacion_u6.md`.
+migraciones; aceptación HTTPS 3/3 sobre `bb337bb` con los tres correos y PDF en el
+buzón controlado, y prueba moderada administrativa sin incidencias. El acta distingue
+la evidencia observada de los datos de restauración remota aún sin archivar. Véase
+`docs/12_aceptacion_u6.md`.
 
 Antes de cada commit que cambie producto, infraestructura, datos o documentación de alcance, actualizar esta tabla y/o su detalle cuando el estado real cambie. El commit debe incluir esa actualización y la validación ejecutada debe quedar indicada en su mensaje de entrega.
 
