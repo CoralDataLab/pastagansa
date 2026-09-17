@@ -42,6 +42,9 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      AEAT_TEST_ENABLED: ${AEAT_TEST_ENABLED:-false}
+      AEAT_TEST_PFX_PATH: ${AEAT_TEST_PFX_PATH:-}
+      AEAT_TEST_PFX_PASSPHRASE: ${AEAT_TEST_PFX_PASSPHRASE:-}
       PORT: 3000
     healthcheck:
       test:

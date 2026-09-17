@@ -107,8 +107,8 @@ export class InvoiceEmailOutboxWorker implements OnModuleInit, OnModuleDestroy {
           ...invoice,
           fullNumber: invoice.fullNumber,
           sifQr:
-            invoice.sifMode === SifMode.NO_VERIFACTU
-              ? { mode: "NO_VERIFACTU", environment: invoice.aeatEnvironment }
+            invoice.sifMode !== SifMode.DISABLED
+              ? { mode: invoice.sifMode, environment: invoice.aeatEnvironment }
               : undefined,
         });
         const result = await this.mailer.send({ recipient: delivery.recipient, subject: delivery.subject, text, documentNumber: invoice.fullNumber, documentLabel: "la factura", issuerLegalName: invoice.issuerLegalName, filename: `factura-${safeFilename(invoice.fullNumber)}.pdf`, pdf });

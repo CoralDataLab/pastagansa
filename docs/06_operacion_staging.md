@@ -48,6 +48,53 @@ El staging aislado usa `THROTTLE_LIMIT=1000` para que los recorridos de aceptaci
 completos no compartan y agoten la ventana por IP. Producción conserva el límite normal
 de 120 salvo una decisión operativa explícita.
 
+## Pruebas de remisión VERI*FACTU a la AEAT
+
+La integración solo apunta al servicio **de pruebas** de la AEAT y está desactivada
+por defecto. Para activarla se necesita un certificado electrónico cualificado y
+vigente con clave privada, en formato `.p12` o `.pfx`, del obligado tributario o de
+un representante/apoderado o colaborador social autorizado para presentarlo. El NIF
+de la empresa configurada en la aplicación debe ser el del obligado tributario real;
+un NIF inventado no sirve para una prueba de remisión. El certificado usado para
+autenticarse puede pertenecer al representante autorizado, de modo que no tiene por
+qué coincidir con el NIF emisor. La AEAT valida ambos. No se debe enviar el archivo
+ni su contraseña por chat, correo o al repositorio.
+
+En el host de staging, guardar el certificado **fuera del checkout** con permisos de
+lectura solo para el operador y el usuario que ejecuta Docker. Añadir al `.env.staging`
+privado (permisos `600`):
+
+```dotenv
+AEAT_TEST_ENABLED=true
+AEAT_TEST_PFX_HOST_PATH=/ruta/privada/aeat-test.p12
+AEAT_TEST_PFX_PATH=/run/secrets/aeat-test.p12
+AEAT_TEST_PFX_PASSPHRASE=contrasena-del-certificado
+```
+
+Crear y verificar un backup antes del cambio. Desplegar con el montaje de solo
+lectura:
+
+```bash
+./scripts/staging-up.sh .env.staging docker-compose.aeat-test.yml
+```
+
+El servicio solo envía XML congelado de facturas y anulaciones emitidas con modo
+`VERIFACTU` y entorno `TEST`. Para la primera prueba, usar una empresa española
+autorizada **sin registros SIF previos**; cambiar una cadena existente de modo
+requiere revisión. La API encola el envío de forma transaccional, respeta la espera
+indicada por la AEAT y conserva el estado, CSV, error y respuesta por registro en
+`GET /v1/sif/records/{recordId}/test-submissions` (permiso `sif_record.read`).
+`ACCEPTED` y `ACCEPTED_WITH_ERRORS` son respuestas registradas; `REJECTED` exige
+corregir el registro conforme a la respuesta de la AEAT. `UNKNOWN` indica que la
+petición pudo llegar sin respuesta verificable: consultar lo recibido en la AEAT
+antes de cualquier reenvío manual. El worker no reenvía automáticamente estados
+`UNKNOWN` para evitar duplicados. `FAILED` indica que se agotaron los reintentos
+seguros. Estos estados deben revisarse antes de seguir con la cadena.
+
+Para desactivar los envíos nuevos, poner `AEAT_TEST_ENABLED=false` y desplegar sin
+el archivo adicional de Compose. La configuración de producción mantiene el
+remitente AEAT de pruebas desactivado por diseño.
+
 ## Recuperación de una contraseña sin SMTP
 
 Generar el enlace temporal desde el host, sustituyendo el correo y la URL pública:

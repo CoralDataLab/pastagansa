@@ -1,5 +1,6 @@
 import { RectificationImpact, SifMode, SifRecordType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { createHash } from "node:crypto";
 import { SifService } from "./sif.service";
 
 describe("SifService transition audit", () => {
@@ -161,10 +162,12 @@ describe("SifService registration profile", () => {
     expect(data.total).toBe(total);
   });
 
-  it("stores supported registration XML with the immutable SIF record", async () => {
+  it.each([SifMode.NO_VERIFACTU, SifMode.VERIFACTU])
+  ("freezes the %s registration and queues only test VERI*FACTU", async (mode) => {
     const create = jest.fn().mockImplementation(({ data }) =>
-      Promise.resolve({ ...data, chainPosition: 1n }),
+      Promise.resolve({ ...data, id: "44444444-4444-4444-8444-444444444444", chainPosition: 1n }),
     );
+    const submissionCreate = jest.fn().mockResolvedValue({});
     const service = new SifService({
       required: {
         organizationId: "11111111-1111-4111-8111-111111111111",
@@ -173,9 +176,10 @@ describe("SifService registration profile", () => {
       db: {
         $executeRaw: jest.fn(),
         sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
+        sifAeatSubmission: { create: submissionCreate },
         invoice: { findFirst: jest.fn().mockResolvedValue({
           id: "33333333-3333-4333-8333-333333333333",
-          status: "ISSUED", fullNumber: "F2026-0009", sifMode: SifMode.NO_VERIFACTU,
+          status: "ISSUED", fullNumber: "F2026-0009", sifMode: mode,
           aeatEnvironment: "TEST", documentType: "INVOICE", rectificationImpact: null,
           issuerLegalName: "Coral Data Lab", issuerTaxId: "B12345674",
           customerLegalName: "Client S.L.", customerTaxId: "B76543210",
@@ -196,7 +200,7 @@ describe("SifService registration profile", () => {
           },
         }) },
       },
-    } as never, { record: jest.fn() } as never);
+    } as never, { record: jest.fn() } as never, { enabled: true } as never);
 
     await service.createRegistration("33333333-3333-4333-8333-333333333333");
 
@@ -204,6 +208,16 @@ describe("SifService registration profile", () => {
     expect(data.payload.aeatXml).toContain("<sf:RegistroAlta>");
     expect(data.payload.aeatXml).toContain(`<sf:Huella>${data.recordHash}</sf:Huella>`);
     expect(data.payload.aeatXml).toContain("<sf:NumSerieFactura>F2026-0009</sf:NumSerieFactura>");
+    if (mode === SifMode.VERIFACTU) {
+      expect(submissionCreate).toHaveBeenCalledWith({ data: {
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+        recordId: "44444444-4444-4444-8444-444444444444",
+        requestSha256: createHash("sha256").update(data.payload.aeatXml).digest("hex"),
+      } });
+    } else {
+      expect(submissionCreate).not.toHaveBeenCalled();
+    }
   });
 
   it.each([
@@ -314,7 +328,7 @@ describe("SifService registration profile", () => {
     } as never, {} as never);
 
     await expect(service.createRegistration("33333333-3333-4333-8333-333333333333"))
-      .rejects.toThrow("not production-ready");
+      .rejects.toThrow("production is not enabled");
     expect(create).not.toHaveBeenCalled();
   });
 

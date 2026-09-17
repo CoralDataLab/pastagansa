@@ -14,3 +14,5 @@ coverage
 .DS_Store
 /tmp/
 /output/pdf/*.pdf
+*.p12
+*.pfx

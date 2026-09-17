@@ -39,6 +39,12 @@ export class SifController {
     });
   }
 
+  @Get(":recordId/test-submissions")
+  @RequirePermissions("sif_record.read")
+  testSubmissions(@Param("recordId", ParseUUIDPipe) recordId: string) {
+    return this.sif.testSubmissions(recordId);
+  }
+
   @Get()
   @RequirePermissions("sif_record.read")
   list(@Query() query: ListSifRecordsDto) {

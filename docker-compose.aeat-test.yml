@@ -1,0 +1,7 @@
+services:
+  api:
+    volumes:
+      - type: bind
+        source: ${AEAT_TEST_PFX_HOST_PATH:?set AEAT_TEST_PFX_HOST_PATH}
+        target: /run/secrets/aeat-test.p12
+        read_only: true

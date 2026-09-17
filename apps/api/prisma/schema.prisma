@@ -163,6 +163,17 @@ enum SifRecordType {
   CANCELLATION
 }
 
+enum SifAeatSubmissionStatus {
+  PENDING
+  SENDING
+  RETRY
+  ACCEPTED
+  ACCEPTED_WITH_ERRORS
+  REJECTED
+  FAILED
+  UNKNOWN
+}
+
 enum SifMode {
   DISABLED
   NO_VERIFACTU
@@ -257,6 +268,7 @@ model Organization {
   taxLedgerEntries      TaxLedgerEntry[]
   taxLedgerAmounts      TaxLedgerAmount[]
   sifRecords            SifRecord[]
+  sifAeatSubmissions    SifAeatSubmission[]
   purchaseInvoices      PurchaseInvoice[]
   purchaseInvoiceLines  PurchaseInvoiceLine[]
   purchaseTaxLines      PurchaseTaxLine[]
@@ -317,6 +329,7 @@ model Company {
   taxLedgerEntries      TaxLedgerEntry[]
   taxLedgerAmounts      TaxLedgerAmount[]
   sifRecords            SifRecord[]
+  sifAeatSubmissions    SifAeatSubmission[]
   purchaseInvoices      PurchaseInvoice[]
   purchaseInvoiceLines  PurchaseInvoiceLine[]
   purchaseTaxLines      PurchaseTaxLine[]
@@ -575,6 +588,7 @@ model SifRecord {
   invoice              Invoice       @relation(fields: [invoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
   previousRecord       SifRecord?    @relation("SifRecordChain", fields: [previousRecordId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
   nextRecords          SifRecord[]   @relation("SifRecordChain")
+  aeatSubmissions      SifAeatSubmission[]
 
   @@unique([companyId, invoiceId, recordType])
   @@unique([companyId, chainPosition])
@@ -582,6 +596,39 @@ model SifRecord {
   @@unique([id, organizationId, companyId])
   @@index([companyId, generatedAt, id])
   @@map("sif_records")
+}
+
+model SifAeatSubmission {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  organizationId     String                  @map("organization_id") @db.Uuid
+  companyId          String                  @map("company_id") @db.Uuid
+  recordId           String                  @map("record_id") @db.Uuid
+  status             SifAeatSubmissionStatus @default(PENDING)
+  attempts           Int                     @default(0)
+  availableAt        DateTime                @default(now()) @map("available_at") @db.Timestamptz(6)
+  lockedAt           DateTime?               @map("locked_at") @db.Timestamptz(6)
+  lastAttemptAt      DateTime?               @map("last_attempt_at") @db.Timestamptz(6)
+  completedAt        DateTime?               @map("completed_at") @db.Timestamptz(6)
+  requestSha256      String                  @map("request_sha256") @db.Char(64)
+  httpStatus         Int?                    @map("http_status")
+  globalStatus       String?                 @map("global_status") @db.VarChar(30)
+  recordStatus       String?                 @map("record_status") @db.VarChar(30)
+  csv                String?                 @db.VarChar(120)
+  errorCode          String?                 @map("error_code") @db.VarChar(20)
+  errorDescription   String?                 @map("error_description") @db.Text
+  waitSeconds        Int?                    @map("wait_seconds")
+  responseXml        String?                 @map("response_xml") @db.Text
+  lastError          String?                 @map("last_error") @db.Text
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company            Company                 @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  record             SifRecord               @relation(fields: [recordId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+
+  @@unique([companyId, recordId])
+  @@index([status, availableAt, createdAt])
+  @@index([companyId, createdAt])
+  @@map("sif_aeat_submissions")
 }
 
 model TaxRule {

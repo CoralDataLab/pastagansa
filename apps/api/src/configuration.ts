@@ -37,6 +37,15 @@ export function validateConfiguration(values: Record<string, unknown>) {
     throw new Error(
       "DIRECT_DATABASE_URL is required when the OCR worker is enabled",
     );
+  if (values.AEAT_TEST_ENABLED && !["true", "false"].includes(String(values.AEAT_TEST_ENABLED)))
+    throw new Error("AEAT_TEST_ENABLED must be true or false");
+  if (String(values.AEAT_TEST_ENABLED) === "true") {
+    for (const name of ["AEAT_TEST_PFX_PATH", "AEAT_TEST_PFX_PASSPHRASE", "DIRECT_DATABASE_URL"])
+      if (typeof values[name] !== "string" || !values[name])
+        throw new Error(`${name} is required when AEAT_TEST_ENABLED is true`);
+    if (!String(values.AEAT_TEST_PFX_PATH).startsWith("/"))
+      throw new Error("AEAT_TEST_PFX_PATH must be an absolute path");
+  }
   return values;
 }
 function positiveInteger(

@@ -204,6 +204,17 @@ export interface InvoiceTrace {
     hashAlgorithm: string;
     specificationVersion: string;
   }>;
+  aeatTestSubmissions: Array<{
+    recordId: string;
+    submissions: Array<{
+      status: "PENDING" | "SENDING" | "RETRY" | "ACCEPTED" | "ACCEPTED_WITH_ERRORS" | "REJECTED" | "FAILED" | "UNKNOWN";
+      attempts: number;
+      csv: string | null;
+      errorCode: string | null;
+      errorDescription: string | null;
+      lastError: string | null;
+    }>;
+  }>;
   sifVerification: {
     valid: boolean;
     recordsChecked: number;

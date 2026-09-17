@@ -27,12 +27,18 @@ export async function GET(
       "/v1/sif/records/verification",
     );
     if (!sifVerification.ok) return apiError(sifVerification);
-    const sifRecords = (await sif.json()) as unknown[];
+    const sifRecords = (await sif.json()) as Array<{ id: string }>;
+    const aeatTestSubmissions = await Promise.all(sifRecords.map(async (record) => {
+      const response = await tenantApiRequest(`/v1/sif/records/${record.id}/test-submissions`);
+      if (!response.ok) throw new SessionError("No podemos consultar el estado AEAT.", response.status);
+      return { recordId: record.id, submissions: await response.json() };
+    }));
     return NextResponse.json({
       journalEntry: journalPage.data[0] ?? null,
       taxEntry: taxPage.data[0] ?? null,
       sifRecord: sifRecords[0] ?? null,
       sifRecords,
+      aeatTestSubmissions,
       sifVerification: await sifVerification.json(),
     });
   } catch (error) {

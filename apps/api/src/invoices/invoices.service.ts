@@ -124,8 +124,8 @@ export class InvoicesService {
         issuerLogoMediaType: asset?.issuerLogoMediaType ?? null,
         issuerLogoContent: asset?.issuerLogoContent ?? null,
         sifQr:
-          invoice.sifMode === SifMode.NO_VERIFACTU
-            ? { mode: "NO_VERIFACTU", environment: invoice.aeatEnvironment }
+          invoice.sifMode !== SifMode.DISABLED
+            ? { mode: invoice.sifMode, environment: invoice.aeatEnvironment }
             : undefined,
       }),
     };

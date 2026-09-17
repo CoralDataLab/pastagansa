@@ -63,10 +63,7 @@ export type SifXmlCancellation = SifXmlBaseRecord & {
 
 export type SifXmlRecord = SifXmlRegistration | SifXmlCancellation;
 
-/**
- * Renders the exact AEAT SIF batch shape, but deliberately does not sign it or
- * contact AEAT. Signing/remission is a separate, later concern.
- */
+/** Renders the frozen AEAT SIF batch XML; transport is handled separately. */
 export function renderSifAeatXml(input: {
   header: SifXmlHeader;
   record: SifXmlRecord;

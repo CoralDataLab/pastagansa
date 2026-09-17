@@ -878,6 +878,19 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                     ? `Cadena SIF verificada · ${trace.data.sifVerification.recordsChecked} registros`
                     : `Cadena SIF con incidencia · ${trace.data.sifVerification.firstInvalid?.reason ?? "revisar registro"}`}
                 </small>
+                {invoice.sifMode === "VERIFACTU" && trace.data.sifRecords.map((record) => {
+                  const submission = trace.data.aeatTestSubmissions.find(
+                    (entry) => entry.recordId === record.id,
+                  )?.submissions[0];
+                  return (
+                    <small key={`aeat-${record.id}`} role="status">
+                      AEAT pruebas · {record.recordType === "REGISTRATION" ? "alta" : "anulación"}: {submission ? aeatTestStatusLabel(submission.status) : "sin envío"}
+                      {submission?.csv ? ` · CSV ${submission.csv}` : ""}
+                      {submission?.errorDescription ? ` · ${submission.errorDescription}` : ""}
+                      {submission?.lastError ? ` · ${submission.lastError}` : ""}
+                    </small>
+                  );
+                })}
                 {trace.data.sifRecords.some(
                   (record) => record.recordType === "CANCELLATION",
                 ) && (
@@ -962,6 +975,20 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
 
 function shortHash(value: string) {
   return `${value.slice(0, 12)}…${value.slice(-8)}`;
+}
+
+function aeatTestStatusLabel(status: string) {
+  switch (status) {
+    case "PENDING": return "pendiente";
+    case "SENDING": return "enviando";
+    case "RETRY": return "reintento programado";
+    case "ACCEPTED": return "aceptado";
+    case "ACCEPTED_WITH_ERRORS": return "aceptado con errores";
+    case "REJECTED": return "rechazado";
+    case "FAILED": return "fallo sin envío confirmado";
+    case "UNKNOWN": return "resultado incierto: verificar en AEAT";
+    default: return status;
+  }
 }
 
 function PaymentsPanel({ invoice }: { invoice: Invoice }) {

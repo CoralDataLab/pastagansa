@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import {
   DocumentType,
@@ -13,6 +14,7 @@ import {
   SifMode,
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { createHash } from "node:crypto";
 import { AuditService } from "../audit/audit.service";
 import { TenantContextService } from "../tenancy/tenant-context.service";
 import {
@@ -23,6 +25,7 @@ import {
   SIF_HASH_SPECIFICATION_VERSION,
 } from "./sif-hash-v1";
 import { verifySifChain } from "./sif-chain";
+import { AeatTestClient } from "./aeat-test.client";
 import { captureSifSoftwareSnapshot } from "./sif-software-profile";
 import {
   renderSifAeatXml,
@@ -36,6 +39,7 @@ export class SifService {
   constructor(
     private readonly tenant: TenantContextService,
     private readonly audit: AuditService,
+    @Optional() private readonly aeatTest?: AeatTestClient,
   ) {}
 
   async listForInvoice(invoiceId: string) {
@@ -287,13 +291,13 @@ export class SifService {
     // append new records to the experimental SIF chain; existing records are
     // left untouched and remain readable through the idempotency check above.
     if (invoice.sifMode === SifMode.DISABLED) return null;
-    if (invoice.sifMode === SifMode.VERIFACTU)
+    if (invoice.sifMode === SifMode.VERIFACTU && !this.aeatTest?.enabled)
       throw new ConflictException(
-        "VERI*FACTU cannot issue invoices until AEAT transmission is configured",
+        "VERI*FACTU test issuance requires the AEAT test sender to be configured",
       );
     if (invoice.aeatEnvironment !== "TEST")
       throw new ConflictException(
-        "NO VERI*FACTU is not production-ready; use the AEAT test environment only",
+        "SIF test issuance requires the AEAT test environment; production is not enabled",
       );
 
     const softwareSnapshot = captureSifSoftwareSnapshot(invoice.company);
@@ -356,6 +360,8 @@ export class SifService {
       if (!(error instanceof ConflictException)) throw error;
       xmlSnapshotUnavailable = error.message;
     }
+    if (invoice.sifMode === SifMode.VERIFACTU && !aeatXml)
+      throw new ConflictException(xmlSnapshotUnavailable ?? "VERI*FACTU test issuance requires exportable XML");
     const payload: Prisma.InputJsonObject = {
       hashInput,
       firstRecord: previous === null,
@@ -383,6 +389,8 @@ export class SifService {
         softwareSnapshot,
       },
     });
+    if (invoice.sifMode === SifMode.VERIFACTU)
+      await this.enqueueAeatTest(record.id, aeatXml!);
     await this.audit.record("sif_record.registered", "sif_record", record.id, {
       invoiceId: invoice.id,
       chainPosition: record.chainPosition.toString(),
@@ -415,6 +423,8 @@ export class SifService {
         status: true,
         issuerLegalName: true,
         issuerTaxId: true,
+        sifMode: true,
+        aeatEnvironment: true,
         company: { select: { timezone: true } },
       },
     });
@@ -423,6 +433,9 @@ export class SifService {
       throw new ConflictException(
         "Only an issued invoice can generate a SIF cancellation",
       );
+    if (invoice.sifMode === SifMode.VERIFACTU &&
+        (invoice.aeatEnvironment !== "TEST" || !this.aeatTest?.enabled))
+      throw new ConflictException("VERI*FACTU cancellation requires the AEAT test sender");
 
     const registration = await this.tenant.db.sifRecord.findFirst({
       where: { invoiceId, recordType: SifRecordType.REGISTRATION, ...scope },
@@ -476,6 +489,8 @@ export class SifService {
       if (!(error instanceof ConflictException)) throw error;
       xmlSnapshotUnavailable = error.message;
     }
+    if (invoice.sifMode === SifMode.VERIFACTU && !aeatXml)
+      throw new ConflictException(xmlSnapshotUnavailable ?? "VERI*FACTU cancellation requires exportable XML");
     const payload: Prisma.InputJsonObject = {
       hashInput,
       cancellationOf: {
@@ -506,6 +521,8 @@ export class SifService {
         softwareSnapshot: registration.softwareSnapshot ?? undefined,
       },
     });
+    if (invoice.sifMode === SifMode.VERIFACTU)
+      await this.enqueueAeatTest(record.id, aeatXml!);
     await this.audit.record("sif_record.cancelled", "sif_record", record.id, {
       invoiceId: registration.invoiceId,
       registrationId: registration.id,
@@ -514,6 +531,32 @@ export class SifService {
       specificationVersion: SIF_HASH_SPECIFICATION_VERSION,
     });
     return presentSifRecord(record);
+  }
+
+  async testSubmissions(recordId: string) {
+    const scope = this.scope();
+    const record = await this.tenant.db.sifRecord.findFirst({ where: { id: recordId, ...scope } });
+    if (!record) throw new NotFoundException("SIF record not found");
+    return this.tenant.db.sifAeatSubmission.findMany({
+      where: { recordId, ...scope },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true, status: true, attempts: true, createdAt: true, updatedAt: true,
+        completedAt: true, lastAttemptAt: true, globalStatus: true, recordStatus: true,
+        csv: true, errorCode: true, errorDescription: true, waitSeconds: true,
+        lastError: true, requestSha256: true,
+      },
+    });
+  }
+
+  private async enqueueAeatTest(recordId: string, xml: string) {
+    await this.tenant.db.sifAeatSubmission.create({
+      data: {
+        ...this.scope(),
+        recordId,
+        requestSha256: createHash("sha256").update(xml).digest("hex"),
+      },
+    });
   }
 
   private scope() {

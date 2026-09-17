@@ -176,9 +176,9 @@ export function CompanySettingsView() {
           </section>
           <section className="company-settings-card" aria-labelledby="sif-title">
             <h2 id="sif-title">SIF y QR fiscal</h2>
-            <p>El QR se fija al emitir cada factura. VERI*FACTU se habilitará cuando esté disponible la remisión de registros a la AEAT.</p>
+            <p>El QR se fija al emitir cada factura. La remisión VERI*FACTU solo está disponible en pruebas AEAT cuando el servidor tiene un certificado autorizado.</p>
             <div className="contact-form">
-              <label className="field"><span>Modo fiscal</span><select disabled={!canUpdate} onChange={(event) => updateCompany("sifMode", event.target.value)} value={form.sifMode}><option value="DISABLED">No incluir QR fiscal</option><option value="NO_VERIFACTU">SIF no VERI*FACTU (QR fiscal)</option></select></label>
+              <label className="field"><span>Modo fiscal</span><select disabled={!canUpdate} onChange={(event) => updateCompany("sifMode", event.target.value)} value={form.sifMode}><option value="DISABLED">No incluir QR fiscal</option><option value="NO_VERIFACTU">SIF no VERI*FACTU (QR fiscal)</option><option value="VERIFACTU">VERI*FACTU (remisión AEAT pruebas)</option></select></label>
               <label className="field"><span>Entorno AEAT</span><select disabled={!canUpdate || form.sifMode === "DISABLED"} onChange={(event) => updateCompany("aeatEnvironment", event.target.value)} value={form.aeatEnvironment}><option value="PRODUCTION">Producción</option><option value="TEST">Pruebas AEAT</option></select></label>
               <TextField disabled={!canUpdate} label="Productor del software" maxLength={120} onChange={(value) => updateCompany("sifSoftwareProducerName", value)} value={form.sifSoftwareProducerName ?? ""} />
               <TextField disabled={!canUpdate} label="NIF del productor" maxLength={40} onChange={(value) => updateCompany("sifSoftwareProducerTaxId", value)} value={form.sifSoftwareProducerTaxId ?? ""} />
@@ -188,6 +188,7 @@ export function CompanySettingsView() {
               <TextField disabled={!canUpdate} label="Nº de instalación" maxLength={100} onChange={(value) => updateCompany("sifInstallationNumber", value)} value={form.sifInstallationNumber ?? ""} />
             </div>
             {form.sifMode === "NO_VERIFACTU" && <p className="notice" role="status">Modo experimental, solo para pruebas AEAT: todavía no cumple los requisitos de firma y registro de eventos. No lo uses para facturas reales. Las facturas nuevas incluirán un QR fiscal de 34 mm; las ya emitidas no se modifican.</p>}
+            {form.sifMode === "VERIFACTU" && <p className="notice" role="status">Modo de integración en pruebas: exige entorno AEAT Pruebas, certificado autorizado configurado en el servidor y una empresa sin cadena SIF previa. Los estados de envío se consultan en el detalle de cada factura. No lo uses para facturas reales.</p>}
             <a className="secondary-button" href="/api/company/sif-declaration">Descargar borrador de declaración responsable</a>
           </section>
           {session.data?.membership.role.permissions.includes("sif_record.read") && (

@@ -43,6 +43,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      AEAT_TEST_ENABLED: "false"
       PORT: 3000
     healthcheck:
       test:

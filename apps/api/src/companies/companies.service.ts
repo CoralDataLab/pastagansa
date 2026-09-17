@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { SifMode } from "@prisma/client";
+import { ConfigService } from "@nestjs/config";
 import { createHash } from "crypto";
 import { AuditService } from "../audit/audit.service";
 import { isValidIban, normalizeIban } from "../common/iban";
@@ -31,6 +32,7 @@ export class CompaniesService {
     private readonly tenant: TenantContextService,
     private readonly audit: AuditService,
     private readonly sifDeclaration: SifDeclarationPdfService,
+    private readonly config: ConfigService,
   ) {}
 
   async current() {
@@ -58,9 +60,23 @@ export class CompaniesService {
   }
 
   async update(input: UpdateCompanyDto) {
-    if (input.sifMode === SifMode.VERIFACTU)
-      throw new ConflictException("VERI*FACTU cannot be enabled until AEAT transmission is configured");
     const company = await this.current();
+    const targetMode = input.sifMode ?? company.sifMode;
+    const targetEnvironment = input.aeatEnvironment ?? company.aeatEnvironment;
+    if (targetMode !== company.sifMode &&
+        (targetMode === SifMode.VERIFACTU || company.sifMode === SifMode.VERIFACTU) &&
+        await this.tenant.db.sifRecord.count({
+          where: { organizationId: company.organizationId, companyId: company.id },
+        }))
+      throw new ConflictException("Review the existing SIF chain before changing VERI*FACTU mode");
+    if (targetMode === SifMode.VERIFACTU) {
+      if (targetEnvironment !== "TEST")
+        throw new ConflictException("VERI*FACTU is available only in the AEAT TEST environment");
+      if (company.sifMode !== SifMode.VERIFACTU && this.config.get<string>("AEAT_TEST_ENABLED") !== "true")
+        throw new ConflictException("VERI*FACTU requires the configured AEAT test sender");
+      if (company.country !== "ES")
+        throw new ConflictException("AEAT test mode requires a Spanish company");
+    }
     if (
       (input.sifMode ?? company.sifMode) === SifMode.NO_VERIFACTU &&
       (input.aeatEnvironment ?? company.aeatEnvironment) === "PRODUCTION"
