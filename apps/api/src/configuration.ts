@@ -40,11 +40,12 @@ export function validateConfiguration(values: Record<string, unknown>) {
   if (values.AEAT_TEST_ENABLED && !["true", "false"].includes(String(values.AEAT_TEST_ENABLED)))
     throw new Error("AEAT_TEST_ENABLED must be true or false");
   if (String(values.AEAT_TEST_ENABLED) === "true") {
-    for (const name of ["AEAT_TEST_PFX_PATH", "AEAT_TEST_PFX_PASSPHRASE", "DIRECT_DATABASE_URL"])
+    for (const name of ["AEAT_TEST_PFX_PATH", "AEAT_TEST_PFX_PASSPHRASE_FILE", "DIRECT_DATABASE_URL"])
       if (typeof values[name] !== "string" || !values[name])
         throw new Error(`${name} is required when AEAT_TEST_ENABLED is true`);
-    if (!String(values.AEAT_TEST_PFX_PATH).startsWith("/"))
-      throw new Error("AEAT_TEST_PFX_PATH must be an absolute path");
+    for (const name of ["AEAT_TEST_PFX_PATH", "AEAT_TEST_PFX_PASSPHRASE_FILE"])
+      if (!String(values[name]).startsWith("/"))
+        throw new Error(`${name} must be an absolute path`);
   }
   return values;
 }

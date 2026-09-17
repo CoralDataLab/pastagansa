@@ -60,23 +60,59 @@ autenticarse puede pertenecer al representante autorizado, de modo que no tiene 
 qué coincidir con el NIF emisor. La AEAT valida ambos. No se debe enviar el archivo
 ni su contraseña por chat, correo o al repositorio.
 
-En el host de staging, guardar el certificado **fuera del checkout** con permisos de
-lectura solo para el operador y el usuario que ejecuta Docker. Añadir al `.env.staging`
-privado (permisos `600`):
+En el host de staging, guardar el certificado **fuera del checkout**, por ejemplo
+en `/srv/pastagansa-secrets/aeat/staging/client.p12`. Guardar su contraseña exacta
+en un segundo archivo privado, sin salto de línea final, por ejemplo
+`/srv/pastagansa-secrets/aeat/staging/client.passphrase`. Ninguno de los dos debe
+estar en Git, en la imagen Docker ni en un directorio público o sincronizado.
+En `cassandra`, el operador `albecor` pertenece al grupo `1001`. Restringir el
+directorio a `0750` y ambos archivos a `0640`, con propietario y grupo `albecor`.
+El archivo adicional de Compose agrega ese grupo al proceso de la API para que
+pueda leer los dos archivos sin cambiar el usuario `node` de la imagen. En otro
+host, verificar el grupo y el mapeo de UID/GID antes de ajustar permisos.
+A partir del certificado ya copiado, el operador puede crear el archivo de
+contraseña sin mostrarla ni guardarla en el historial del shell:
+
+```bash
+read -r -s -p 'Contraseña del .p12: ' aeat_passphrase
+printf '\n'
+(umask 027; printf '%s' "$aeat_passphrase" > /srv/pastagansa-secrets/aeat/staging/client.passphrase)
+unset aeat_passphrase
+chmod 0640 /srv/pastagansa-secrets/aeat/staging/client.p12 \
+  /srv/pastagansa-secrets/aeat/staging/client.passphrase
+```
+
+Añadir al `.env.staging` privado (permisos `600`) solo rutas y el GID:
 
 ```dotenv
 AEAT_TEST_ENABLED=true
-AEAT_TEST_PFX_HOST_PATH=/ruta/privada/aeat-test.p12
+AEAT_TEST_PFX_HOST_PATH=/srv/pastagansa-secrets/aeat/staging/client.p12
 AEAT_TEST_PFX_PATH=/run/secrets/aeat-test.p12
-AEAT_TEST_PFX_PASSPHRASE=contrasena-del-certificado
+AEAT_TEST_PFX_PASSPHRASE_HOST_PATH=/srv/pastagansa-secrets/aeat/staging/client.passphrase
+AEAT_TEST_PFX_PASSPHRASE_FILE=/run/secrets/aeat-test-passphrase
+AEAT_TEST_SECRET_GID=1001
 ```
 
-Crear y verificar un backup antes del cambio. Desplegar con el montaje de solo
-lectura:
+Crear y verificar un backup antes del cambio. El archivo adicional de Compose
+monta ambos secretos en la API en modo de solo lectura y falla si falta alguno.
+Antes de arrancar el servicio, comprobar solo su legibilidad, sin mostrar contenido:
+
+```bash
+docker compose --env-file .env.staging -f docker-compose.staging.yml \
+  -f docker-compose.aeat-test.yml run --rm --no-deps --entrypoint sh api \
+  -c 'test -r /run/secrets/aeat-test.p12 && test -r /run/secrets/aeat-test-passphrase'
+```
+
+Después desplegar:
 
 ```bash
 ./scripts/staging-up.sh .env.staging docker-compose.aeat-test.yml
 ```
+
+La API valida al arrancar que el `.p12` puede abrirse con la contraseña. Un
+healthcheck verde confirma acceso local al certificado, pero no prueba todavía
+que la AEAT reconozca el certificado o la autorización del NIF emisor; eso exige
+un envío controlado posterior al entorno de pruebas.
 
 El servicio solo envía XML congelado de facturas y anulaciones emitidas con modo
 `VERIFACTU` y entorno `TEST`. Para la primera prueba, usar una empresa española

@@ -25,7 +25,10 @@ export class AeatTestClient implements OnModuleDestroy {
     this.enabled = config.get<string>("AEAT_TEST_ENABLED") === "true";
     if (this.enabled) {
       const pfx = readFileSync(config.getOrThrow<string>("AEAT_TEST_PFX_PATH"));
-      const passphrase = config.getOrThrow<string>("AEAT_TEST_PFX_PASSPHRASE");
+      const passphrase = readFileSync(
+        config.getOrThrow<string>("AEAT_TEST_PFX_PASSPHRASE_FILE"), "utf8",
+      );
+      if (!passphrase) throw new Error("AEAT test certificate passphrase file is empty");
       createSecureContext({ pfx, passphrase, minVersion: "TLSv1.2" });
       this.agent = new Agent({
         pfx,

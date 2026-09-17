@@ -1,7 +1,17 @@
 services:
   api:
+    group_add:
+      - ${AEAT_TEST_SECRET_GID:?set AEAT_TEST_SECRET_GID}
     volumes:
       - type: bind
         source: ${AEAT_TEST_PFX_HOST_PATH:?set AEAT_TEST_PFX_HOST_PATH}
         target: /run/secrets/aeat-test.p12
         read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${AEAT_TEST_PFX_PASSPHRASE_HOST_PATH:?set AEAT_TEST_PFX_PASSPHRASE_HOST_PATH}
+        target: /run/secrets/aeat-test-passphrase
+        read_only: true
+        bind:
+          create_host_path: false
