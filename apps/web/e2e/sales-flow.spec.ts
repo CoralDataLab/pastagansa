@@ -261,14 +261,22 @@ test("completes the sales flow from registration to payment", async ({
   await page.goto(invoiceUrl);
 
   const emailButton = page.getByRole("button", { name: "Enviar por email" });
+  const emailUnavailable = page.getByText("Correo no configurado");
+  await expect
+    .poll(async () => {
+      if (await emailButton.isEnabled()) return "enabled";
+      if (await emailUnavailable.isVisible()) return "unavailable";
+      return "loading";
+    })
+    .not.toBe("loading");
   if (controlledRecipient) await expect(emailButton).toBeEnabled();
-  if (await emailButton.isDisabled()) {
-    await expect(page.getByText("Correo no configurado")).toBeVisible();
+  if (await emailUnavailable.isVisible()) {
     await expect(
       page.getByText("Descarga el PDF para compartirlo manualmente"),
     ).toBeVisible();
   } else {
-    await expect(page.getByText("Correo no configurado")).toHaveCount(0);
+    await expect(emailButton).toBeEnabled();
+    await expect(emailUnavailable).toHaveCount(0);
     if (controlledRecipient) {
       await emailButton.click();
       const emailDialog = page.getByRole("dialog", { name: "Enviar por email" });
