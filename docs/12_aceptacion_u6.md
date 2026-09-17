@@ -3,11 +3,13 @@
 ## Estado del gate
 
 El 17/09/2026 el candidato U6A/U6B superó la validación local y la suite remota
-E2E/WCAG pasó sobre el staging HTTPS. **U6-08 sigue abierto** hasta documentar el SHA
-realmente desplegado, el backup y restore drill remotos, la recepción de correo en un
-buzón controlado y el acta de la prueba moderada con una persona administrativa ajena
-al desarrollo. El resultado de la suite remota no demuestra entrega real al proveedor
-SMTP porque `E2E_SMTP_RECIPIENT` estaba vacío en esa ejecución.
+E2E/WCAG pasó sobre el staging HTTPS. El usuario confirma que desplegó `c80a752`,
+realizó una prueba de restauración, recibió tres correos con PDF en un buzón controlado y
+completó la prueba manual sin incidencias. **U6-08 sigue abierto** porque la suite
+remota verde se ejecutó desde `e1b4b62`, no desde el SHA desplegado confirmado, y
+`E2E_SMTP_RECIPIENT` estaba vacío: el envío automatizado se omitió. Falta repetir la
+aceptación con el destinatario configurado sobre la versión final desplegada y
+completar el acta de la prueba moderada.
 
 | Comprobación local | Resultado |
 | --- | --- |
@@ -50,18 +52,19 @@ SMTP cuando no se configura correo.
    Registrar fecha, SHA, tareas, ayudas e incidencias. No cerrar con incidencias
    críticas o altas abiertas.
 
-Evidencia reunida hasta ahora. El 17/09/2026 el usuario comunicó «Todo OK sin
-problema» tras recibir el guion de prueba manual; falta el acta con participante,
-tiempos, ayudas y comprobaciones concretas antes de darla por cerrada.
+Evidencia reunida hasta ahora. Las confirmaciones del usuario se consignan como
+declaraciones de la sesión, sin atribuirles comprobaciones automatizadas o registros
+que no se han visto. Falta el acta con participante, tiempos, ayudas y comprobaciones
+concretas antes de dar la prueba moderada por cerrada.
 
 | Evidencia remota | Resultado / enlace |
 | --- | --- |
-| SHA, URL y fecha de despliegue | URL `https://ledger.coraldatalab.com` operativa el 17/09/2026; SHA de la imagen desplegada pendiente de confirmar |
-| Backup previo y restore drill posterior | Pendiente |
-| Workflow E2E/WCAG HTTPS | [Staging acceptance #35199672024](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35199672024): 3/3 sobre `e1b4b62`, correcto el 17/09/2026; destinatario SMTP vacío, por lo que el envío se omitió |
-| Buzón controlado y adjuntos | Usuario comunica resultado manual satisfactorio; pendiente registrar buzón, tres entregas, adjuntos y estados `SENT` |
+| SHA, URL y fecha de despliegue | Usuario confirma `c80a752` en `https://ledger.coraldatalab.com` el 17/09/2026; imagen no verificada desde el host |
+| Backup previo y restore drill posterior | Usuario confirma restauración correcta; faltan evidencia del backup previo, ruta/registro y recuentos remotos |
+| Workflow E2E/WCAG HTTPS | [Staging acceptance #35199672024](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35199672024): 3/3 sobre `e1b4b62`, correcto el 17/09/2026; destinatario SMTP vacío, envío omitido; repetir sobre SHA final desplegado |
+| Buzón controlado y adjuntos | Usuario confirma recepción manual de presupuesto, factura y recordatorio con PDF; faltan identificación del buzón y estados `SENT` documentados |
 | Inspección PDF una/varias páginas | Pendiente |
-| Prueba moderada y clasificación de hallazgos | Usuario comunica «Todo OK sin problema»; pendiente acta con participante administrativo independiente, tareas, ayudas y hallazgos |
+| Prueba moderada y clasificación de hallazgos | Usuario comunica «Todo OK sin problema»; pendiente acta con participante administrativo independiente, tareas, tiempos, ayudas y hallazgos |
 
 ## Correo y cola bloqueada
 
