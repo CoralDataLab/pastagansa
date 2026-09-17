@@ -216,7 +216,7 @@ export function CompanySettingsView() {
             <div className="company-document-preview" style={{ borderTopColor: form.documentProfile.primaryColor ?? "#F71950" }}>
               <div><strong>{form.documentProfile.tradeName || form.legalName}</strong><span>NIF: {company.data.taxId}</span><span>{[form.documentProfile.addressLine1, form.documentProfile.postalCode, form.documentProfile.city].filter(Boolean).join(" · ") || "Dirección fiscal"}</span></div>
               <div><b>FACTURA</b><span>{form.documentProfile.email || "email@empresa.es"}</span><span>{form.documentProfile.phone || "Teléfono"}</span></div>
-              <div className="preview-total" style={{ color: form.documentProfile.primaryColor ?? "#F71950" }}>Total · 1.210,00 €</div>
+              <div className="preview-total">Total · 1.210,00 €</div>
             </div>
           </section>
           {canUpdate && <button className="primary-button" disabled={save.isPending} type="submit">{save.isPending ? "Guardando…" : "Guardar datos de empresa"}</button>}

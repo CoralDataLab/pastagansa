@@ -275,6 +275,12 @@ describe("platform integrity", () => {
     expect(identityContext.body.memberships[0].role.permissions).toContain(
       "invoice.issue",
     );
+    expect(identityContext.body.memberships[0].role.permissions).toContain(
+      "collections.read",
+    );
+    expect(identityContext.body.memberships[0].role.permissions).toContain(
+      "collections.manage",
+    );
     expect(JSON.stringify(identityContext.body)).not.toContain("passwordHash");
 
     const taxRules = await authed(accountA.accessToken, tenantA)

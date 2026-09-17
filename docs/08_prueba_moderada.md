@@ -80,3 +80,25 @@ U4 puede cerrarse cuando el workflow remoto está verde sobre el mismo SHA, la
 restauración está verificada, la sesión se ha ejecutado y todos sus hallazgos están
 clasificados. No puede quedar ninguna incidencia crítica o alta abierta. Las medias y
 bajas pueden pasar al backlog con responsable y criterio de aceptación.
+
+## Sesión U6 — Documentos y Cartera
+
+Usar el mismo protocolo de moderación con una persona administrativa distinta del
+autor, en staging HTTPS y con datos ficticios. Anotar SHA, navegador, tiempo, ayudas,
+resultado e incidencias de cada tarea. Preparar previamente un buzón controlado y un
+cliente con email de facturación.
+
+1. **Perfil y documentos:** configurar nombre comercial, dirección, logo y datos de
+   cobro; crear presupuesto y factura, descargar ambos PDFs y enviarlos al buzón.
+   Cambiar después el perfil y comprobar que los documentos históricos conservan su
+   presentación.
+2. **Cartera:** filtrar una factura vencida, previsualizar y enviar un recordatorio,
+   registrar una promesa de pago y después el cobro. Comprobar saldo cero en Cartera y
+   factura y localizar asiento y movimiento bancario relacionado.
+3. **Fallo de correo:** con el proveedor SMTP indisponible en el entorno de prueba,
+   emitir y descargar una factura; la interfaz debe explicar que el envío no está
+   disponible sin perder el documento.
+
+Cerrar el gate U6 solo si las tareas se completan sin ayuda correctiva, el correo llega
+con los PDFs esperados, los importes coinciden y no quedan incidencias críticas o altas.
+Anotar las medias y bajas con responsable y criterio de aceptación.

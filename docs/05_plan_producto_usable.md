@@ -77,8 +77,9 @@ demo coherente con un procedimiento documentado.
 
 Estado real: completada. Los comandos raíz levantan API y web; el stack reproducible
 aplica migraciones y comprueba readiness; y el seed público crea una empresa, usuario,
-cliente, proveedor, servicio, tres series y una cuenta bancaria. CI lo ejecuta dos veces
-y exige que la segunda pasada reutilice los siete recursos. Las credenciales, recorridos
+cliente, proveedor, servicio, tres series, cuenta bancaria, perfil documental, logo,
+factura emitida y promesa de pago. CI lo ejecuta dos veces y exige que la segunda pasada
+reutilice los once recursos. Las credenciales, recorridos
 y reinicio destructivo limitado al volumen local están documentados.
 
 Entregables:
@@ -286,16 +287,16 @@ Gate:
 
 ## Orden inmediato de implementación
 
-1. Cerrar el gate U6A con U6-08: validar en staging perfil, snapshots/PDF y entrega
-   por email contra un buzón controlado, ejecutar el restore drill y guardar la
-   evidencia E2E/WCAG. U6-01, U6-02 y U6-03, incluida la entrega unificada de
-   facturas y presupuestos, ya están implementados localmente; SMTP de staging queda
-   configurado y pendiente de esa aceptación externa.
+1. Cerrar U6-08 en staging HTTPS: repetir el recorrido de perfil, snapshots/PDF,
+   entrega por email y Cartera con buzón controlado, guardar E2E/WCAG, backup y
+   restore drill y realizar la prueba moderada U6. U6A y el alcance base de U6B
+   pasaron la aceptación local del 17/09/2026; la evidencia pendiente está en
+   [Aceptación y operación U6](12_aceptacion_u6.md).
 2. Continuar SIF/VERI*FACTU. La anulación append-only ya se incorpora como registro
    encadenado e idempotente, sin reescribir la factura ni sus efectos contables o de
-   IVA. El exportador XML AEAT de alta F1 estándar y anulación ya está disponible para
-   inspección, sin firma ni transmisión; el siguiente bloque es validarlo contra XSD y
-   preparar la remisión al entorno de pruebas AEAT. U6B —cartera y recordatorios— no
+   IVA. El exportador XML AEAT de alta F1 estándar, R4 por diferencias y anulación
+   valida contra el XSD local; sigue sin firma ni transmisión. El siguiente bloque es
+   preparar y validar la remisión al entorno de pruebas AEAT. El cierre remoto de U6B no
    desplaza este punto de control.
 
 El backlog detallado, dependencias y criterios de aceptación de U6 están en

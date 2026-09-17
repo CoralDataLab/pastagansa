@@ -9,7 +9,7 @@
 
 ## Estado real de implementación
 
-**Actualizado:** 16 de septiembre de 2026
+**Actualizado:** 17 de septiembre de 2026
 
 **Rama de referencia:** `main`
 **Criterio:** un elemento solo se marca como completado cuando existe implementación, migración cuando aplica y validación automatizada básica. El estado no sustituye la revisión fiscal, de seguridad ni de producto exigida en este plan.
@@ -29,6 +29,11 @@
 | Hito U — Producto usable               | Completado   | U0–U4 están completadas: existe arranque reproducible, seed demo idempotente, acceso y selector multiempresa validado en servidor, y los recorridos críticos están protegidos por E2E real de Chromium con auditorías WCAG automáticas. U4 ofrece resumen tenant-scoped, diario/mayor, conciliación bancaria, alternativa PDF, restore drill y staging HTTPS. La aceptación pública pasó 2/2 recorridos y la prueba moderada externa fue validada el 14/09/2026 tras resolver sus dos observaciones. SMTP no bloquea y queda aplazado por decisión de producto. Detalle en `docs/05_plan_producto_usable.md`.                                                                                                                                                                                       |
 
 ### Regla operativa de commits
+
+**U6-08:** la aceptación local de U6A/U6B está preparada y validada con E2E/WCAG,
+SMTP capturado, PDFs renderizados, seed idempotente, imágenes y restore drill de 43
+migraciones. El gate permanece abierto hasta la aceptación en staging HTTPS con buzón
+controlado y una nueva prueba moderada. Véase `docs/12_aceptacion_u6.md`.
 
 Antes de cada commit que cambie producto, infraestructura, datos o documentación de alcance, actualizar esta tabla y/o su detalle cuando el estado real cambie. El commit debe incluir esa actualización y la validación ejecutada debe quedar indicada en su mensaje de entrega.
 

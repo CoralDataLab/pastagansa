@@ -677,8 +677,8 @@ function CollectionDrawer({
         )}
       </section>
       <p className="collection-reminder">
-        Los recordatorios por email se incorporarán en el siguiente paso; aquí
-        queda preparada toda la información de seguimiento.
+        Revisa destinatario y contenido antes de enviar cada recordatorio. Si el correo
+        no está configurado, conserva el seguimiento aquí y comparte la factura PDF.
       </p>
       {paymentError && (
         <p className="form-error" role="alert">

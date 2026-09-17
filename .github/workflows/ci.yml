@@ -30,7 +30,7 @@ jobs:
           cache: npm
       - run: npm install --global npm@11.19.1
       - run: npm ci
-      - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+      - run: sudo apt-get update && sudo apt-get install -y libxml2-utils poppler-utils
       - run: npm run db:generate
       - name: Create CI application role
         run: |
@@ -50,7 +50,14 @@ jobs:
       - run: npm test
       - run: npm run test:integration
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Run browser acceptance with captured SMTP attachments
+        env:
+          SMTP_HOST: 127.0.0.1
+          SMTP_PORT: 2525
+          SMTP_FROM: PastaGansa Test <test@example.test>
+          E2E_SMTP_RECIPIENT: u6-acceptance@example.test
+          E2E_MAILBOX_URL: http://127.0.0.1:2526/messages
+        run: npm run test:e2e
       - run: npm audit --audit-level=high
       - name: Validate production deployment configuration
         run: |
@@ -72,7 +79,7 @@ jobs:
           echo "$first_seed"
           echo "$second_seed"
           echo "$second_seed" | grep '"created": 0'
-          echo "$second_seed" | grep '"existing": 7'
+          echo "$second_seed" | grep '"existing": 11'
           backup_file="$(./scripts/backup-database.sh)"
           ./scripts/restore-drill.sh "$backup_file"
       - name: Stop staging stack

@@ -17,7 +17,7 @@ if grep -q "replace-with" "$environment_file"; then
 fi
 
 docker compose --env-file "$environment_file" -f "$compose_file" up --build -d --wait
-web_port="$(awk -F= '$1 == "WEB_PORT" { print $2 }' "$environment_file" | tail -1)"
+web_port="${WEB_PORT:-$(awk -F= '$1 == "WEB_PORT" { print $2 }' "$environment_file" | tail -1)}"
 web_port="${web_port:-3101}"
 curl --fail --silent --show-error "http://127.0.0.1:${web_port}/acceso" >/dev/null
 docker compose --env-file "$environment_file" -f "$compose_file" ps

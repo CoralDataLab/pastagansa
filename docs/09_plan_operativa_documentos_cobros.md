@@ -582,6 +582,10 @@ perder control sobre destinatario, tono o frecuencia.
 **Dependencias:** issues incluidos en cada release  
 **Entrega:** U6A y U6B
 
+**Estado real (17/09/2026):** candidato local validado; gate remoto y prueba moderada
+pendientes. Evidencia, secuencia de cierre y operación en
+[Aceptación y operación U6](12_aceptacion_u6.md).
+
 ### Objetivo
 
 Cerrar cada entrega con evidencia reproducible, rollback compatible y operación segura

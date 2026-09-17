@@ -16,6 +16,7 @@ jobs:
     env:
       E2E_BASE_URL: ${{ inputs.staging_url }}
       E2E_ALLOW_REMOTE_WRITE: "1"
+      E2E_SMTP_RECIPIENT: ${{ secrets.E2E_SMTP_RECIPIENT }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,6 +25,7 @@ jobs:
           cache: npm
       - run: npm install --global npm@11.19.1
       - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - run: npx playwright install --with-deps chromium
       - name: Validate isolated staging target
         run: |

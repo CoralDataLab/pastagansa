@@ -34,6 +34,13 @@ export default defineConfig({
   webServer: externalBaseUrl
     ? undefined
     : [
+        ...(process.env.E2E_MAILBOX_URL ? [{
+          command: "node scripts/acceptance-smtp.mjs",
+          cwd: repositoryRoot,
+          url: process.env.E2E_MAILBOX_URL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 30_000,
+        }] : []),
         {
           command: "npm run start:e2e --workspace=@pastagansa/api",
           cwd: repositoryRoot,

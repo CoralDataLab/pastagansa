@@ -1,11 +1,77 @@
-import { expect, test } from "@playwright/test";
-import { readFile } from "node:fs/promises";
+import { expect, test, type Page } from "@playwright/test";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import { expectNoSeriousAccessibilityViolations } from "./accessibility";
+
+const run = promisify(execFile);
+
+async function downloadPdf(page: Page) {
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Descargar PDF" }).click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  expect(path).not.toBeNull();
+  return readFile(path!);
+}
+
+async function expectSentDelivery(page: Page, path: string, recipient: string) {
+  await expect.poll(async () => page.evaluate(async ({ path, recipient }) => {
+    const response = await fetch(path);
+    if (!response.ok) return `HTTP ${response.status}`;
+    const deliveries = await response.json() as Array<{ recipient: string; status: string }>;
+    return deliveries.find((delivery) => delivery.recipient === recipient)?.status ?? "MISSING";
+  }, { path, recipient }), { timeout: 30_000 }).toBe("SENT");
+}
+
+async function expectReceivedPdf(position: number, recipient: string, expectedPdf: Buffer) {
+  const mailboxUrl = process.env.E2E_MAILBOX_URL;
+  if (!mailboxUrl) return;
+  await expect.poll(async () => {
+    const response = await fetch(mailboxUrl);
+    if (!response.ok) return 0;
+    const messages = await response.json() as Array<{ recipient: string; pdfBase64: string | null }>;
+    return messages.length;
+  }, { timeout: 30_000 }).toBeGreaterThanOrEqual(position);
+  const response = await fetch(mailboxUrl);
+  const messages = await response.json() as Array<{ recipient: string; pdfBase64: string | null }>;
+  const received = messages[position - 1];
+  expect(received.recipient).toBe(recipient);
+  expect(received.pdfBase64).not.toBeNull();
+  await expectSamePdfRendering(expectedPdf, Buffer.from(received.pdfBase64!, "base64"));
+}
+
+async function expectSamePdfRendering(before: Buffer, after: Buffer) {
+  const directory = await mkdtemp(join(tmpdir(), "pastagansa-u6-pdf-"));
+  try {
+    const beforePath = join(directory, "before.pdf");
+    const afterPath = join(directory, "after.pdf");
+    await Promise.all([writeFile(beforePath, before), writeFile(afterPath, after)]);
+    await run("pdftoppm", ["-r", "96", "-png", beforePath, join(directory, "before")]);
+    await run("pdftoppm", ["-r", "96", "-png", afterPath, join(directory, "after")]);
+    const files = await readdir(directory);
+    const beforePages = files.filter((file) => /^before-\d+\.png$/.test(file)).sort();
+    const afterPages = files.filter((file) => /^after-\d+\.png$/.test(file)).sort();
+    expect(beforePages.length).toBeGreaterThan(0);
+    expect(afterPages.length).toBe(beforePages.length);
+    for (let index = 0; index < beforePages.length; index++) {
+      const [first, second] = await Promise.all([
+        readFile(join(directory, beforePages[index])),
+        readFile(join(directory, afterPages[index])),
+      ]);
+      expect(second.equals(first), `PDF page ${index + 1} changed after editing the company profile`).toBeTruthy();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
 
 test("completes the sales flow from registration to payment", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   const suffix = Date.now();
   const controlledRecipient = process.env.E2E_SMTP_RECIPIENT;
   expect((await page.request.get("/api/sif/records/transition-audit")).status()).toBe(401);
@@ -25,6 +91,33 @@ test("completes the sales flow from registration to payment", async ({
     .click();
   await expect(page).toHaveURL(/\/inicio$/);
   await expectNoSeriousAccessibilityViolations(page, "authenticated home");
+
+  await page.goto("/configuracion");
+  await expectNoSeriousAccessibilityViolations(page, "company document profile");
+  await page.getByLabel("Nombre comercial").fill("PastaGansa E2E");
+  await page.getByLabel("Dirección", { exact: true }).fill("Calle de la Prueba 12");
+  await page.getByLabel("Población").fill("Madrid");
+  await page.getByLabel("Pie de documento").fill("Documento de aceptación U6");
+  await page.getByRole("button", { name: "Guardar datos de empresa" }).click();
+  await expect(page.getByText("Datos de empresa guardados.")).toBeVisible();
+  const logoBase64 = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 120;
+    canvas.height = 48;
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "#F71950";
+    context.fillRect(0, 0, 120, 48);
+    context.fillStyle = "white";
+    context.font = "bold 24px sans-serif";
+    context.fillText("PG", 40, 33);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "logo-u6.png", mimeType: "image/png", buffer: Buffer.from(logoBase64, "base64"),
+  });
+  await expect(page.getByRole("img", { name: "Logo de empresa" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Nombre comercial")).toHaveValue("PastaGansa E2E");
 
   await page.getByRole("link", { name: /Contactos/ }).click();
   await page
@@ -85,6 +178,7 @@ test("completes the sales flow from registration to payment", async ({
   await page.getByRole("link", { name: /^P\d{4}-\d{4}$/ }).click();
   await expect(page.getByText("Oferta válida durante 30 días")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page, "quote draft");
+  const quoteUrl = page.url();
 
   const quoteDownloadPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "Descargar PDF" }).click();
@@ -96,6 +190,14 @@ test("completes the sales flow from registration to payment", async ({
 
   await page.getByRole("button", { name: "Marcar como enviado" }).click();
   await expect(page.getByText("Enviado", { exact: true })).toBeVisible();
+  const quoteEmailPanel = page.locator(".invoice-detail-panel").filter({ has: page.getByRole("heading", { name: "Enviar por email" }) });
+  if (controlledRecipient) {
+    await quoteEmailPanel.getByLabel("Destinatario").fill(controlledRecipient);
+    await quoteEmailPanel.getByRole("button", { name: "Enviar presupuesto" }).click();
+    await expect(quoteEmailPanel).toContainText(controlledRecipient);
+    await expectSentDelivery(page, `/api/quotes/${new URL(quoteUrl).pathname.split("/").at(-1)}/email-deliveries`, controlledRecipient);
+    await expectReceivedPdf(1, controlledRecipient, await downloadPdf(page));
+  }
   await page.getByRole("button", { name: "Registrar aceptación" }).click();
   await expect(page.getByText("Aceptado", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Crear factura borrador" }).click();
@@ -153,8 +255,13 @@ test("completes the sales flow from registration to payment", async ({
   expect(downloadPath).not.toBeNull();
   const pdf = await readFile(downloadPath!);
   expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  const invoiceUrl = page.url();
+  await page.goto(quoteUrl);
+  const quotePdfBefore = await downloadPdf(page);
+  await page.goto(invoiceUrl);
 
   const emailButton = page.getByRole("button", { name: "Enviar por email" });
+  if (controlledRecipient) await expect(emailButton).toBeEnabled();
   if (await emailButton.isDisabled()) {
     await expect(page.getByText("Correo no configurado")).toBeVisible();
     await expect(
@@ -173,18 +280,73 @@ test("completes the sales flow from registration to payment", async ({
         `Correo preparado para ${controlledRecipient}`,
       );
       await expect(page.getByText(controlledRecipient, { exact: true })).toBeVisible();
+      await expectSentDelivery(page, `/api/invoices/${new URL(invoiceUrl).pathname.split("/").at(-1)}/email-deliveries`, controlledRecipient);
+      await expectReceivedPdf(2, controlledRecipient, pdf);
     }
   }
 
-  await page.getByRole("button", { name: "Registrar cobro" }).click();
-  await expect(page.getByLabel("Importe")).toHaveValue("121.00");
-  await page.getByLabel("Referencia (opcional)").fill("E2E-COBRO-001");
-  await page.getByRole("button", { name: "Confirmar cobro" }).click();
+  await page.goto("/configuracion");
+  await page.getByLabel("Nombre comercial").fill("PastaGansa E2E actualizado");
+  await page.getByLabel("Pie de documento").fill("Pie nuevo U6");
+  await page.getByRole("button", { name: "Guardar datos de empresa" }).click();
+  await expect(page.getByText("Datos de empresa guardados.")).toBeVisible();
+  await page.goto(invoiceUrl);
+  const invoicePdfAfter = await downloadPdf(page);
+  await page.goto(quoteUrl);
+  const quotePdfAfter = await downloadPdf(page);
+  await expectSamePdfRendering(pdf, invoicePdfAfter);
+  await expectSamePdfRendering(quotePdfBefore, quotePdfAfter);
+  await page.goto(invoiceUrl);
+
+  await page.goto("/cartera");
+  await expectNoSeriousAccessibilityViolations(page, "collections workspace");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoSeriousAccessibilityViolations(page, "mobile collections workspace");
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const future = new Date();
+  future.setUTCDate(future.getUTCDate() + 45);
+  await page.getByLabel("Fecha de referencia").fill(future.toISOString().slice(0, 10));
+  await page.getByLabel("Tramo").selectOption("OVERDUE_31_60");
+  await expect(page.locator(".collections-table")).toContainText("FE2E-0001");
+  await expect(page.getByRole("region", { name: "Resumen de cartera" }).locator("article", { hasText: "Vencido" })).toContainText("121,00 €");
+  await page.locator(".collections-table tr").filter({ hasText: "FE2E-0001" }).getByRole("button", { name: "Gestionar" }).click();
+  const collectionDrawer = page.getByRole("dialog", { name: "FE2E-0001" });
+  await expect(collectionDrawer).toContainText("121,00 €");
+  if (controlledRecipient) {
+    await collectionDrawer.getByRole("button", { name: "Preparar recordatorio" }).click();
+    const reminder = page.getByRole("dialog", { name: "Preparar recordatorio" });
+    await expect(reminder).toContainText(controlledRecipient);
+    await reminder.getByRole("button", { name: "Enviar 1 recordatorio" }).click();
+    await expect(page.getByRole("status")).toContainText("1 recordatorio preparado");
+    await expectReceivedPdf(3, controlledRecipient, invoicePdfAfter);
+  }
+  await collectionDrawer.getByLabel("Comentario").fill("Pago prometido en U6");
+  await collectionDrawer.getByRole("button", { name: "Guardar en cronología" }).click();
+  await expect(collectionDrawer).toContainText("Pago prometido en U6");
+  await collectionDrawer.getByRole("button", { name: "Registrar cobro" }).click();
+  const collectionPayment = page.getByRole("dialog", { name: "Registrar cobro" });
+  await collectionPayment.getByLabel("Importe").fill("60.50");
+  await collectionPayment.getByLabel("Referencia (opcional)").fill("E2E-COBRO-001");
+  await collectionPayment.getByRole("button", { name: "Confirmar cobro" }).click();
+  await expect(page.getByRole("status")).toContainText("Cobro de 60,50 € registrado");
+  await expect(page.getByRole("region", { name: "Resumen de cartera" }).locator("article", { hasText: "Vencido" })).toContainText("60,50 €");
+  await page.locator(".collections-table tr").filter({ hasText: "FE2E-0001" }).getByRole("button", { name: "Gestionar" }).click();
+  await page.getByRole("dialog", { name: "FE2E-0001" }).getByRole("button", { name: "Registrar cobro" }).click();
+  const remainingPayment = page.getByRole("dialog", { name: "Registrar cobro" });
+  await expect(remainingPayment.getByLabel("Importe")).toHaveValue("60.50");
+  await remainingPayment.getByLabel("Referencia (opcional)").fill("E2E-COBRO-002");
+  await remainingPayment.getByRole("button", { name: "Confirmar cobro" }).click();
+  await expect(page.getByRole("status")).toContainText("Cobro de 60,50 € registrado");
+  await expect(page.getByRole("region", { name: "Resumen de cartera" }).locator("article", { hasText: "Vencido" })).toContainText("0,00 €");
+  await expect(page.getByRole("region", { name: "Facturas pendientes" })).toContainText("No hay saldos para estos filtros");
+  await page.goto(invoiceUrl);
+
   await expect(page.getByText("Cobrada", { exact: true })).toBeVisible();
   await expect(
     page.locator(".summary-card").filter({ hasText: "Pendiente" }),
   ).toContainText("0,00 €");
   await expect(page.getByText("E2E-COBRO-001", { exact: true })).toBeVisible();
+  await expect(page.getByText("E2E-COBRO-002", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(page.getByText("Cobrada", { exact: true })).toBeVisible();
@@ -192,6 +354,7 @@ test("completes the sales flow from registration to payment", async ({
     page.locator(".summary-card").filter({ hasText: "Pendiente" }),
   ).toContainText("0,00 €");
   await expect(page.getByText("E2E-COBRO-001", { exact: true })).toBeVisible();
+  await expect(page.getByText("E2E-COBRO-002", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Ver trazabilidad" }).click();
   await expect(page.getByText(/Asiento #\d+/)).toBeVisible();

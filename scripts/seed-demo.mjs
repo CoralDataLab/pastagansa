@@ -23,7 +23,7 @@ const credentials = {
 
 async function request(path, { token, tenant, ...init } = {}) {
   const headers = new Headers(init.headers);
-  if (init.body) headers.set("content-type", "application/json");
+  if (init.body && !(init.body instanceof FormData)) headers.set("content-type", "application/json");
   if (token) headers.set("authorization", `Bearer ${token}`);
   if (tenant) {
     headers.set("x-organization-id", tenant.organizationId);
@@ -148,6 +148,97 @@ async function ensureBankAccount(auth) {
   };
 }
 
+async function ensureDocumentProfile(auth) {
+  const company = await request("/v1/companies/current", auth);
+  if (company.documentProfile) return { state: "existing", value: company.documentProfile };
+  const updated = await request("/v1/companies/current", {
+    ...auth,
+    method: "PATCH",
+    body: JSON.stringify({ documentProfile: {
+      tradeName: "PastaGansa Demo",
+      addressLine1: "Calle Demo 12",
+      postalCode: "28001",
+      city: "Madrid",
+      addressCountry: "ES",
+      email: "demo@pastagansa.local",
+      bankIban: "ES9121000418450200051332",
+      paymentInstructions: "Transferencia a la cuenta indicada",
+      paymentTerms: "Pago a 30 días",
+      documentFooter: "Documento de demostración · datos ficticios",
+      primaryColor: "#F71950",
+    } }),
+  });
+  return { state: "created", value: updated.documentProfile };
+}
+
+async function ensureLogo(auth) {
+  const company = await request("/v1/companies/current", auth);
+  if (company.documentLogo) return { state: "existing", value: company.documentLogo };
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABlBMVEX////3GVAVIk7HAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAHUlEQVQ4y2NgJAAYRhXQQAEDHIwqoEzBaIqiqQIAdkkDnXfLkckAAAAASUVORK5CYII=", "base64");
+  const form = new FormData();
+  form.set("file", new Blob([png], { type: "image/png" }), "logo-demo.png");
+  const updated = await request("/v1/companies/current/logo", { ...auth, method: "PUT", body: form });
+  return { state: "created", value: updated };
+}
+
+async function findDemoInvoice(auth) {
+  let cursor;
+  do {
+    const query = new URLSearchParams({ limit: "100" });
+    if (cursor) query.set("cursor", cursor);
+    const page = await request(`/v1/invoices?${query}`, auth);
+    const invoice = page.data.find((item) => item.notes === "DEMO-U6-OPERATIVA");
+    if (invoice) return invoice;
+    cursor = page.nextCursor;
+  } while (cursor);
+  return null;
+}
+
+async function ensureDemoInvoice(auth, contactId, sequenceId) {
+  const existing = await findDemoInvoice(auth);
+  if (existing?.status !== "DRAFT" && existing) return { state: "existing", value: existing };
+  const issueDate = new Date();
+  const dueDate = new Date(issueDate);
+  dueDate.setUTCDate(dueDate.getUTCDate() + 30);
+  const draft = existing ?? await request("/v1/invoices", {
+      ...auth,
+      method: "POST",
+      body: JSON.stringify({
+        contactId,
+        issueDate: issueDate.toISOString().slice(0, 10),
+        dueDate: dueDate.toISOString().slice(0, 10),
+        notes: "DEMO-U6-OPERATIVA",
+        currency: "EUR",
+        lines: [{ description: "Servicio de demostración U6", quantity: 2, unitPrice: 75, taxRate: 21 }],
+      }),
+    });
+  const issued = await request(`/v1/invoices/${draft.id}/issue`, {
+    ...auth,
+    method: "POST",
+    headers: { "idempotency-key": "seed-demo-u6-invoice" },
+    body: JSON.stringify({ sequenceId }),
+  });
+  return { state: existing ? "existing" : "created", value: issued };
+}
+
+async function ensureDemoPromise(auth, invoiceId) {
+  const timeline = await request(`/v1/invoices/${invoiceId}/commercial-events?limit=100`, auth);
+  const existing = timeline.data.find((event) => event.externalId === "demo-u6-promise");
+  if (existing) return { state: "existing", value: existing };
+  const event = await request(`/v1/invoices/${invoiceId}/commercial-events`, {
+    ...auth,
+    method: "POST",
+    body: JSON.stringify({
+      type: "PAYMENT_PROMISED",
+      source: "USER",
+      externalId: "demo-u6-promise",
+      effectiveAt: new Date().toISOString(),
+      comment: "El cliente demo confirma el pago para el próximo vencimiento.",
+    }),
+  });
+  return { state: "created", value: event };
+}
+
 const tokens = await authenticate();
 const context = await request("/v1/identity/context", {
   token: tokens.accessToken,
@@ -213,6 +304,10 @@ const quoteSequence = await ensureSequence(auth, sequences, {
   padding: 4,
 });
 const bankAccount = await ensureBankAccount(auth);
+const documentProfile = await ensureDocumentProfile(auth);
+const logo = await ensureLogo(auth);
+const demoInvoice = await ensureDemoInvoice(auth, customer.value.id, invoiceSequence.value.id);
+const promiseEvent = await ensureDemoPromise(auth, demoInvoice.value.id);
 
 const resources = {
   customer,
@@ -222,6 +317,10 @@ const resources = {
   purchaseSequence,
   quoteSequence,
   bankAccount,
+  documentProfile,
+  logo,
+  demoInvoice,
+  promiseEvent,
 };
 const created = Object.values(resources).filter(
   ({ state }) => state === "created",
