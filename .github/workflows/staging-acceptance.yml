@@ -30,6 +30,12 @@ jobs:
       - name: Validate isolated staging target
         run: |
           node -e "const url=new URL(process.env.E2E_BASE_URL); if(url.protocol !== 'https:') throw new Error('Remote staging must use HTTPS')"
+      - name: Require controlled email recipient
+        run: |
+          if [ -z "$E2E_SMTP_RECIPIENT" ]; then
+            echo 'Configure the staging E2E_SMTP_RECIPIENT secret before running acceptance.' >&2
+            exit 1
+          fi
       - name: Run critical flows and accessibility audits
         run: npm run test:staging
       - name: Preserve failure evidence

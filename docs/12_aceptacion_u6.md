@@ -2,11 +2,12 @@
 
 ## Estado del gate
 
-El 17/09/2026 el candidato U6A/U6B superó la validación local. **U6-08 sigue abierto**
-hasta repetir la aceptación en el staging HTTPS publicado, comprobar el correo en un
-buzón controlado y completar una prueba moderada con una persona administrativa ajena
-al desarrollo. No usar el resultado local como evidencia de entrega real al proveedor
-SMTP ni como aprobación de producción.
+El 17/09/2026 el candidato U6A/U6B superó la validación local y la suite remota
+E2E/WCAG pasó sobre el staging HTTPS. **U6-08 sigue abierto** hasta documentar el SHA
+realmente desplegado, el backup y restore drill remotos, la recepción de correo en un
+buzón controlado y el acta de la prueba moderada con una persona administrativa ajena
+al desarrollo. El resultado de la suite remota no demuestra entrega real al proveedor
+SMTP porque `E2E_SMTP_RECIPIENT` estaba vacío en esa ejecución.
 
 | Comprobación local | Resultado |
 | --- | --- |
@@ -49,16 +50,18 @@ SMTP cuando no se configura correo.
    Registrar fecha, SHA, tareas, ayudas e incidencias. No cerrar con incidencias
    críticas o altas abiertas.
 
-Registrar aquí la evidencia antes de marcar U6-08 como completado:
+Evidencia reunida hasta ahora. El 17/09/2026 el usuario comunicó «Todo OK sin
+problema» tras recibir el guion de prueba manual; falta el acta con participante,
+tiempos, ayudas y comprobaciones concretas antes de darla por cerrada.
 
 | Evidencia remota | Resultado / enlace |
 | --- | --- |
-| SHA, URL y fecha de despliegue | Pendiente |
+| SHA, URL y fecha de despliegue | URL `https://ledger.coraldatalab.com` operativa el 17/09/2026; SHA de la imagen desplegada pendiente de confirmar |
 | Backup previo y restore drill posterior | Pendiente |
-| Workflow E2E/WCAG HTTPS | Pendiente |
-| Buzón controlado y adjuntos | Pendiente |
+| Workflow E2E/WCAG HTTPS | [Staging acceptance #35199672024](https://github.com/alberto-coraldatalab/pastagansa/actions/runs/35199672024): 3/3 sobre `e1b4b62`, correcto el 17/09/2026; destinatario SMTP vacío, por lo que el envío se omitió |
+| Buzón controlado y adjuntos | Usuario comunica resultado manual satisfactorio; pendiente registrar buzón, tres entregas, adjuntos y estados `SENT` |
 | Inspección PDF una/varias páginas | Pendiente |
-| Prueba moderada y clasificación de hallazgos | Pendiente |
+| Prueba moderada y clasificación de hallazgos | Usuario comunica «Todo OK sin problema»; pendiente acta con participante administrativo independiente, tareas, ayudas y hallazgos |
 
 ## Correo y cola bloqueada
 
