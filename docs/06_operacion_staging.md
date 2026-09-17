@@ -86,7 +86,7 @@ Añadir al `.env.staging` privado (permisos `600`) solo rutas y el GID:
 
 ```dotenv
 AEAT_TEST_ENABLED=true
-AEAT_TEST_PFX_HOST_PATH=/srv/pastagansa-secrets/aeat/staging/client.p12
+AEAT_TEST_PFX_HOST_PATH=/srv/pastagansa-secrets/aeat/staging/client-modern.p12
 AEAT_TEST_PFX_PATH=/run/secrets/aeat-test.p12
 AEAT_TEST_PFX_PASSPHRASE_HOST_PATH=/srv/pastagansa-secrets/aeat/staging/client.passphrase
 AEAT_TEST_PFX_PASSPHRASE_FILE=/run/secrets/aeat-test-passphrase
@@ -113,6 +113,13 @@ La API valida al arrancar que el `.p12` puede abrirse con la contraseña. Un
 healthcheck verde confirma acceso local al certificado, pero no prueba todavía
 que la AEAT reconozca el certificado o la autorización del NIF emisor; eso exige
 un envío controlado posterior al entorno de pruebas.
+
+En `cassandra`, el archivo entregado inicialmente se abría solo con la opción
+`-legacy` de OpenSSL 3. Se conservó intacto como `client.p12` y se creó
+`client-modern.p12` con cifrado AES-256-CBC y MAC SHA-256. Se comprobó que
+ambos contienen el mismo certificado; la configuración debe apuntar a la copia
+moderna. No exportar la clave privada descifrada a un archivo ordinario durante
+una renovación del certificado.
 
 El servicio solo envía XML congelado de facturas y anulaciones emitidas con modo
 `VERIFACTU` y entorno `TEST`. Para la primera prueba, usar una empresa española
