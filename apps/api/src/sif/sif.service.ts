@@ -406,8 +406,8 @@ export class SifService {
   /**
    * Appends, rather than replaces, the AEAT record that identifies a prior
    * registration as cancelled. This deliberately does not alter the invoice,
-   * its accounting entry, or its tax ledger: those financial corrections use a
-   * rectifying invoice and are a separate workflow.
+   * its accounting entry, or its tax ledger. The invoice-issued-in-error flow
+   * composes this operation with append-only financial reversals.
    */
   async createCancellation(invoiceId: string) {
     const scope = this.scope();

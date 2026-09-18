@@ -8,7 +8,10 @@ import { AppShell } from "@/components/app-shell";
 import { CommercialTimeline } from "@/components/commercial-timeline";
 import { PaymentReminderDialog } from "@/components/payment-reminder-dialog";
 import { formatMoney } from "@/lib/catalog";
-import { deliveryRetryStorageKey, reusableDeliveryKey } from "@/lib/delivery-retry";
+import {
+  deliveryRetryStorageKey,
+  reusableDeliveryKey,
+} from "@/lib/delivery-retry";
 import {
   formatInvoiceDate,
   invoiceEmailKey,
@@ -214,7 +217,12 @@ export function InvoiceDetail({ id }: { id: string }) {
         </article>
       </section>
       {document.status !== "DRAFT" && <EmailPanel invoice={document} />}
-      {document.status !== "DRAFT" && <CommercialTimeline endpoint={`/api/invoices/${document.id}/commercial-events`} canManage />}
+      {document.status !== "DRAFT" && (
+        <CommercialTimeline
+          endpoint={`/api/invoices/${document.id}/commercial-events`}
+          canManage
+        />
+      )}
       {document.status !== "DRAFT" && <PaymentsPanel invoice={document} />}
       <section className="invoice-detail-panel">
         <header>
@@ -498,7 +506,10 @@ function EmailPanel({ invoice }: { invoice: Invoice }) {
       );
       const key = invoiceEmailKey(
         invoice.id,
-        reusableDeliveryKey(sessionStorage.getItem(storageName), deliveries.data ?? []),
+        reusableDeliveryKey(
+          sessionStorage.getItem(storageName),
+          deliveries.data ?? [],
+        ),
       );
       sessionStorage.setItem(storageName, key);
       const delivery = await requestJson<InvoiceEmailDelivery>(
@@ -531,8 +542,14 @@ function EmailPanel({ invoice }: { invoice: Invoice }) {
           <button
             className="secondary-button compact"
             onClick={() => setReminding(true)}
-            disabled={!capability.data?.enabled || Number(invoice.amountDue) <= 0}
-            title={capability.data?.enabled ? undefined : "El envío por correo no está configurado"}
+            disabled={
+              !capability.data?.enabled || Number(invoice.amountDue) <= 0
+            }
+            title={
+              capability.data?.enabled
+                ? undefined
+                : "El envío por correo no está configurado"
+            }
           >
             Recordatorio de pago
           </button>
@@ -601,7 +618,9 @@ function EmailPanel({ invoice }: { invoice: Invoice }) {
                   <td>{delivery.recipient}</td>
                   <td>
                     {delivery.subject}
-                    {delivery.purpose === "PAYMENT_REMINDER" && <small>Recordatorio de pago</small>}
+                    {delivery.purpose === "PAYMENT_REMINDER" && (
+                      <small>Recordatorio de pago</small>
+                    )}
                   </td>
                   <td>
                     <span
@@ -635,11 +654,15 @@ function EmailPanel({ invoice }: { invoice: Invoice }) {
       )}
       {reminding && (
         <PaymentReminderDialog
-          targets={[{ id: invoice.id, number: invoice.fullNumber ?? invoice.draftCode }]}
+          targets={[
+            { id: invoice.id, number: invoice.fullNumber ?? invoice.draftCode },
+          ]}
           mode="single"
           onClose={() => setReminding(false)}
           onQueued={async () => {
-            await queryClient.invalidateQueries({ queryKey: ["invoice-email-deliveries", invoice.id] });
+            await queryClient.invalidateQueries({
+              queryKey: ["invoice-email-deliveries", invoice.id],
+            });
             setReminding(false);
             setNotice("Recordatorio de pago preparado para su envío.");
           }}
@@ -764,6 +787,32 @@ function deliveryStatusLabel(status: InvoiceEmailDelivery["status"]) {
 function TracePanel({ invoice }: { invoice: Invoice }) {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState("");
+  const cancelIssuedInvoice = useMutation({
+    mutationFn: (reason: string) =>
+      requestJson<Invoice>(
+        `/api/invoices/${invoice.id}/cancel-issued-in-error`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ reason, operationDidNotExist: true }),
+        },
+      ),
+    onSuccess: async (updated) => {
+      queryClient.setQueryData(["invoice", invoice.id], updated);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["invoice-trace", invoice.id],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["invoices"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["invoice-payment-schedule", invoice.id],
+        }),
+      ]);
+      setNotice(
+        "Factura anulada como emitida por error. Se han registrado las reversiones fiscal y contable.",
+      );
+    },
+  });
   const trace = useQuery({
     queryKey: ["invoice-trace", invoice.id],
     queryFn: () =>
@@ -787,20 +836,26 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
         method: "POST",
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["invoice-trace", invoice.id] });
+      await queryClient.invalidateQueries({
+        queryKey: ["invoice-trace", invoice.id],
+      });
       setNotice("Se ha añadido un alta de subsanación a la cadena SIF.");
     },
   });
   const registrationSubmission = trace.data?.aeatTestSubmissions.find(
     (entry) => entry.recordId === trace.data?.sifRecord?.id,
   )?.submissions[0];
-  const definitiveAeatResponse = registrationSubmission?.status === "ACCEPTED" ||
+  const definitiveAeatResponse =
+    registrationSubmission?.status === "ACCEPTED" ||
     registrationSubmission?.status === "ACCEPTED_WITH_ERRORS" ||
     (registrationSubmission?.status === "REJECTED" &&
-     registrationSubmission.recordStatus === "Incorrecto");
-  const timestampWarning = registrationSubmission?.status === "ACCEPTED_WITH_ERRORS" &&
+      registrationSubmission.recordStatus === "Incorrecto");
+  const timestampWarning =
+    registrationSubmission?.status === "ACCEPTED_WITH_ERRORS" &&
     registrationSubmission.recordStatus === "AceptadoConErrores" &&
-    registrationSubmission.errorDescription?.includes("FechaHoraHusoGenRegistro");
+    registrationSubmission.errorDescription?.includes(
+      "FechaHoraHusoGenRegistro",
+    );
   return (
     <section
       className="trace-panel"
@@ -812,6 +867,52 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
         <h2 id="trace-title">Impacto fiscal y contable</h2>
         <p>Registros generados automáticamente al emitir.</p>
       </header>
+      {invoice.status === "CANCELLED" && invoice.cancelledAt && (
+        <p role="status">
+          Factura anulada el {formatInvoiceDate(invoice.cancelledAt)} por
+          operación inexistente.
+          {invoice.cancellationReason
+            ? ` Motivo: ${invoice.cancellationReason}`
+            : ""}
+        </p>
+      )}
+      {invoice.documentType === "INVOICE" &&
+        ["ISSUED", "SENT", "OVERDUE"].includes(invoice.status) &&
+        Number(invoice.amountPaid) === 0 && (
+          <div className="trace-actions">
+            <button
+              className="secondary-button compact"
+              disabled={cancelIssuedInvoice.isPending}
+              onClick={() => {
+                const reason = window
+                  .prompt(
+                    "Solo para una factura emitida por error cuando no existió la operación. Indica el motivo (mínimo 20 caracteres). Para una operación real, usa una rectificativa:",
+                  )
+                  ?.trim();
+                if (!reason) return;
+                if (reason.length < 20) {
+                  setNotice("El motivo debe tener al menos 20 caracteres.");
+                  return;
+                }
+                if (
+                  window.confirm(
+                    "Confirmo que la operación no existió. Se conservará la factura original y se crearán la anulación SIF y las reversiones de IVA y contabilidad. ¿Continuar?",
+                  )
+                )
+                  cancelIssuedInvoice.mutate(reason);
+              }}
+              type="button"
+            >
+              {cancelIssuedInvoice.isPending
+                ? "Anulando factura…"
+                : "Anular factura emitida por error"}
+            </button>
+          </div>
+        )}
+      {cancelIssuedInvoice.error && (
+        <p className="form-error">{cancelIssuedInvoice.error.message}</p>
+      )}
+      {notice && <small role="status">{notice}</small>}
       {trace.isPending && (
         <p className="dialog-helper">Cargando trazabilidad…</p>
       )}
@@ -844,6 +945,15 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                     </dd>
                   </div>
                 </dl>
+                {trace.data.journalReversalEntry && (
+                  <small>
+                    Reversión · asiento #
+                    {trace.data.journalReversalEntry.entryNumber} ·{" "}
+                    {formatInvoiceDate(
+                      trace.data.journalReversalEntry.entryDate,
+                    )}
+                  </small>
+                )}
               </>
             ) : (
               <strong>No encontrado</strong>
@@ -877,6 +987,26 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                     </dd>
                   </div>
                 </dl>
+                {trace.data.taxCancellationEntry && (
+                  <small>
+                    Apunte de anulación · base{" "}
+                    {formatMoney(
+                      sumTax(
+                        trace.data.taxCancellationEntry.amounts,
+                        "taxableBase",
+                      ),
+                      invoice.currency,
+                    )}{" "}
+                    · cuota{" "}
+                    {formatMoney(
+                      sumTax(
+                        trace.data.taxCancellationEntry.amounts,
+                        "taxAmount",
+                      ),
+                      invoice.currency,
+                    )}
+                  </small>
+                )}
               </>
             ) : (
               <strong>No encontrado</strong>
@@ -898,19 +1028,33 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                     ? `Cadena SIF verificada · ${trace.data.sifVerification.recordsChecked} registros`
                     : `Cadena SIF con incidencia · ${trace.data.sifVerification.firstInvalid?.reason ?? "revisar registro"}`}
                 </small>
-                {invoice.sifMode === "VERIFACTU" && trace.data.sifRecords.map((record) => {
-                  const submission = trace.data.aeatTestSubmissions.find(
-                    (entry) => entry.recordId === record.id,
-                  )?.submissions[0];
-                  return (
-                    <small key={`aeat-${record.id}`} role="status">
-                      AEAT pruebas · {record.recordType === "REGISTRATION" ? "alta" : record.recordType === "SUBSANATION" ? "subsanación" : "anulación"}: {submission ? aeatTestStatusLabel(submission.status) : "sin envío"}
-                      {submission?.csv ? ` · CSV ${submission.csv}` : ""}
-                      {submission?.errorDescription ? ` · ${submission.errorDescription}` : ""}
-                      {submission?.lastError ? ` · ${submission.lastError}` : ""}
-                    </small>
-                  );
-                })}
+                {invoice.sifMode === "VERIFACTU" &&
+                  trace.data.sifRecords.map((record) => {
+                    const submission = trace.data.aeatTestSubmissions.find(
+                      (entry) => entry.recordId === record.id,
+                    )?.submissions[0];
+                    return (
+                      <small key={`aeat-${record.id}`} role="status">
+                        AEAT pruebas ·{" "}
+                        {record.recordType === "REGISTRATION"
+                          ? "alta"
+                          : record.recordType === "SUBSANATION"
+                            ? "subsanación"
+                            : "anulación"}
+                        :{" "}
+                        {submission
+                          ? aeatTestStatusLabel(submission.status)
+                          : "sin envío"}
+                        {submission?.csv ? ` · CSV ${submission.csv}` : ""}
+                        {submission?.errorDescription
+                          ? ` · ${submission.errorDescription}`
+                          : ""}
+                        {submission?.lastError
+                          ? ` · ${submission.lastError}`
+                          : ""}
+                      </small>
+                    );
+                  })}
                 {trace.data.sifRecords.some(
                   (record) => record.recordType === "CANCELLATION",
                 ) && (
@@ -942,62 +1086,81 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                       href={`/api/sif/records/${record.id}/xml`}
                       key={record.id}
                     >
-                      Descargar XML {record.recordType === "REGISTRATION" ? "de alta" : record.recordType === "SUBSANATION" ? "de subsanación" : "de anulación"}
+                      Descargar XML{" "}
+                      {record.recordType === "REGISTRATION"
+                        ? "de alta"
+                        : record.recordType === "SUBSANATION"
+                          ? "de subsanación"
+                          : "de anulación"}
                     </a>
                   ))}
-                  {invoice.sifMode === "VERIFACTU" && timestampWarning &&
-                    !trace.data.sifRecords.some((record) =>
-                      record.recordType === "SUBSANATION" || record.recordType === "CANCELLATION",
+                  {invoice.sifMode === "VERIFACTU" &&
+                    timestampWarning &&
+                    !trace.data.sifRecords.some(
+                      (record) =>
+                        record.recordType === "SUBSANATION" ||
+                        record.recordType === "CANCELLATION",
                     ) && (
                       <button
                         className="secondary-button compact"
                         disabled={subsanateTimestamp.isPending}
                         onClick={() => {
-                          if (window.confirm(
-                            "Se enviará a AEAT pruebas una nueva alta de subsanación con la hora actual. El alta anterior y la factura permanecerán intactas. ¿Continuar?",
-                          )) subsanateTimestamp.mutate();
+                          if (
+                            window.confirm(
+                              "Se enviará a AEAT pruebas una nueva alta de subsanación con la hora actual. El alta anterior y la factura permanecerán intactas. ¿Continuar?",
+                            )
+                          )
+                            subsanateTimestamp.mutate();
                         }}
                         type="button"
                       >
-                        {subsanateTimestamp.isPending ? "Subsanando…" : "Subsanar aviso de fecha/hora"}
+                        {subsanateTimestamp.isPending
+                          ? "Subsanando…"
+                          : "Subsanar aviso de fecha/hora"}
                       </button>
                     )}
-                  {!trace.data.sifRecords.some(
-                    (record) => record.recordType === "CANCELLATION",
-                  ) && (invoice.sifMode !== "VERIFACTU" || definitiveAeatResponse) && (
-                    <button
-                      className="secondary-button compact"
-                      disabled={cancelSifRecord.isPending}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            "Esto añade un registro SIF de anulación. No cancela la factura, el asiento contable ni el IVA. ¿Continuar?",
+                  {invoice.documentType === "CREDIT_NOTE" &&
+                    !trace.data.sifRecords.some(
+                      (record) => record.recordType === "CANCELLATION",
+                    ) &&
+                    (invoice.sifMode !== "VERIFACTU" ||
+                      definitiveAeatResponse) && (
+                      <button
+                        className="secondary-button compact"
+                        disabled={cancelSifRecord.isPending}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Esto añade un registro SIF de anulación. No cancela la factura, el asiento contable ni el IVA. ¿Continuar?",
+                            )
                           )
-                        )
-                          cancelSifRecord.mutate();
-                      }}
-                      type="button"
-                    >
-                      {cancelSifRecord.isPending
-                        ? "Anulando registro…"
-                        : "Anular registro SIF"}
-                    </button>
-                  )}
+                            cancelSifRecord.mutate();
+                        }}
+                        type="button"
+                      >
+                        {cancelSifRecord.isPending
+                          ? "Anulando registro…"
+                          : "Anular registro SIF"}
+                      </button>
+                    )}
                 </div>
-                {notice && <small role="status">{notice}</small>}
                 {cancelSifRecord.error && (
                   <p className="form-error">{cancelSifRecord.error.message}</p>
                 )}
                 {subsanateTimestamp.error && (
-                  <p className="form-error">{subsanateTimestamp.error.message}</p>
+                  <p className="form-error">
+                    {subsanateTimestamp.error.message}
+                  </p>
                 )}
-                {!trace.data.sifRecords.some(
-                  (record) => record.recordType === "CANCELLATION",
-                ) && (
-                  <small>
-                    La corrección económica exige emitir una factura rectificativa.
-                  </small>
-                )}
+                {invoice.documentType === "CREDIT_NOTE" &&
+                  !trace.data.sifRecords.some(
+                    (record) => record.recordType === "CANCELLATION",
+                  ) && (
+                    <small>
+                      La corrección económica exige emitir una factura
+                      rectificativa.
+                    </small>
+                  )}
               </>
             ) : (
               <strong>
@@ -1019,15 +1182,24 @@ function shortHash(value: string) {
 
 function aeatTestStatusLabel(status: string) {
   switch (status) {
-    case "PENDING": return "pendiente";
-    case "SENDING": return "enviando";
-    case "RETRY": return "reintento programado";
-    case "ACCEPTED": return "aceptado";
-    case "ACCEPTED_WITH_ERRORS": return "aceptado con errores";
-    case "REJECTED": return "rechazado";
-    case "FAILED": return "fallo sin envío confirmado";
-    case "UNKNOWN": return "resultado incierto: verificar en AEAT";
-    default: return status;
+    case "PENDING":
+      return "pendiente";
+    case "SENDING":
+      return "enviando";
+    case "RETRY":
+      return "reintento programado";
+    case "ACCEPTED":
+      return "aceptado";
+    case "ACCEPTED_WITH_ERRORS":
+      return "aceptado con errores";
+    case "REJECTED":
+      return "rechazado";
+    case "FAILED":
+      return "fallo sin envío confirmado";
+    case "UNKNOWN":
+      return "resultado incierto: verificar en AEAT";
+    default:
+      return status;
   }
 }
 
@@ -1091,7 +1263,9 @@ function PaymentsPanel({ invoice }: { invoice: Invoice }) {
           <p className="eyebrow">Tesorería</p>
           <h2 id="payments-title">Cobros</h2>
           <p>
-            {schedule.data?.length
+            {invoice.status === "CANCELLED"
+              ? "Factura anulada: no hay saldo exigible."
+              : schedule.data?.length
               ? nextInstallmentText(schedule.data, invoice.currency)
               : "Consultando vencimientos…"}
           </p>

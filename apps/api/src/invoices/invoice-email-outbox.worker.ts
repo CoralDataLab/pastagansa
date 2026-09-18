@@ -103,6 +103,8 @@ export class InvoiceEmailOutboxWorker implements OnModuleInit, OnModuleDestroy {
       if (delivery.documentType === DeliveryDocumentType.INVOICE) {
         const invoice = delivery.invoice;
         if (!invoice?.fullNumber) throw new Error("Queued invoice does not have an issued number");
+        if (invoice.status === InvoiceStatus.CANCELLED)
+          throw new Error("Invoice was cancelled before delivery");
         const pdf = await this.invoicePdf.render({
           ...invoice,
           fullNumber: invoice.fullNumber,

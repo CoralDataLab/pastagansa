@@ -237,6 +237,7 @@ enum JournalEntryStatus {
 enum JournalSourceType {
   MANUAL
   SALES_INVOICE
+  INVOICE_CANCELLATION
   PURCHASE_INVOICE
   PAYMENT
   SUPPLIER_PAYMENT
@@ -535,6 +536,8 @@ model Invoice {
   amountPaid          Decimal                @default(0) @map("amount_paid") @db.Decimal(14, 2)
   amountDue           Decimal                @default(0) @map("amount_due") @db.Decimal(14, 2)
   issuedAt            DateTime?              @map("issued_at") @db.Timestamptz(6)
+  cancelledAt         DateTime?              @map("cancelled_at") @db.Timestamptz(6)
+  cancellationReason  String?                @map("cancellation_reason") @db.VarChar(1000)
   createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization        Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -697,6 +700,7 @@ model TaxLedgerEntry {
   companyId           String               @map("company_id") @db.Uuid
   invoiceId           String?              @unique @map("invoice_id") @db.Uuid
   purchaseInvoiceId   String?              @unique @map("purchase_invoice_id") @db.Uuid
+  cancellationOfId    String?              @unique @map("cancellation_of_id") @db.Uuid
   direction           TaxLedgerDirection
   bookType            TaxBookType          @map("book_type")
   issueDate           DateTime             @map("issue_date") @db.Date
@@ -719,11 +723,14 @@ model TaxLedgerEntry {
   counterparty        Contact              @relation(fields: [counterpartyId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
   correctionOf        TaxLedgerEntry?      @relation("TaxLedgerCorrections", fields: [correctionOfId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
   corrections         TaxLedgerEntry[]     @relation("TaxLedgerCorrections")
+  cancellationOf      TaxLedgerEntry?      @relation("TaxLedgerCancellations", fields: [cancellationOfId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  cancelledBy         TaxLedgerEntry?      @relation("TaxLedgerCancellations")
   amounts             TaxLedgerAmount[]
 
   @@unique([id, organizationId, companyId])
   @@unique([invoiceId, organizationId, companyId])
   @@unique([purchaseInvoiceId, organizationId, companyId])
+  @@unique([cancellationOfId, organizationId, companyId])
   @@index([companyId, taxPointDate, id])
   @@map("tax_ledger_entries")
 }

@@ -239,6 +239,59 @@ export class TaxService {
     });
   }
 
+  async cancelInvoice(invoiceId: string, cancellationDate: Date) {
+    const scope = this.scope();
+    const original = await this.tenant.db.taxLedgerEntry.findFirst({
+      where: { invoiceId, ...scope },
+      include: { amounts: true, cancelledBy: true },
+    });
+    if (!original)
+      throw new ConflictException("Original invoice tax posting is missing");
+    if (original.cancelledBy) return original.cancelledBy;
+    if (original.correctionOfId)
+      throw new ConflictException(
+        "Rectifying entries cannot be cancelled as an ordinary invoice",
+      );
+    const entry = await this.tenant.db.taxLedgerEntry.create({
+      data: {
+        ...scope,
+        cancellationOfId: original.id,
+        direction: original.direction,
+        bookType: original.bookType,
+        issueDate: cancellationDate,
+        operationDate: original.operationDate,
+        taxPointDate: cancellationDate,
+        counterpartyId: original.counterpartyId,
+        counterpartyTaxId: original.counterpartyTaxId,
+        counterpartyCountry: original.counterpartyCountry,
+        documentNumber: original.documentNumber,
+      },
+    });
+    await this.tenant.db.taxLedgerAmount.createMany({
+      data: original.amounts.map((amount) => ({
+        ...scope,
+        taxLedgerEntryId: entry.id,
+        invoiceTaxLineId: amount.invoiceTaxLineId,
+        taxRuleId: amount.taxRuleId,
+        taxableBase: amount.taxableBase.negated(),
+        rate: amount.rate,
+        taxAmount: amount.taxAmount.negated(),
+        surchargeRate: amount.surchargeRate,
+        surchargeAmount: amount.surchargeAmount.negated(),
+      })),
+    });
+    await this.audit.record(
+      "tax_ledger.invoice_cancelled",
+      "tax_ledger",
+      entry.id,
+      {
+        invoiceId,
+        cancellationOfId: original.id,
+      },
+    );
+    return entry;
+  }
+
   async postPurchaseInvoice(purchaseInvoiceId: string) {
     const scope = this.scope();
     const existing = await this.tenant.db.taxLedgerEntry.findFirst({
@@ -309,7 +362,14 @@ export class TaxService {
 
   private ledgerFilters(query: ListTaxLedgerDto) {
     return {
-      ...(query.invoiceId ? { invoiceId: query.invoiceId } : {}),
+      ...(query.invoiceId
+        ? {
+            OR: [
+              { invoiceId: query.invoiceId },
+              { cancellationOf: { invoiceId: query.invoiceId } },
+            ],
+          }
+        : {}),
       ...(query.purchaseInvoiceId
         ? { purchaseInvoiceId: query.purchaseInvoiceId }
         : {}),

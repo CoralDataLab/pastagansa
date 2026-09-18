@@ -9,10 +9,12 @@ import {
   ContactStatus,
   DocumentType,
   InvoiceStatus,
+  InvoiceEmailStatus,
   Prisma,
   RectificationImpact,
   RectificationKind,
   SifMode,
+  SifAeatSubmissionStatus,
   SifInvoiceType,
   TaxRule,
 } from "@prisma/client";
@@ -32,6 +34,7 @@ import {
 import { CreateRectificationDto } from "./dto/create-rectification.dto";
 import { ListInvoicesDto } from "./dto/list-invoices.dto";
 import { IssueInvoiceDto } from "./dto/issue-invoice.dto";
+import { CancelIssuedInErrorDto } from "./dto/cancel-issued-in-error.dto";
 import { InvoicePdfService } from "./invoice-pdf.service";
 
 @Injectable()
@@ -505,6 +508,151 @@ export class InvoicesService {
         { rectificationInvoiceId: id, kind: invoice.rectificationKind },
       );
     }
+    return this.get(id);
+  }
+
+  async cancelIssuedInError(id: string, input: CancelIssuedInErrorDto) {
+    const scope = this.scope();
+    const locked = await this.tenant.db.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "invoices"
+      WHERE "id" = CAST(${id} AS uuid)
+        AND "organization_id" = CAST(${scope.organizationId} AS uuid)
+        AND "company_id" = CAST(${scope.companyId} AS uuid)
+      FOR UPDATE
+    `;
+    if (!locked.length) throw new NotFoundException("Invoice not found");
+    const invoice = await this.tenant.db.invoice.findFirstOrThrow({
+      where: { id, ...scope },
+      include: { company: { select: { timezone: true } } },
+    });
+    if (invoice.status === InvoiceStatus.CANCELLED) return this.get(id);
+    if (
+      invoice.documentType !== DocumentType.INVOICE ||
+      (invoice.status !== InvoiceStatus.ISSUED &&
+        invoice.status !== InvoiceStatus.SENT &&
+        invoice.status !== InvoiceStatus.OVERDUE)
+    )
+      throw new ConflictException(
+        "Only an issued ordinary invoice can be cancelled as issued in error",
+      );
+    if (
+      !input.operationDidNotExist ||
+      !input.reason.trim() ||
+      input.reason.trim().length < 20
+    )
+      throw new BadRequestException(
+        "Confirm the nonexistent operation and explain the error",
+      );
+    if (
+      !invoice.amountPaid.isZero() ||
+      (await this.tenant.db.paymentAllocation.count({
+        where: { invoiceId: id, ...scope },
+      }))
+    )
+      throw new ConflictException(
+        "An invoice with payments requires a separate reviewed correction",
+      );
+    if (
+      await this.tenant.db.invoice.count({
+        where: { originalInvoiceId: id, ...scope },
+      })
+    )
+      throw new ConflictException(
+        "An invoice with rectifications cannot use error cancellation",
+      );
+    await this.tenant.db.$queryRaw`
+      SELECT "id" FROM "document_deliveries"
+      WHERE "invoice_id" = CAST(${id} AS uuid)
+        AND "organization_id" = CAST(${scope.organizationId} AS uuid)
+        AND "company_id" = CAST(${scope.companyId} AS uuid)
+        AND "status" IN ('PENDING', 'PROCESSING')
+      FOR UPDATE
+    `;
+    if (
+      await this.tenant.db.documentDelivery.count({
+        where: { invoiceId: id, status: InvoiceEmailStatus.PROCESSING, ...scope },
+      })
+    )
+      throw new ConflictException(
+        "An email for this invoice is being delivered; retry after it finishes",
+      );
+    const date = new Date(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: invoice.company.timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
+    );
+    if (date < invoice.issueDate)
+      throw new ConflictException(
+        "Cancellation cannot precede invoice issue date",
+      );
+    const taxEntry = await this.tenant.db.taxLedgerEntry.findFirst({
+      where: { invoiceId: id, ...scope },
+      select: { id: true },
+    });
+    const journalEntry = await this.tenant.db.journalEntry.findFirst({
+      where: { sourceType: "SALES_INVOICE", sourceId: id, ...scope },
+      select: { id: true },
+    });
+    if (!taxEntry || !journalEntry)
+      throw new ConflictException(
+        "Invoice posting is incomplete; review before cancellation",
+      );
+    const sifRecord =
+      invoice.sifMode === SifMode.DISABLED
+        ? null
+        : await this.sif.createCancellation(id);
+    if (invoice.sifMode === SifMode.VERIFACTU && sifRecord) {
+      const submission = await this.tenant.db.sifAeatSubmission.findFirst({
+        where: { recordId: sifRecord.id, ...scope },
+        select: { status: true },
+      });
+      if (
+        submission &&
+        (submission.status === SifAeatSubmissionStatus.REJECTED ||
+          submission.status === SifAeatSubmissionStatus.FAILED ||
+          submission.status === SifAeatSubmissionStatus.UNKNOWN)
+      )
+        throw new ConflictException(
+          "AEAT cancellation needs review before financial reversal",
+        );
+    }
+    const taxCancellation = await this.tax.cancelInvoice(id, date);
+    const journalReversal = await this.accounting.reverseSalesInvoice(
+      id,
+      date,
+      input.reason.trim(),
+    );
+    await this.tenant.db.documentDelivery.updateMany({
+      where: { invoiceId: id, status: InvoiceEmailStatus.PENDING, ...scope },
+      data: {
+        status: InvoiceEmailStatus.FAILED,
+        lastError: "Invoice cancelled before delivery",
+      },
+    });
+    await this.tenant.db.invoice.update({
+      where: { id },
+      data: {
+        status: InvoiceStatus.CANCELLED,
+        amountDue: new Decimal(0),
+        cancelledAt: new Date(),
+        cancellationReason: input.reason.trim(),
+      },
+    });
+    await this.audit.record(
+      "invoice.cancelled_issued_in_error",
+      "invoice",
+      id,
+      {
+        reason: input.reason.trim(),
+        operationDidNotExist: true,
+        taxCancellationId: taxCancellation.id,
+        journalReversalId: journalReversal.id,
+        sifCancellationId: sifRecord?.id ?? null,
+      },
+    );
     return this.get(id);
   }
 

@@ -49,12 +49,20 @@ export class InvoiceEmailService {
 
   async enqueueInvoice(invoiceId: string, input: SendDocumentEmailDto, idempotencyKey: string) {
     const scope = this.scope();
+    await this.tenant.db.$queryRaw`
+      SELECT "id" FROM "invoices"
+      WHERE "id" = CAST(${invoiceId} AS uuid)
+        AND "organization_id" = CAST(${scope.organizationId} AS uuid)
+        AND "company_id" = CAST(${scope.companyId} AS uuid)
+      FOR UPDATE
+    `;
     const invoice = await this.tenant.db.invoice.findFirst({
       where: { id: invoiceId, ...scope },
       select: { id: true, status: true, fullNumber: true, customerEmail: true, customerLegalName: true, issuerLegalName: true },
     });
     if (!invoice) throw new NotFoundException("Invoice not found");
-    if (invoice.status === InvoiceStatus.DRAFT || !invoice.fullNumber)
+    if (invoice.status === InvoiceStatus.DRAFT ||
+        invoice.status === InvoiceStatus.CANCELLED || !invoice.fullNumber)
       throw new ConflictException("Only issued invoices can be emailed");
     const profile = await this.profile();
     return this.createDelivery({
@@ -112,6 +120,14 @@ export class InvoiceEmailService {
 
   async enqueuePaymentReminder(invoiceId: string, template: ReminderTemplate, idempotencyKey: string, recipient?: string, excludeDisputed = false) {
     if (!this.mailer.enabled) throw new ConflictException("Email delivery is not configured");
+    const scope = this.scope();
+    await this.tenant.db.$queryRaw`
+      SELECT "id" FROM "invoices"
+      WHERE "id" = CAST(${invoiceId} AS uuid)
+        AND "organization_id" = CAST(${scope.organizationId} AS uuid)
+        AND "company_id" = CAST(${scope.companyId} AS uuid)
+      FOR UPDATE
+    `;
     const reminder = await this.paymentReminder(invoiceId, template, recipient, excludeDisputed);
     if (!reminder.eligible)
       throw new ConflictException(reminder.reason ?? "This invoice is not eligible for a payment reminder");

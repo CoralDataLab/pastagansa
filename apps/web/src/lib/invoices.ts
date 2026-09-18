@@ -57,6 +57,8 @@ export interface Invoice {
   amountDue: string;
   notes: string | null;
   issuedAt: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
   lines?: Array<{
     id: string;
     catalogItemId: string | null;
@@ -157,6 +159,8 @@ export interface PaymentInstallment {
 }
 
 export interface InvoiceTrace {
+  taxCancellationEntry: InvoiceTrace["taxEntry"];
+  journalReversalEntry: InvoiceTrace["journalEntry"];
   journalEntry: null | {
     id: string;
     entryNumber: string;
@@ -207,7 +211,15 @@ export interface InvoiceTrace {
   aeatTestSubmissions: Array<{
     recordId: string;
     submissions: Array<{
-      status: "PENDING" | "SENDING" | "RETRY" | "ACCEPTED" | "ACCEPTED_WITH_ERRORS" | "REJECTED" | "FAILED" | "UNKNOWN";
+      status:
+        | "PENDING"
+        | "SENDING"
+        | "RETRY"
+        | "ACCEPTED"
+        | "ACCEPTED_WITH_ERRORS"
+        | "REJECTED"
+        | "FAILED"
+        | "UNKNOWN";
       attempts: number;
       recordStatus: string | null;
       csv: string | null;

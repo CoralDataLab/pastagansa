@@ -129,11 +129,16 @@ export class AccountingService {
       data: { accountId: account.id },
       include: { account: true },
     });
-    await this.audit.record("accounting_rule.updated", "accounting_rule", rule.id, {
-      sourceType,
-      accountingRole,
-      accountId: account.id,
-    });
+    await this.audit.record(
+      "accounting_rule.updated",
+      "accounting_rule",
+      rule.id,
+      {
+        sourceType,
+        accountingRole,
+        accountId: account.id,
+      },
+    );
     return rule;
   }
 
@@ -390,6 +395,46 @@ export class AccountingService {
     });
   }
 
+  async reverseSalesInvoice(
+    invoiceId: string,
+    entryDate: Date,
+    reason: string,
+  ) {
+    const original = await this.tenant.db.journalEntry.findFirst({
+      where: {
+        ...this.scope(),
+        sourceType: JournalSourceType.SALES_INVOICE,
+        sourceId: invoiceId,
+        status: JournalEntryStatus.POSTED,
+      },
+      include: { lines: { orderBy: { position: "asc" } }, reversedBy: true },
+    });
+    if (!original)
+      throw new ConflictException("Original sales journal entry is missing");
+    if (original.reversedBy)
+      throw new ConflictException(
+        "Original sales journal entry was already reversed",
+      );
+    if (entryDate < original.entryDate)
+      throw new BadRequestException(
+        "Reversal date cannot precede original entry date",
+      );
+    return this.createPostedEntry({
+      entryDate,
+      description: `Invoice issued in error: ${reason}`.slice(0, 1000),
+      sourceType: JournalSourceType.INVOICE_CANCELLATION,
+      sourceId: invoiceId,
+      reversalOfId: original.id,
+      lines: original.lines.map((line) => ({
+        accountId: line.accountId,
+        contactId: line.contactId ?? undefined,
+        description: line.description ?? undefined,
+        debit: line.credit,
+        credit: line.debit,
+      })),
+    });
+  }
+
   async trialBalance(query: TrialBalanceDto) {
     if (query.from > query.to)
       throw new BadRequestException("from cannot be after to");
@@ -583,10 +628,11 @@ export class AccountingService {
     ];
     return this.createPostedEntry({
       entryDate: payment.paidAt,
-      description: `Customer receipt${documents.length ? ` ${documents.join(", ")}` : ""}`.slice(
-        0,
-        1000,
-      ),
+      description:
+        `Customer receipt${documents.length ? ` ${documents.join(", ")}` : ""}`.slice(
+          0,
+          1000,
+        ),
       sourceType: JournalSourceType.PAYMENT,
       sourceId: payment.id,
       lines: [
@@ -623,10 +669,11 @@ export class AccountingService {
     );
     return this.createPostedEntry({
       entryDate: payment.paidAt,
-      description: `Supplier payment ${payment.purchaseInvoice.supplierInvoiceNumber}`.slice(
-        0,
-        1000,
-      ),
+      description:
+        `Supplier payment ${payment.purchaseInvoice.supplierInvoiceNumber}`.slice(
+          0,
+          1000,
+        ),
       sourceType: JournalSourceType.SUPPLIER_PAYMENT,
       sourceId: payment.id,
       lines: [
@@ -820,7 +867,7 @@ export class AccountingService {
 
   private async lockIdempotencyKey(key: string) {
     const { companyId } = this.scope();
-    await this.tenant.db.$queryRaw<Array<{ locked: boolean}>>`
+    await this.tenant.db.$queryRaw<Array<{ locked: boolean }>>`
       SELECT pg_advisory_xact_lock(
         hashtextextended(${`${companyId}:${key}`}, 0)
       ) IS NULL AS "locked"

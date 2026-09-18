@@ -429,9 +429,9 @@ describe("platform integrity", () => {
     );
     expect(concurrentQuotes.map(({ status }) => status)).toEqual([201, 201]);
     expect(new Set(concurrentQuotes.map(({ body }) => body.code)).size).toBe(2);
-    expect(
-      concurrentQuotes.every(({ body }) => body.series === "P2026"),
-    ).toBe(true);
+    expect(concurrentQuotes.every(({ body }) => body.series === "P2026")).toBe(
+      true,
+    );
 
     const acceptedQuote = await authed(accountA.accessToken, tenantA)
       .post("/v1/quotes")
@@ -618,14 +618,17 @@ describe("platform integrity", () => {
       .get(`/v1/sif/records?invoiceId=${invoiceDraft.body.id}`)
       .expect(200);
     expect(cancelledInvoiceSif.body).toHaveLength(2);
-    expect(cancelledInvoiceSif.body.map(({ recordType }: { recordType: string }) => recordType)).toEqual([
-      "REGISTRATION",
-      "CANCELLATION",
-    ]);
+    expect(
+      cancelledInvoiceSif.body.map(
+        ({ recordType }: { recordType: string }) => recordType,
+      ),
+    ).toEqual(["REGISTRATION", "CANCELLATION"]);
     await authed(accountA.accessToken, tenantA)
       .get("/v1/sif/records/verification")
       .expect(200)
-      .expect(({ body }) => expect(body).toMatchObject({ valid: true, recordsChecked: 2 }));
+      .expect(({ body }) =>
+        expect(body).toMatchObject({ valid: true, recordsChecked: 2 }),
+      );
     const transitionAudit = await authed(accountA.accessToken, tenantA)
       .get("/v1/sif/records/transition-audit")
       .expect(200);
@@ -634,19 +637,45 @@ describe("platform integrity", () => {
       totalRecords: 2,
       historicalChainReviewRequired: true,
       groups: [
-        { sifMode: "NO_VERIFACTU", aeatEnvironment: "TEST", recordType: "REGISTRATION", softwareId: "PG", softwareIdValid: true, records: 1, frozenXmlRecords: 0, unavailableXmlRecords: 1, legacyXmlRecords: 0, firstPosition: "1", lastPosition: "1" },
-        { sifMode: "NO_VERIFACTU", aeatEnvironment: "TEST", recordType: "CANCELLATION", softwareId: "PG", softwareIdValid: true, records: 1, frozenXmlRecords: 1, unavailableXmlRecords: 0, legacyXmlRecords: 0, firstPosition: "2", lastPosition: "2" },
+        {
+          sifMode: "NO_VERIFACTU",
+          aeatEnvironment: "TEST",
+          recordType: "REGISTRATION",
+          softwareId: "PG",
+          softwareIdValid: true,
+          records: 1,
+          frozenXmlRecords: 0,
+          unavailableXmlRecords: 1,
+          legacyXmlRecords: 0,
+          firstPosition: "1",
+          lastPosition: "1",
+        },
+        {
+          sifMode: "NO_VERIFACTU",
+          aeatEnvironment: "TEST",
+          recordType: "CANCELLATION",
+          softwareId: "PG",
+          softwareIdValid: true,
+          records: 1,
+          frozenXmlRecords: 1,
+          unavailableXmlRecords: 0,
+          legacyXmlRecords: 0,
+          firstPosition: "2",
+          lastPosition: "2",
+        },
       ],
     });
     await authed(accountB.accessToken, tenantB)
       .get("/v1/sif/records/transition-audit")
       .expect(200)
-      .expect(({ body }) => expect(body).toMatchObject({
-        companyId: tenantB.companyId,
-        totalRecords: 0,
-        historicalChainReviewRequired: false,
-        groups: [],
-      }));
+      .expect(({ body }) =>
+        expect(body).toMatchObject({
+          companyId: tenantB.companyId,
+          totalRecords: 0,
+          historicalChainReviewRequired: false,
+          groups: [],
+        }),
+      );
     const originalLedger = await authed(accountA.accessToken, tenantA)
       .get("/v1/tax-ledger")
       .expect(200);
@@ -2114,7 +2143,14 @@ describe("platform integrity", () => {
         impact: "DECREASE",
         reason: "Correction of the agreed service price",
         issueDate: "2026-09-16",
-        lines: [{ description: "Price correction", quantity: 1, unitPrice: 20, taxRate: 21 }],
+        lines: [
+          {
+            description: "Price correction",
+            quantity: 1,
+            unitPrice: 20,
+            taxRate: 21,
+          },
+        ],
       })
       .expect(201);
     await authed(accountA.accessToken, tenantA)
@@ -2133,15 +2169,144 @@ describe("platform integrity", () => {
     const r4Xml = r4XmlResponse.text ?? r4XmlResponse.body.toString("utf8");
     expect(r4Xml).toContain("<sf:TipoFactura>R4</sf:TipoFactura>");
     expect(r4Xml).toContain("<sf:TipoRectificativa>I</sf:TipoRectificativa>");
-    expect(r4Xml).toContain(`<sf:NumSerieFactura>${r4IssuedOriginal.body.fullNumber}</sf:NumSerieFactura>`);
-    expect(r4Xml).toContain("<sf:BaseImponibleOimporteNoSujeto>-20.00</sf:BaseImponibleOimporteNoSujeto>");
+    expect(r4Xml).toContain(
+      `<sf:NumSerieFactura>${r4IssuedOriginal.body.fullNumber}</sf:NumSerieFactura>`,
+    );
+    expect(r4Xml).toContain(
+      "<sf:BaseImponibleOimporteNoSujeto>-20.00</sf:BaseImponibleOimporteNoSujeto>",
+    );
     expect(r4Xml).toContain("<sf:CuotaRepercutida>-4.20</sf:CuotaRepercutida>");
     expect(r4Xml).toContain("<sf:ImporteTotal>-24.20</sf:ImporteTotal>");
-    const r4SchemaCheck = spawnSync("xmllint", [
-      "--noout", "--schema", join(__dirname, "../src/sif/xsd/SuministroLR.xsd"), "-",
-    ], { input: r4Xml, encoding: "utf8" });
+    const r4SchemaCheck = spawnSync(
+      "xmllint",
+      [
+        "--noout",
+        "--schema",
+        join(__dirname, "../src/sif/xsd/SuministroLR.xsd"),
+        "-",
+      ],
+      { input: r4Xml, encoding: "utf8" },
+    );
     expect(r4SchemaCheck.error).toBeUndefined();
     expect(r4SchemaCheck.status).toBe(0);
+
+    const erroneousDraft = await authed(accountA.accessToken, tenantA)
+      .post("/v1/invoices")
+      .send(invoice(contactA.body.id))
+      .expect(201);
+    const erroneousIssued = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${erroneousDraft.body.id}/issue`)
+      .set("idempotency-key", "issue-erroneous-a")
+      .send({ sequenceId: sequence.body.id })
+      .expect(200);
+    const originalTaxPosting = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/tax-ledger?invoiceId=${erroneousDraft.body.id}`)
+      .expect(200);
+    expect(originalTaxPosting.body.data).toHaveLength(1);
+    const originalJournalPosting = await authed(accountA.accessToken, tenantA)
+      .get(
+        `/v1/accounting/journal-entries?sourceType=SALES_INVOICE&sourceId=${erroneousDraft.body.id}`,
+      )
+      .expect(200);
+    expect(originalJournalPosting.body.data).toHaveLength(1);
+    const existingSifCancellation = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/sif/records/${erroneousDraft.body.id}/cancellation`)
+      .expect(200);
+    const pendingErroneousEmail = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${erroneousDraft.body.id}/email`)
+      .set("idempotency-key", "email-erroneous-a")
+      .send({})
+      .expect(202);
+    expect(pendingErroneousEmail.body.status).toBe("PENDING");
+    await authed(accountB.accessToken, tenantB)
+      .post(`/v1/invoices/${erroneousDraft.body.id}/cancel-issued-in-error`)
+      .send({
+        reason: "The underlying operation never existed",
+        operationDidNotExist: true,
+      })
+      .expect(404);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${erroneousDraft.body.id}/cancel-issued-in-error`)
+      .send({ reason: "Too short", operationDidNotExist: true })
+      .expect(400);
+    const cancelled = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${erroneousDraft.body.id}/cancel-issued-in-error`)
+      .send({
+        reason: "The underlying operation never existed",
+        operationDidNotExist: true,
+      })
+      .expect(200);
+    expect(cancelled.body).toMatchObject({
+      status: "CANCELLED",
+      amountDue: "0",
+      amountPaid: "0",
+      fullNumber: erroneousIssued.body.fullNumber,
+      cancellationReason: "The underlying operation never existed",
+    });
+    expect(cancelled.body.cancelledAt).toBeTruthy();
+    const cancellationRetry = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${erroneousDraft.body.id}/cancel-issued-in-error`)
+      .send({
+        reason: "The underlying operation never existed",
+        operationDidNotExist: true,
+      })
+      .expect(200);
+    expect(cancellationRetry.body.status).toBe("CANCELLED");
+    const cancelledDeliveries = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/invoices/${erroneousDraft.body.id}/email-deliveries`)
+      .expect(200);
+    expect(cancelledDeliveries.body[0]).toMatchObject({
+      id: pendingErroneousEmail.body.id,
+      status: "FAILED",
+      lastError: "Invoice cancelled before delivery",
+    });
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${erroneousDraft.body.id}/email`)
+      .set("idempotency-key", "email-erroneous-after-cancellation-a")
+      .send({})
+      .expect(409);
+    const finalSifRecords = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records?invoiceId=${erroneousDraft.body.id}`)
+      .expect(200);
+    expect(finalSifRecords.body).toHaveLength(2);
+    expect(finalSifRecords.body[1].id).toBe(existingSifCancellation.body.id);
+    const finalTaxPostings = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/tax-ledger?invoiceId=${erroneousDraft.body.id}`)
+      .expect(200);
+    expect(finalTaxPostings.body.data).toHaveLength(2);
+    const taxCancellation = finalTaxPostings.body.data.find(
+      ({ cancellationOfId }: { cancellationOfId: string | null }) =>
+        !!cancellationOfId,
+    );
+    expect(taxCancellation).toMatchObject({
+      cancellationOfId: originalTaxPosting.body.data[0].id,
+      documentNumber: erroneousIssued.body.fullNumber,
+    });
+    expect(taxCancellation.amounts[0]).toMatchObject({
+      taxableBase: "-100",
+      taxAmount: "-21",
+    });
+    const journalReversals = await authed(accountA.accessToken, tenantA)
+      .get(
+        `/v1/accounting/journal-entries?sourceType=INVOICE_CANCELLATION&sourceId=${erroneousDraft.body.id}`,
+      )
+      .expect(200);
+    expect(journalReversals.body.data).toHaveLength(1);
+    expect(journalReversals.body.data[0].reversalOfId).toBe(
+      originalJournalPosting.body.data[0].id,
+    );
+    expect(accountingAmounts(journalReversals.body.data[0])).toEqual({
+      "430000": { debit: "0", credit: "121" },
+      "477000": { debit: "21", credit: "0" },
+      "701000": { debit: "100", credit: "0" },
+    });
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${invoiceDraft.body.id}/cancel-issued-in-error`)
+      .send({
+        reason: "The underlying operation never existed",
+        operationDidNotExist: true,
+      })
+      .expect(409);
 
     const refreshes = await Promise.all([
       request(app.getHttpServer())

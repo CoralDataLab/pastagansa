@@ -16,6 +16,7 @@ import {
 import { RequirePermissions } from "../authorization/permissions.decorator";
 import { TenantProtected } from "../tenancy/tenant.decorator";
 import { CreateRectificationDto } from "./dto/create-rectification.dto";
+import { CancelIssuedInErrorDto } from "./dto/cancel-issued-in-error.dto";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
 import { ListInvoicesDto } from "./dto/list-invoices.dto";
 import { IssueInvoiceDto } from "./dto/issue-invoice.dto";
@@ -119,6 +120,16 @@ export class InvoicesController {
     );
   }
 
+  @Post(":id/cancel-issued-in-error")
+  @HttpCode(200)
+  @RequirePermissions("invoice.issue")
+  cancelIssuedInError(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() input: CancelIssuedInErrorDto,
+  ) {
+    return this.invoices.cancelIssuedInError(id, input);
+  }
+
   @Post(":id/email")
   @HttpCode(202)
   @RequirePermissions("document.send")
@@ -140,7 +151,11 @@ export class InvoicesController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body() input: PaymentReminderPreviewDto,
   ) {
-    return this.emails.previewPaymentReminder(id, input.template, input.recipient);
+    return this.emails.previewPaymentReminder(
+      id,
+      input.template,
+      input.recipient,
+    );
   }
 
   @Post(":id/payment-reminder")
