@@ -32,20 +32,62 @@ describe("SifService transition audit", () => {
 });
 
 describe("SifService AEAT test overview", () => {
-  it("returns only scoped counts and actionable rows without XML or certificate data", async () => {
+  it("separates delivery problems from definitive AEAT responses within the tenant", async () => {
     const organizationId = "11111111-1111-4111-8111-111111111111";
     const companyId = "22222222-2222-4222-8222-222222222222";
     const groupBy = jest.fn().mockResolvedValue([
       { status: SubmissionStatus.ACCEPTED, _count: { _all: 6 } },
       { status: SubmissionStatus.UNKNOWN, _count: { _all: 1 } },
     ]);
-    const findMany = jest.fn().mockResolvedValue([{
-      id: "submission", status: SubmissionStatus.UNKNOWN, attempts: 2,
-      availableAt: new Date("2026-09-18T12:00:00.000Z"),
-      lastAttemptAt: new Date("2026-09-18T11:58:00.000Z"),
-      lastError: "Timeout", responseXml: "private SOAP response",
-      record: { chainPosition: 9n, invoice: { id: "invoice", fullNumber: "F2026-0005" } },
-    }]);
+    const findMany = jest.fn()
+      .mockResolvedValueOnce([{
+        id: "submission", status: SubmissionStatus.UNKNOWN, attempts: 2,
+        availableAt: new Date("2026-09-18T12:00:00.000Z"),
+        lastAttemptAt: new Date("2026-09-18T11:58:00.000Z"),
+        lastError: "Timeout", responseXml: "private SOAP response",
+        record: { chainPosition: 9n, invoice: { id: "invoice", fullNumber: "F2026-0005" } },
+      }])
+      .mockResolvedValueOnce([
+        {
+          id: "warning", status: SubmissionStatus.ACCEPTED_WITH_ERRORS,
+          recordStatus: "AceptadoConErrores", errorCode: "2000",
+          errorDescription: "FechaHoraHusoGenRegistro fuera de margen", csv: "CSV-1",
+          record: {
+            recordType: SifRecordType.REGISTRATION, chainPosition: 2n,
+            invoice: { id: "invoice-2", fullNumber: "F2026-0002", sifRecords: [{
+              recordType: SifRecordType.SUBSANATION, chainPosition: 4n,
+              aeatSubmissions: [{ status: SubmissionStatus.ACCEPTED }],
+            }] },
+          },
+        },
+        {
+          id: "rejection", status: SubmissionStatus.REJECTED,
+          recordStatus: "Incorrecto", errorCode: "4112",
+          errorDescription: "Destinatario no identificado", csv: null,
+          record: {
+            recordType: SifRecordType.REGISTRATION, chainPosition: 1n,
+            invoice: { id: "invoice-1", fullNumber: "F2026-0001", sifRecords: [] },
+          },
+        },
+        {
+          id: "warning-pending", status: SubmissionStatus.ACCEPTED_WITH_ERRORS,
+          recordStatus: "AceptadoConErrores", errorCode: "2000",
+          errorDescription: "FechaHoraHusoGenRegistro fuera de margen", csv: "CSV-2",
+          record: {
+            recordType: SifRecordType.REGISTRATION, chainPosition: 7n,
+            invoice: { id: "invoice-7", fullNumber: "F2026-0007", sifRecords: [] },
+          },
+        },
+        {
+          id: "global-fault", status: SubmissionStatus.REJECTED,
+          recordStatus: null, errorCode: null, errorDescription: "SOAP client fault",
+          lastError: "AEAT SOAP fault env:Client", csv: null,
+          record: {
+            recordType: SifRecordType.REGISTRATION, chainPosition: 8n,
+            invoice: { id: "invoice-8", fullNumber: "F2026-0008", sifRecords: [] },
+          },
+        },
+      ]);
     const service = new SifService({
       required: { organizationId, companyId },
       db: { sifAeatSubmission: { groupBy, findMany } },
@@ -56,12 +98,20 @@ describe("SifService AEAT test overview", () => {
       companyId,
       counts: { ACCEPTED: 6, UNKNOWN: 1, FAILED: 0, RETRY: 0 },
       attention: [{ status: "UNKNOWN", chainPosition: "9", invoiceNumber: "F2026-0005" }],
+      review: [
+        { reviewKind: "FOLLOW_UP_RECORDED", followUps: [{ chainPosition: "4", status: "ACCEPTED" }] },
+        { reviewKind: "MANUAL_REVIEW", errorCode: "4112", invoiceNumber: "F2026-0001" },
+        { reviewKind: "TIMESTAMP_SUBSANATION_CANDIDATE", invoiceNumber: "F2026-0007" },
+        { reviewKind: "GLOBAL_REJECTION_REVIEW", invoiceNumber: "F2026-0008" },
+      ],
     });
     expect(JSON.stringify(result)).not.toContain("private SOAP response");
     expect(groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId, companyId } }));
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ organizationId, companyId }), take: 20,
     }));
+    expect(findMany).toHaveBeenCalledTimes(2);
+    expect(findMany.mock.calls[1][0].select).not.toHaveProperty("responseXml");
   });
 });
 

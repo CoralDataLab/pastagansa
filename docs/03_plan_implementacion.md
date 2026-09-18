@@ -832,6 +832,16 @@ Después del despliegue, la captura del operador mostró el resumen esperado
 (6 aceptados, 1 con errores, 1 rechazado y cero pendientes); SSH confirmó el
 checkout `a91f8ba` y la web/API fueron alcanzables. Los healthchecks Docker
 no se cotejaron directamente. Evidencia y límites en el acta AEAT.
+Como primer paso de subsanación general, la misma vista lista hasta veinte
+resultados con errores o rechazo, con código, descripción, factura,
+posición SIF y estados de subsanaciones o anulaciones posteriores. Señala como
+posible acción el único caso ya soportado, el aviso de fecha/hora aún sin
+seguimiento; los rechazos globales sin respuesta de línea y los demás casos
+requieren revisión individual. Es una clasificación
+de solo lectura: no reenvía, no altera la cadena y no declara resuelta una
+incidencia por existir un registro posterior. La [guía AEAT sobre integridad e
+inalterabilidad](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/caracteristicas-requisitos-sif-integridad-inalterabilidad.html)
+exige conservar el registro erróneo y generar uno nuevo para subsanarlo.
 Pendientes subsanación general de errores y rechazos, firma/eventos NO
 VERI*FACTU, soporte de toda la casuística fiscal y revisión de conformidad para
 producción.

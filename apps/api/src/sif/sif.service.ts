@@ -112,7 +112,7 @@ export class SifService {
   /** Read-only, tenant-scoped view of the AEAT test outbox. */
   async testSubmissionOverview() {
     const scope = this.scope();
-    const [groups, attention] = await Promise.all([
+    const [groups, attention, review] = await Promise.all([
       this.tenant.db.sifAeatSubmission.groupBy({
         by: ["status"],
         where: scope,
@@ -138,6 +138,35 @@ export class SifService {
           } },
         },
       }),
+      this.tenant.db.sifAeatSubmission.findMany({
+        where: {
+          ...scope,
+          status: { in: [
+            SifAeatSubmissionStatus.ACCEPTED_WITH_ERRORS,
+            SifAeatSubmissionStatus.REJECTED,
+          ] },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+        select: {
+          id: true, status: true, recordStatus: true, errorCode: true,
+          errorDescription: true, lastError: true, csv: true,
+          record: { select: {
+            recordType: true, chainPosition: true,
+            invoice: { select: {
+              id: true, fullNumber: true,
+              sifRecords: {
+                where: { recordType: { in: [SifRecordType.SUBSANATION, SifRecordType.CANCELLATION] } },
+                orderBy: { chainPosition: "asc" },
+                select: {
+                  recordType: true, chainPosition: true,
+                  aeatSubmissions: { take: 1, select: { status: true } },
+                },
+              },
+            } },
+          } },
+        },
+      }),
     ]);
     const counts = Object.fromEntries(
       Object.values(SifAeatSubmissionStatus).map((status) => [status, 0]),
@@ -157,6 +186,42 @@ export class SifService {
         invoiceId: item.record.invoice.id,
         invoiceNumber: item.record.invoice.fullNumber ?? "Sin número",
       })),
+      review: review.map((item) => {
+        const followUps = item.record.recordType === SifRecordType.REGISTRATION
+          ? item.record.invoice.sifRecords.map((record) => ({
+              recordType: record.recordType,
+              chainPosition: record.chainPosition.toString(),
+              status: record.aeatSubmissions[0]?.status ?? null,
+            }))
+          : [];
+        const timestampCandidate =
+          item.record.recordType === SifRecordType.REGISTRATION &&
+          item.status === SifAeatSubmissionStatus.ACCEPTED_WITH_ERRORS &&
+          item.recordStatus === "AceptadoConErrores" &&
+          item.errorDescription?.includes("FechaHoraHusoGenRegistro") === true;
+        return {
+          id: item.id,
+          status: item.status,
+          recordStatus: item.recordStatus,
+          errorCode: item.errorCode,
+          errorDescription: item.errorDescription,
+          lastError: item.lastError,
+          csv: item.csv,
+          recordType: item.record.recordType,
+          chainPosition: item.record.chainPosition.toString(),
+          invoiceId: item.record.invoice.id,
+          invoiceNumber: item.record.invoice.fullNumber ?? "Sin número",
+          followUps,
+          reviewKind: item.status === SifAeatSubmissionStatus.REJECTED &&
+              item.recordStatus !== "Incorrecto"
+            ? "GLOBAL_REJECTION_REVIEW"
+            : followUps.length > 0
+              ? "FOLLOW_UP_RECORDED"
+              : timestampCandidate
+                ? "TIMESTAMP_SUBSANATION_CANDIDATE"
+                : "MANUAL_REVIEW",
+        };
+      }),
     };
   }
 
