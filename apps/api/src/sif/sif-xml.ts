@@ -44,6 +44,7 @@ export type SifXmlRegistration = SifXmlBaseRecord & {
     type: "I";
     original: { issuerTaxId: string; invoiceNumber: string; issueDate: string };
   };
+  operationDate?: string;
   customer: { legalName: string; taxId: string };
   description: string;
   taxLines: Array<{
@@ -115,6 +116,7 @@ function registration(record: SifXmlRegistration) {
           "      </sf:FacturasRectificadas>",
         ]
       : []),
+    ...(record.operationDate ? [element("sf:FechaOperacion", record.operationDate, 6)] : []),
     element("sf:DescripcionOperacion", record.description, 6),
     "      <sf:Destinatarios>",
     "        <sf:IDDestinatario>",

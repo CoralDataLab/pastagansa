@@ -43,6 +43,7 @@ export interface InvoicePdfInput {
   customerTaxId: string | null;
   billingAddress: unknown;
   issueDate: Date;
+  operationDate?: Date | null;
   dueDate: Date | null;
   currency: string;
   notes: string | null;
@@ -257,6 +258,9 @@ export class InvoicePdfService {
     const rows = [
       ["Nº de factura", invoice.fullNumber],
       ["Fecha de emisión", formatDate(invoice.issueDate)],
+      ...(invoice.operationDate && invoice.operationDate.getTime() !== invoice.issueDate.getTime()
+        ? [["Fecha de operación", formatDate(invoice.operationDate)]]
+        : []),
       ["Fecha de vencimiento", invoice.dueDate ? formatDate(invoice.dueDate) : "-"],
     ];
     rows.forEach(([label, value], index) => {

@@ -2190,6 +2190,88 @@ describe("platform integrity", () => {
     expect(r4SchemaCheck.error).toBeUndefined();
     expect(r4SchemaCheck.status).toBe(0);
 
+    const r1Original = await authed(accountA.accessToken, tenantA)
+      .post("/v1/invoices")
+      .send({ ...invoice(r4Customer.body.id), operationDate: "2026-09-07" })
+      .expect(201);
+    expect(r1Original.body.operationDate).toMatch(/^2026-09-07/);
+    const r1IssuedOriginal = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r1Original.body.id}/issue`)
+      .set("idempotency-key", "issue-r1-original-a")
+      .send({ sequenceId: sequence.body.id })
+      .expect(200);
+    const r1OriginalLedger = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/tax-ledger?invoiceId=${r1Original.body.id}`)
+      .expect(200);
+    expect(r1OriginalLedger.body.data[0].operationDate).toMatch(/^2026-09-07/);
+    const r1OriginalRecords = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records?invoiceId=${r1Original.body.id}`)
+      .expect(200);
+    const r1OriginalXmlResponse = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records/${r1OriginalRecords.body[0].id}/xml`)
+      .expect(200);
+    const r1OriginalXml = r1OriginalXmlResponse.text ?? r1OriginalXmlResponse.body.toString("utf8");
+    expect(r1OriginalXml).toContain("<sf:TipoFactura>F1</sf:TipoFactura>");
+    expect(r1OriginalXml).toContain("<sf:FechaOperacion>07-09-2026</sf:FechaOperacion>");
+    const r1OriginalSchemaCheck = spawnSync("xmllint", [
+      "--noout", "--schema", join(__dirname, "../src/sif/xsd/SuministroLR.xsd"), "-",
+    ], { input: r1OriginalXml, encoding: "utf8" });
+    expect(r1OriginalSchemaCheck.error).toBeUndefined();
+    expect(r1OriginalSchemaCheck.status).toBe(0);
+    const r1Draft = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r1Original.body.id}/rectifications`)
+      .send({
+        sifInvoiceType: "R1", kind: "TOTAL", impact: "DECREASE",
+        reason: "Returned goods after delivery", issueDate: "2026-09-16",
+      })
+      .expect(201);
+    expect(r1Draft.body.operationDate).toMatch(/^2026-09-07/);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r1Draft.body.id}/issue`)
+      .set("idempotency-key", "issue-r1-difference-a")
+      .send({ sequenceId: creditSequence.body.id })
+      .expect(200);
+    const r1Ledger = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/tax-ledger?invoiceId=${r1Draft.body.id}`)
+      .expect(200);
+    expect(r1Ledger.body.data[0].operationDate).toMatch(/^2026-09-07/);
+    const r1Records = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records?invoiceId=${r1Draft.body.id}`)
+      .expect(200);
+    expect(r1Records.body).toHaveLength(1);
+    const r1XmlResponse = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records/${r1Records.body[0].id}/xml`)
+      .expect("content-type", /application\/xml/)
+      .expect(200);
+    const r1Xml = r1XmlResponse.text ?? r1XmlResponse.body.toString("utf8");
+    expect(r1Xml).toContain("<sf:TipoFactura>R1</sf:TipoFactura>");
+    expect(r1Xml).toContain("<sf:FechaOperacion>07-09-2026</sf:FechaOperacion>");
+    expect(r1Xml).toContain(`<sf:NumSerieFactura>${r1IssuedOriginal.body.fullNumber}</sf:NumSerieFactura>`);
+    expect(r1Xml).toContain("<sf:ImporteTotal>-121.00</sf:ImporteTotal>");
+    const r1SchemaCheck = spawnSync("xmllint", [
+      "--noout", "--schema", join(__dirname, "../src/sif/xsd/SuministroLR.xsd"), "-",
+    ], { input: r1Xml, encoding: "utf8" });
+    expect(r1SchemaCheck.error).toBeUndefined();
+    expect(r1SchemaCheck.status).toBe(0);
+
+    const historicalDraft = await authed(accountA.accessToken, tenantA)
+      .post("/v1/invoices")
+      .send(invoice(r4Customer.body.id))
+      .expect(201);
+    await admin.invoice.update({ where: { id: historicalDraft.body.id }, data: { operationDate: null } });
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${historicalDraft.body.id}/issue`)
+      .set("idempotency-key", "issue-r1-historical-a")
+      .send({ sequenceId: sequence.body.id })
+      .expect(200);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${historicalDraft.body.id}/rectifications`)
+      .send({
+        sifInvoiceType: "R1", kind: "TOTAL", impact: "DECREASE",
+        reason: "Returned goods after delivery", issueDate: "2026-09-16",
+      })
+      .expect(409);
+
     const erroneousDraft = await authed(accountA.accessToken, tenantA)
       .post("/v1/invoices")
       .send(invoice(contactA.body.id))

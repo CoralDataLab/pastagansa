@@ -12,6 +12,7 @@ export const invoiceLineInputSchema = z.object({
 export const invoiceInputSchema = z.object({
   contactId: z.uuid(),
   issueDate: z.iso.date(),
+  operationDate: z.union([z.iso.date(), z.literal("")]).optional(),
   dueDate: z.union([z.iso.date(), z.literal("")]).optional(),
   currency: z.literal("EUR"),
   notes: z.string().trim().max(5_000).optional(),
@@ -47,6 +48,7 @@ export interface Invoice {
   customerTaxId: string | null;
   customerEmail: string | null;
   issueDate: string;
+  operationDate: string | null;
   dueDate: string | null;
   currency: string;
   subtotal: string;

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { InvoicePdfService } from "./invoice-pdf.service";
 
 describe("InvoicePdfService", () => {
@@ -76,6 +77,7 @@ describe("InvoicePdfService", () => {
       customerTaxId: null,
       billingAddress: null,
       issueDate: new Date("2026-09-09"),
+      operationDate: new Date("2026-09-08"),
       dueDate: null,
       currency: "EUR",
       notes: null,
@@ -98,6 +100,10 @@ describe("InvoicePdfService", () => {
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pdf.length).toBeGreaterThan(2_500);
     expect(pdf.toString("latin1").match(/\/Type \/Page\b/g)?.length).toBe(1);
+    const extracted = spawnSync("pdftotext", ["-layout", "-", "-"], { input: pdf });
+    expect(extracted.status).toBe(0);
+    expect(extracted.stdout.toString()).toContain("Fecha de operación");
+    expect(extracted.stdout.toString()).toContain("08/09/2026");
   });
 });
 

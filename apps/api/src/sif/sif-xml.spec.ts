@@ -145,4 +145,26 @@ describe("AEAT SIF XML", () => {
     expect(xml).not.toContain("<sf:ImporteRectificacion>");
     expectValidAeatXml(xml);
   });
+
+  it("places the original operation date in an R1 difference rectification", () => {
+    const xml = renderSifAeatXml({
+      header,
+      record: {
+        kind: "REGISTRATION", issuerTaxId: "B12345674", invoiceNumber: "R2026-0002",
+        issueDate: "18-09-2026", issuerLegalName: header.issuerLegalName,
+        invoiceType: "R1", operationDate: "10-09-2026",
+        rectification: { type: "I", original: {
+          issuerTaxId: "B12345674", invoiceNumber: "F2026-0002", issueDate: "11-09-2026",
+        } },
+        customer: { legalName: "Client", taxId: "B76543210" },
+        description: "Returned goods", taxLines: [{
+          taxableBase: "-100.00", taxRate: "21.00", taxAmount: "-21.00", reverseCharge: false,
+        }],
+        taxTotal: "-21.00", total: "-121.00", previousRecord: null,
+        software, generatedAt: "2026-09-18T12:00:00+02:00", recordHash: "A".repeat(64),
+      },
+    });
+    expect(xml).toMatch(/<sf:FacturasRectificadas>[\s\S]*<\/sf:FacturasRectificadas>\s*<sf:FechaOperacion>10-09-2026<\/sf:FechaOperacion>\s*<sf:DescripcionOperacion>/);
+    expectValidAeatXml(xml);
+  });
 });

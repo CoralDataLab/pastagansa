@@ -194,6 +194,10 @@ export class InvoicesService {
       throw new BadRequestException(
         "R5 can only rectify a simplified invoice, which is not supported yet",
       );
+    if (input.sifInvoiceType === SifInvoiceType.R1 && !original.operationDate)
+      throw new ConflictException(
+        "R1 requires the original invoice operation date recorded before issuance; historical invoices without that date cannot be inferred",
+      );
     if (
       input.kind === RectificationKind.TOTAL &&
       input.impact !== RectificationImpact.DECREASE
@@ -273,6 +277,7 @@ export class InvoicesService {
           customerEmail: original.customerEmail,
           billingAddress: original.billingAddress ?? Prisma.JsonNull,
           issueDate: new Date(input.issueDate),
+          operationDate: original.operationDate,
           dueDate: input.dueDate ? new Date(input.dueDate) : null,
           currency: original.currency,
           notes: input.notes?.trim() || null,
@@ -732,6 +737,8 @@ export class InvoicesService {
   }
 
   private async build(input: CreateInvoiceDto) {
+    if (input.operationDate && input.operationDate > input.issueDate)
+      throw new BadRequestException("operationDate cannot follow issueDate");
     if (input.dueDate && input.dueDate < input.issueDate)
       throw new BadRequestException("dueDate cannot precede issueDate");
     const scope = this.scope();
@@ -793,6 +800,7 @@ export class InvoicesService {
             }
           : Prisma.JsonNull,
         issueDate: new Date(input.issueDate),
+        operationDate: new Date(input.operationDate ?? input.issueDate),
         dueDate: input.dueDate ? new Date(input.dueDate) : null,
         currency: input.currency ?? "EUR",
         notes: input.notes?.trim() || null,

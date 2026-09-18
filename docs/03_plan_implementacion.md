@@ -55,6 +55,16 @@ local y las huellas propia y anterior coincidieron. La captura posterior mostró
 la original `F2026-0003` **Rectificada** y con 0,00 € pendientes. La clasificación
 fiscal del motivo de una operación real sigue sin validarse con esta prueba.
 
+**R1 (preparación local, 18/09/2026):** la factura de venta guarda la fecha de
+operación antes de emitirse; si coincide con la emisión, se conserva esa fecha
+como valor por defecto. Una R1 copia la fecha de la original y su XML congelado
+incluye `FechaOperacion`, referencia de la factura rectificada y importes con
+signo. La fecha distinta aparece también en el XML F1 original, el PDF y el
+libro de IVA. No se rellena retroactivamente la fecha de originales históricos y se
+bloquea la creación de R1 si falta. Migración, XSD, pruebas unitarias e
+integrales locales verificados. Pendiente desplegar en staging y obtener una
+respuesta AEAT de pruebas; aún no hay aceptación R1 remota.
+
 **Anulación de factura emitida por error (aceptación manual en staging, 18/09/2026):**
 API y web incorporan un flujo para operación inexistente sin cobros ni
 rectificativas. Reutiliza la anulación SIF si ya existe y añade en una sola
@@ -748,7 +758,7 @@ no crean registro SIF ni QR fiscal; los registros anteriores permanecen intactos
 versionado como `AEAT-HASH-0.1.2`, utiliza SHA-256, UTF-8 y hexadecimal en mayúsculas y
 reproduce los dos vectores oficiales de alta. PostgreSQL valida pertenencia a una
 factura emitida, continuidad, hash anterior, orden temporal, append-only y RLS. La
-exportación de nuevos registros F1 estándar, rectificativas R4 por diferencias y anulaciones usa una copia XML congelada
+exportación de nuevos registros F1 estándar, rectificativas R1/R4 por diferencias y anulaciones usa una copia XML congelada
 en el `payload` al generar el registro; los históricos usan lectura compatible. La
 API expone un inventario read-only de transición por empresa, modo, entorno, tipo de
 registro e identificador de software, sin decidir automáticamente cómo iniciar una
@@ -767,8 +777,10 @@ inexistente existe un flujo específico de anulación de factura.
 El QR fiscal no VERI*FACTU aparece en la factura, y cada registro captura el perfil del
 productor; existe además un borrador descargable de declaración responsable. Ya se puede
 descargar un lote XML AEAT, unsigned y sin remisión, por registro de alta F1 estándar,
-R4 por diferencias o anulación: conserva la cabecera, encadenamiento, perfil de software
-y huella históricos. El exportador rechaza R1–R3, R5 y desgloses exentos, no sujetos o con
+R1/R4 por diferencias o anulación: conserva la cabecera, encadenamiento, perfil de software
+y huella históricos. R1 usa la fecha de operación capturada antes de emitir la original;
+se bloquea para originales históricos sin ese dato, sin inferirlo. El exportador rechaza
+R2–R3, R5 y desgloses exentos, no sujetos o con
 recargo, inversión del sujeto pasivo y tipos IVA fuera de `0`, `4`, `10`, `21` hasta
 modelar sus claves y reglas AEAT, en vez de inventar campos fiscales. El contraste
 del 17/09/2026 confirmó los XSD locales, el elemento de entrada WSDL y los tres casos

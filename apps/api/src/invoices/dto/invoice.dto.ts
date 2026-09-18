@@ -45,6 +45,7 @@ export class InvoiceLineDto {
 export class CreateInvoiceDto {
   @IsUUID() contactId!: string;
   @IsDateString() issueDate!: string;
+  @IsOptional() @IsDateString() operationDate?: string;
   @IsOptional() @IsDateString() dueDate?: string;
   @IsOptional() @IsCurrencyCode() currency?: string;
   @IsOptional() @IsString() @MaxLength(5000) notes?: string;

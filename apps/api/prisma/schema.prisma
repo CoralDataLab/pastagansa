@@ -526,6 +526,7 @@ model Invoice {
   customerEmail       String?                @map("customer_email") @db.VarChar(320)
   billingAddress      Json?                  @map("billing_address")
   issueDate           DateTime               @map("issue_date") @db.Date
+  operationDate       DateTime?              @map("operation_date") @db.Date
   dueDate             DateTime?              @map("due_date") @db.Date
   currency            String                 @default("EUR") @db.Char(3)
   notes               String?

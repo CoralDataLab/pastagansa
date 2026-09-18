@@ -199,6 +199,12 @@ export function InvoiceDetail({ id }: { id: string }) {
           <span>Fecha de emisión</span>
           <strong>{formatInvoiceDate(document.issueDate)}</strong>
         </article>
+        {document.operationDate && document.operationDate.slice(0, 10) !== document.issueDate.slice(0, 10) && (
+          <article className="summary-card">
+            <span>Fecha de operación</span>
+            <strong>{formatInvoiceDate(document.operationDate)}</strong>
+          </article>
+        )}
         <article className="summary-card">
           <span>Vencimiento</span>
           <strong>{formatInvoiceDate(document.dueDate)}</strong>
@@ -409,11 +415,14 @@ function RectificationDialog({
               <span>Motivo fiscal AEAT</span>
               <select name="sifInvoiceType" defaultValue="R4" required>
                 {(["R1", "R2", "R3", "R4"] as const).map((type) => (
-                  <option key={type} value={type}>
+                  <option key={type} value={type} disabled={type === "R1" && !invoice.operationDate}>
                     {type} · {sifInvoiceTypeLabel(type)}
                   </option>
                 ))}
               </select>
+              {!invoice.operationDate && (
+                <small>R1 requiere una fecha de operación conservada en la factura original.</small>
+              )}
             </label>
             <label className="field">
               <span>Fecha de rectificación</span>

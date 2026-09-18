@@ -339,6 +339,7 @@ export function InvoiceDialog({
     onSubmit({
       contactId: String(values.get("contactId")),
       issueDate: String(values.get("issueDate")),
+      operationDate: String(values.get("operationDate") ?? "") || undefined,
       dueDate: String(values.get("dueDate")),
       currency: "EUR",
       notes: String(values.get("notes") ?? "").trim() || undefined,
@@ -431,6 +432,15 @@ export function InvoiceDialog({
                     required
                     defaultValue={initial?.issueDate.slice(0, 10) ?? todayIso()}
                   />
+                </label>
+                <label className="field">
+                  <span>Fecha de operación</span>
+                  <input
+                    name="operationDate"
+                    type="date"
+                    defaultValue={initial?.operationDate?.slice(0, 10) ?? ""}
+                  />
+                  <small>Si coincide con la emisión, déjala vacía.</small>
                 </label>
                 <label className="field">
                   <span>Vencimiento</span>

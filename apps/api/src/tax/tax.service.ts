@@ -205,7 +205,7 @@ export class TaxService {
         direction: TaxLedgerDirection.SALES,
         bookType: TaxBookType.ISSUED_INVOICES,
         issueDate: invoice.issueDate,
-        operationDate: invoice.issueDate,
+        operationDate: invoice.operationDate ?? invoice.issueDate,
         taxPointDate: invoice.issueDate,
         counterpartyId: invoice.contactId,
         counterpartyTaxId: invoice.customerTaxId,
