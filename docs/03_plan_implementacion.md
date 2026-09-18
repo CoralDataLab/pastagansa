@@ -55,7 +55,7 @@ local y las huellas propia y anterior coincidieron. La captura posterior mostró
 la original `F2026-0003` **Rectificada** y con 0,00 € pendientes. La clasificación
 fiscal del motivo de una operación real sigue sin validarse con esta prueba.
 
-**R1 (preparación local, 18/09/2026):** la factura de venta guarda la fecha de
+**R1 (aceptación técnica en AEAT pruebas, 18/09/2026):** la factura de venta guarda la fecha de
 operación antes de emitirse; si coincide con la emisión, se conserva esa fecha
 como valor por defecto. Una R1 copia la fecha de la original y su XML congelado
 incluye `FechaOperacion`, referencia de la factura rectificada y importes con
@@ -65,8 +65,11 @@ bloquea la creación de R1 si falta. Migración, XSD, pruebas unitarias e
 integrales locales verificados. El operador confirmó `565883e` desplegado en
 staging; el PDF F1 `F2026-0004` y su XML de alta de la posición 7 muestran
 `FechaOperacion=15-09-2026`. El XML validó contra el XSD local y su huella
-enlaza con la posición 6. Pendientes la confirmación de la respuesta AEAT de
-esta F1 y la aceptación R1 remota.
+enlaza con la posición 6. El operador comunicó aceptación AEAT con CSV para
+esa F1 y para la R1 `R2026-0002` (posición 8), además del estado
+**Rectificada** y 0,00 € pendientes en la original. El XML R1 pasó XSD,
+huella y enlace con la posición 7; los CSV y SOAP no se cotejaron
+directamente. Véase `docs/14_aceptacion_aeat_pruebas.md`.
 El PDF reserva espacio adicional al QR cuando muestra una fecha de operación
 distinta: la maquetación se inspeccionó y una prueba comprueba que la etiqueta
 del QR quede por debajo del vencimiento. Este ajuste aún requiere despliegue.

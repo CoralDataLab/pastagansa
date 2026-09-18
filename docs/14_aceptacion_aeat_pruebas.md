@@ -157,6 +157,41 @@ cero según la condición de la interfaz. La aceptación técnica de un ensayo R
 no acredita que el motivo elegido corresponda a R4 en una operación real; la
 [AEAT distingue las causas R1 y R4](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html).
 
+## F1 con fecha de operación y rectificativa R1 en pruebas
+
+El 18/09/2026, el operador confirmó `565883ed3d7fe66130217bda00d98051065f9b3a`
+desplegado en staging y comunicó que las altas de `F2026-0004` (posición 7) y
+`R2026-0002` (posición 8) figuran **Aceptado**, ambas con CSV. Los valores CSV
+y las respuestas SOAP no se facilitaron ni se cotejaron directamente con la
+AEAT; esta parte del resultado consta como declaración del operador.
+
+Se inspeccionaron los XML descargados en el Mac del operador. El alta F1
+`/Users/alberto/Downloads/sif-7-registration.xml` tiene SHA-256 de archivo
+`e5743293f118c7f09fc2160bef51e15804ad441bc56f101aec2a2f956bf62f74`.
+Incluye fecha de emisión `18-09-2026`, `FechaOperacion=15-09-2026`, base
+233,00 €, cuota 48,93 € e importe 281,93 €. Coincide con el PDF descargado
+`factura-F2026-0004-1.pdf`, cuyo SHA-256 de archivo es
+`768c9df21b6c4f6dadab840b6635e2d0fdbeab9bfbb56dbf3c993eab3ebec1c4`.
+
+El alta R1 `/Users/alberto/Downloads/sif-8-registration.xml` tiene SHA-256
+de archivo `c69c2859563213b9f2f20d89dbe09b5c2750d23eeb24bd5bf56baa71bddc452f`.
+Incluye `TipoRectificativa=I`, referencia a `F2026-0004`, la misma
+`FechaOperacion=15-09-2026`, base −233,00 €, cuota −48,93 € e importe
+−281,93 €. Ambos XML validaron con el XSD local `SuministroLR.xsd`; las
+huellas propias coincidieron con el SHA-256 recalculado y cada
+`RegistroAnterior` enlazó con el XML previo disponible (posiciones 6 y 7).
+Esto verifica los archivos y el encadenamiento disponible, no sustituye la
+respuesta oficial de la AEAT ni la revisión del motivo fiscal.
+
+El operador confirmó además que `F2026-0004` quedó **Rectificada** y con
+**0,00 € pendientes** tras emitir `R2026-0002`. Esta observación de interfaz
+no se ha comprobado de forma independiente en la base de datos.
+
+El PDF F1 desplegado mostraba un solapamiento del QR con las fechas. El
+ajuste visual se publicó en `5e87a36`; su PDF de muestra se inspeccionó y una
+prueba comprueba la separación vertical. Aún no consta desplegado ese ajuste
+ni se ha verificado un PDF redescargado de staging.
+
 Referencias: [preguntas frecuentes de la AEAT sobre factura emitida por error](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html),
 [anulación de registros de facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/registros-facturacion-anulacion.html)
 y [descripción del servicio web](https://sede.agenciatributaria.gob.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_Descripcion_SWeb.pdf).

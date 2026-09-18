@@ -9,6 +9,10 @@ Posteriormente también se aceptó en pruebas un alta R4 por diferencias,
 con XML congelado validado localmente y cadena SIF de seis registros. La aceptación
 del servicio no determina por sí sola que el motivo R4 sea correcto para una
 operación real; sigue pendiente la revisión fiscal independiente.
+El operador comunicó también aceptación con CSV de una F1 con fecha de
+operación distinta y su rectificativa R1. Ambos XML descargados validaron
+localmente con el XSD y sus huellas y enlaces coincidieron. La clasificación
+fiscal del caso real y la conformidad integral siguen pendientes de revisión.
 
 El [contraste técnico del 17/09/2026](13_contraste_xml_aeat.md) confirmó los XSD locales
 frente a los publicados por la AEAT y revisó el WSDL y las validaciones v1.2.2. A partir
