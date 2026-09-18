@@ -44,6 +44,9 @@ controlado configurado, el recorrido afectado pasó y después pasó la suite co
 pasó 3/3 con HTTPS y destinatario controlado obligatorios. El operador confirmó
 la recepción de los tres correos de esta ejecución en el buzón controlado; no
 se ha documentado una nueva inspección de sus PDF adjuntos.
+Tras la migración de la anulación económica, el operador confirmó que el ensayo
+de restauración del backup terminó con `Restore drill passed`; no se archivaron
+en esta acta la ruta del dump, el log ni los recuentos remotos.
 
 ## Cierre en staging publicado
 

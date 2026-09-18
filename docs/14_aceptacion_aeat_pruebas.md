@@ -120,9 +120,11 @@ reversiones son atómicas según el código y las pruebas de integración.
 
 Una consulta SSH de solo lectura posterior confirmó que
 `git -C /srv/apps/pastagansa rev-parse HEAD` devolvía el SHA comunicado. No
-consta en esta acta el resultado de un ensayo de restauración posterior a la
-migración de la anulación económica; el acceso a Docker en ese host requiere
-`sudo` interactivo y no se ejecutó desde esta sesión.
+se pudo ejecutar el ensayo de restauración desde esta sesión porque Docker
+requiere `sudo` interactivo en ese host. El operador lo ejecutó posteriormente
+y confirmó que terminó con `Restore drill passed`. Se registra como declaración
+del operador; no constan en esta acta la ruta del dump, el log ni los recuentos
+remotos.
 
 El XML congelado de la posición 5 se verificó como se describe arriba.
 
