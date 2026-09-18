@@ -6,10 +6,20 @@ import { formatSifIssueDate } from "./sif-hash-v1";
 import { AeatTestClient, AeatTestTransportError } from "./aeat-test.client";
 import { parseAeatTestSoapResponse } from "./aeat-test-soap";
 
-const accepted = [
-  SifAeatSubmissionStatus.ACCEPTED,
-  SifAeatSubmissionStatus.ACCEPTED_WITH_ERRORS,
-];
+export function predecessorHasDefinitiveAeatResponse(submission: {
+  status: SifAeatSubmissionStatus;
+  recordStatus: string | null;
+} | null): boolean {
+  if (!submission) return false;
+  if (submission.status === SifAeatSubmissionStatus.ACCEPTED ||
+      submission.status === SifAeatSubmissionStatus.ACCEPTED_WITH_ERRORS)
+    return true;
+  // A rejected record remains the immediately previous record in the local SIF
+  // chain. AEAT's line-level "Incorrecto" response is definitive, unlike a
+  // transport failure or SOAP fault; later frozen records may now be sent.
+  return submission.status === SifAeatSubmissionStatus.REJECTED &&
+    submission.recordStatus === "Incorrecto";
+}
 
 @Injectable()
 export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
@@ -76,10 +86,10 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
             where: {
               recordId: candidate.record.previousRecordId,
               companyId: candidate.companyId,
-              status: { in: accepted },
             },
+            select: { status: true, recordStatus: true },
           });
-          if (!predecessor) continue;
+          if (!predecessorHasDefinitiveAeatResponse(predecessor)) continue;
         }
         return db.sifAeatSubmission.update({
           where: { id: candidate.id },
