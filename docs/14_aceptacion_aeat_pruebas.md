@@ -223,3 +223,13 @@ AEAT**. La ruta de timeout, lease caducado, reenvío idéntico y duplicado
 coincidente/no coincidente quedó cubierta por pruebas automatizadas. El workflow
 [CI #35341071096](https://github.com/CoralDataLab/pastagansa/actions/runs/35341071096)
 pasó migración, pruebas, aceptación de navegador, imágenes y restore drill.
+
+Tras desplegar la vista de seguimiento, el 18/09/2026 la captura aportada por
+el operador mostró en **Configuración → Remisiones AEAT Pruebas** los mismos
+recuentos: 6 aceptados, 1 aceptado con errores, 1 rechazado y 0 en cola,
+inciertos o fallidos. La pantalla indicó que no había envíos pendientes de
+seguimiento. Una consulta SSH de solo lectura confirmó el checkout en
+`a91f8ba521ee724401fe3ab47f70d028f930fcd7`; la web local y pública
+respondieron HTTP 200 y una ruta de API sin sesión respondió 401. No se
+inspeccionaron los healthchecks de Docker ni el digest de las imágenes por la
+restricción de `sudo` interactivo, y no se provocó una remisión incierta real.

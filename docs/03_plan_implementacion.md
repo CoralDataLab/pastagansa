@@ -828,6 +828,10 @@ reintento más recientes enlazados a su factura. La consulta exige
 ni secretos. Esta visibilidad permite detectar futuros casos sin SQL; el
 recuento de staging anterior sigue siendo una observación manual, no una
 aceptación de esta nueva pantalla.
+Después del despliegue, la captura del operador mostró el resumen esperado
+(6 aceptados, 1 con errores, 1 rechazado y cero pendientes); SSH confirmó el
+checkout `a91f8ba` y la web/API fueron alcanzables. Los healthchecks Docker
+no se cotejaron directamente. Evidencia y límites en el acta AEAT.
 Pendientes subsanación general de errores y rechazos, firma/eventos NO
 VERI*FACTU, soporte de toda la casuística fiscal y revisión de conformidad para
 producción.
