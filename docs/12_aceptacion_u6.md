@@ -38,8 +38,11 @@ seguía pendiente la navegación asíncrona de los filtros de Cartera. Se corrig
 la sincronización del test esperando a que la URL refleje la fecha y el tramo
 seleccionados. Desde el entorno local, contra el staging HTTPS y con el destinatario
 controlado configurado, el recorrido afectado pasó y después pasó la suite completa
-(3/3). También pasaron lint y TypeScript de web. Quedan por registrar la nueva
-ejecución del workflow en GitHub y la confirmación externa de esos correos.
+(3/3). También pasaron lint y TypeScript de web. Sobre el commit
+`49b52d0d58e2d6bf0d7c5138efc16a8634686ffe`,
+[Staging acceptance #35330297690](https://github.com/CoralDataLab/pastagansa/actions/runs/35330297690)
+pasó 3/3 con HTTPS y destinatario controlado obligatorios. Queda pendiente la
+confirmación externa de recepción de los tres correos de esta ejecución.
 
 ## Cierre en staging publicado
 

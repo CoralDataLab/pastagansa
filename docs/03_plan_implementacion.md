@@ -38,7 +38,9 @@ la evidencia observada de los datos de restauración remota aún sin archivar. V
 `docs/12_aceptacion_u6.md`.
 Una repetición del 18/09 falló en el test de Cartera por navegación de filtros aún
 pendiente; tras sincronizar el E2E, la suite volvió a pasar 3/3 contra staging desde
-el entorno local. La repetición del workflow GitHub queda pendiente.
+el entorno local. El workflow GitHub
+[`#35330297690`](https://github.com/CoralDataLab/pastagansa/actions/runs/35330297690)
+pasó 3/3 sobre `49b52d0`; falta confirmar la recepción externa de esos correos.
 
 **AEAT pruebas (18/09/2026):** un alta F1 de la posición 3 fue aceptada sin
 errores por el servicio de pruebas, con CSV visible y cadena local verificada.
