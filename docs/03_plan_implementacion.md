@@ -9,7 +9,7 @@
 
 ## Estado real de implementación
 
-**Actualizado:** 17 de septiembre de 2026
+**Actualizado:** 18 de septiembre de 2026
 
 **Rama de referencia:** `main`
 **Criterio:** un elemento solo se marca como completado cuando existe implementación, migración cuando aplica y validación automatizada básica. El estado no sustituye la revisión fiscal, de seguridad ni de producto exigida en este plan.
@@ -24,7 +24,7 @@
 | Fase 5 — Motor contable                | Completada   | Gate obligatorio superado: plan PGC inicial y cuentas configurables; reglas por empresa para venta, compra, cobro y pago; ejercicios y periodos; contabilización automática; asientos manuales idempotentes; numeración anual; inmutabilidad posted; reversión; bloqueo; balance de sumas y saldos; diario/mayor exportable; y conciliación bancaria uno-a-uno. Las reglas solo afectan a asientos futuros y PostgreSQL valida evento/rol, clase de cuenta, actividad y tenant. PyG, balance de situación, cierre básico y centros permanecen como Sprint D opcional.                                                                                                                                                                                                                               |
 | Fase 6 — Motor fiscal                  | En curso     | Reglas fiscales españolas versionadas e inmutables para IVA general, reducido, superreducido, cero, exento y no sujeto; snapshots por línea; Tax Ledger append-only para facturas emitidas y recibidas, aislado por empresa y publicado transaccionalmente. Las compras registran fechas de emisión, operación, recepción y deducción, IVA soportado y cuota deducible; las rectificativas de venta generan importes negativos vinculados al apunte original. Pendientes recargo de equivalencia, inversión del sujeto pasivo, operaciones intracomunitarias/importaciones/exportaciones, prorrata avanzada, IRPF y validación fiscal exhaustiva.                                                                                                                                                   |
 | Fase 9 — Tesorería                     | En curso     | Cuentas bancarias ligadas a cuentas contables conciliables, importación atómica de movimientos normalizados, protección frente a duplicados, bandeja paginada, sugerencias explícitas por importe/fecha/referencia y conciliación uno-a-uno append-only con controles de dirección, importe, cuenta, asiento posted, concurrencia y RLS. Pendientes CSV/Norma 43, saldos, conciliación parcial/combinada, reglas avanzadas y proveedor Open Banking.                                                                                                                                                                                                                                                                                                                                                |
-| Fase 10 — SIF/VERI\*FACTU              | En curso     | Las emisiones en modo SIF generan transaccionalmente registros de alta versionados, append-only, aislados por tenant y encadenados por empresa; las nuevas emisiones con `DISABLED` no generan registro ni QR fiscal. Los registros históricos permanecen inmutables. La huella SHA-256 reproduce vectores oficiales AEAT 0.1.2; alta y anulación verifican huellas y enlaces. La anulación idempotente no altera contabilidad ni IVA. Se conserva la clasificación F1/R1–R5 y la serie rectificativa; R5 espera soporte F2. NO VERI*FACTU solo se permite con entorno AEAT de pruebas y muestra advertencia de falta de conformidad; VERI*FACTU sigue bloqueado. Pendientes XML completo, remisión, firma/eventos cuando apliquen, transición de cadena y validación contra AEAT. |
+| Fase 10 — SIF/VERI\*FACTU              | En curso     | Las emisiones en modo SIF generan transaccionalmente registros de alta versionados, append-only, aislados por tenant y encadenados por empresa; las nuevas emisiones con `DISABLED` no generan registro ni QR fiscal. Los registros históricos permanecen inmutables. La huella SHA-256 reproduce vectores oficiales AEAT 0.1.2; alta y anulación verifican huellas y enlaces. La anulación idempotente no altera contabilidad ni IVA. Se conserva la clasificación F1/R1–R5 y la serie rectificativa; R5 espera soporte F2. NO VERI*FACTU solo se permite con entorno AEAT de pruebas y muestra advertencia de falta de conformidad; VERI*FACTU se limita a AEAT pruebas con certificado y outbox: una alta F1 fue aceptada sin errores el 18/09/2026. Pendientes subsanaciones, cobertura XML completa, firma/eventos cuando apliquen, transición de cadena y revisión de conformidad antes de producción. |
 | Fases 7–8 y 11–14                      | No iniciadas | No existe todavía implementación de libros/modelos fiscales, reporting, webhooks, hardening, piloto o GA.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Hito U — Producto usable               | Completado   | U0–U4 están completadas: existe arranque reproducible, seed demo idempotente, acceso y selector multiempresa validado en servidor, y los recorridos críticos están protegidos por E2E real de Chromium con auditorías WCAG automáticas. U4 ofrece resumen tenant-scoped, diario/mayor, conciliación bancaria, alternativa PDF, restore drill y staging HTTPS. La aceptación pública pasó 2/2 recorridos y la prueba moderada externa fue validada el 14/09/2026 tras resolver sus dos observaciones. SMTP no bloquea y queda aplazado por decisión de producto. Detalle en `docs/05_plan_producto_usable.md`.                                                                                                                                                                                       |
 
@@ -36,6 +36,12 @@ migraciones; aceptación HTTPS 3/3 sobre `bb337bb` con los tres correos y PDF en
 buzón controlado, y prueba moderada administrativa sin incidencias. El acta distingue
 la evidencia observada de los datos de restauración remota aún sin archivar. Véase
 `docs/12_aceptacion_u6.md`.
+
+**AEAT pruebas (18/09/2026):** un alta F1 de la posición 3 fue aceptada sin
+errores por el servicio de pruebas, con CSV visible y cadena local verificada.
+Las posiciones 1 y 2 conservan, respectivamente, un rechazo censal y una
+aceptación con error de hora; requieren recuperación específica. Evidencia y
+límites en `docs/14_aceptacion_aeat_pruebas.md`.
 
 Antes de cada commit que cambie producto, infraestructura, datos o documentación de alcance, actualizar esta tabla y/o su detalle cuando el estado real cambie. El commit debe incluir esa actualización y la validación ejecutada debe quedar indicada en su mensaje de entrega.
 
@@ -730,11 +736,14 @@ y huella históricos. El exportador rechaza R1–R3, R5 y desgloses exentos, no 
 recargo, inversión del sujeto pasivo y tipos IVA fuera de `0`, `4`, `10`, `21` hasta
 modelar sus claves y reglas AEAT, en vez de inventar campos fiscales. El contraste
 del 17/09/2026 confirmó los XSD locales, el elemento de entrada WSDL y los tres casos
-sintéticos; la aceptación de negocio por la AEAT sigue pendiente (véase
-`docs/13_contraste_xml_aeat.md`). También limita
+sintéticos; el 18/09/2026 una alta F1 ordinaria obtuvo respuesta **Aceptado**
+en el servicio AEAT de pruebas (véase `docs/14_aceptacion_aeat_pruebas.md`). También limita
 desde configuración el perfil de software a los máximos del XSD, incluido el identificador
-de dos caracteres. Pendientes remisión, firma/eventos NO VERI*FACTU, soporte de toda la
-casuística fiscal y validación end-to-end contra AEAT.
+de dos caracteres. La remisión de pruebas usa certificado cliente y outbox; un
+rechazo confirmado ya no bloquea los siguientes registros de la cadena. Pendientes
+subsanación de registros rechazados o aceptados con errores, firma/eventos NO
+VERI*FACTU, soporte de toda la casuística fiscal y revisión de conformidad para
+producción.
 
 ## Sprint A — Modelo
 

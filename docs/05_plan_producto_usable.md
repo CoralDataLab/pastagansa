@@ -294,8 +294,11 @@ Gate:
    la factura ni sus efectos contables o de
    IVA. El exportador XML AEAT de alta F1 estándar, R4 por diferencias y anulación
    se contrastó el 17/09/2026 con XSD, WSDL y validaciones oficiales
-   ([acta](13_contraste_xml_aeat.md)); sigue sin firma ni transmisión. El siguiente
-   bloque es preparar y validar la remisión al entorno de pruebas AEAT.
+   ([acta](13_contraste_xml_aeat.md)). La remisión al entorno AEAT de pruebas
+   aceptó sin errores un alta F1 el 18/09/2026
+   ([acta](14_aceptacion_aeat_pruebas.md)). El siguiente bloque es implementar
+   la subsanación de registros rechazados o aceptados con errores y ampliar la
+   cobertura fiscal; el modo NO VERI*FACTU sigue sin firma ni registro de eventos.
 
 El backlog detallado, dependencias y criterios de aceptación de U6 están en
 [Operativa de documentos y cobros](09_plan_operativa_documentos_cobros.md).
