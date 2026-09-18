@@ -141,6 +141,10 @@ obtener una respuesta definitiva o revisión administrativa. `RETRY` cubre fallo
 temporales y también se reintenta con espera creciente. `FAILED` indica un fallo
 local anterior al envío, que requiere revisión. Antes de un reenvío manual,
 consultar los intentos y lo recibido en la AEAT.
+La sección **Remisiones AEAT Pruebas** en Configuración muestra recuentos por
+estado y hasta veinte envíos inciertos, fallidos o en reintento, con enlace a
+su factura. Exige el permiso `sif_record.read` y permite actualizar el resumen
+sin acceder a SQL. La vista es de solo lectura y no transmite nada a la AEAT.
 Referencia: [FAQ oficial de reenvío sin respuesta](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/sistemas-verifactu.html)
 y [descripción oficial del servicio de consulta y duplicados](https://sede.agenciatributaria.gob.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_Descripcion_SWeb.pdf).
 

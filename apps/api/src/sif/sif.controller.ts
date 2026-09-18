@@ -29,6 +29,12 @@ export class SifController {
     return this.sif.transitionAudit();
   }
 
+  @Get("test-submissions/overview")
+  @RequirePermissions("sif_record.read")
+  testSubmissionOverview() {
+    return this.sif.testSubmissionOverview();
+  }
+
   @Get("verification")
   @RequirePermissions("sif_record.read")
   verification() {

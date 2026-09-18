@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { SifTransitionAudit } from "./sif-transition-audit";
+import { SifAeatOverview } from "./sif-aeat-overview";
 
 const maxLogoBytes = 512 * 1024;
 
@@ -188,11 +189,14 @@ export function CompanySettingsView() {
               <TextField disabled={!canUpdate} label="Nº de instalación" maxLength={100} onChange={(value) => updateCompany("sifInstallationNumber", value)} value={form.sifInstallationNumber ?? ""} />
             </div>
             {form.sifMode === "NO_VERIFACTU" && <p className="notice" role="status">Modo experimental, solo para pruebas AEAT: todavía no cumple los requisitos de firma y registro de eventos. No lo uses para facturas reales. Las facturas nuevas incluirán un QR fiscal de 34 mm; las ya emitidas no se modifican.</p>}
-            {form.sifMode === "VERIFACTU" && <p className="notice" role="status">Modo de integración en pruebas: exige entorno AEAT Pruebas, certificado autorizado configurado en el servidor y una empresa sin cadena SIF previa. Los estados de envío se consultan en el detalle de cada factura. No lo uses para facturas reales.</p>}
+            {form.sifMode === "VERIFACTU" && <p className="notice" role="status">Modo de integración en pruebas: exige entorno AEAT Pruebas, certificado autorizado configurado en el servidor y una empresa sin cadena SIF previa. Los estados de envío se consultan abajo y en el detalle de cada factura. No lo uses para facturas reales.</p>}
             <a className="secondary-button" href="/api/company/sif-declaration">Descargar borrador de declaración responsable</a>
           </section>
           {session.data?.membership.role.permissions.includes("sif_record.read") && (
-            <SifTransitionAudit companyId={session.data.membership.company.id} />
+            <>
+              <SifAeatOverview companyId={session.data.membership.company.id} />
+              <SifTransitionAudit companyId={session.data.membership.company.id} />
+            </>
           )}
           <section className="company-settings-card" aria-labelledby="logo-title">
             <h2 id="logo-title">Logo</h2>

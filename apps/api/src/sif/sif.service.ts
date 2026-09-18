@@ -109,6 +109,57 @@ export class SifService {
     };
   }
 
+  /** Read-only, tenant-scoped view of the AEAT test outbox. */
+  async testSubmissionOverview() {
+    const scope = this.scope();
+    const [groups, attention] = await Promise.all([
+      this.tenant.db.sifAeatSubmission.groupBy({
+        by: ["status"],
+        where: scope,
+        _count: { _all: true },
+      }),
+      this.tenant.db.sifAeatSubmission.findMany({
+        where: {
+          ...scope,
+          status: { in: [
+            SifAeatSubmissionStatus.UNKNOWN,
+            SifAeatSubmissionStatus.FAILED,
+            SifAeatSubmissionStatus.RETRY,
+          ] },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+        select: {
+          id: true, status: true, attempts: true, availableAt: true,
+          lastAttemptAt: true, lastError: true,
+          record: { select: {
+            chainPosition: true,
+            invoice: { select: { id: true, fullNumber: true } },
+          } },
+        },
+      }),
+    ]);
+    const counts = Object.fromEntries(
+      Object.values(SifAeatSubmissionStatus).map((status) => [status, 0]),
+    ) as Record<SifAeatSubmissionStatus, number>;
+    for (const group of groups) counts[group.status] = group._count._all;
+    return {
+      companyId: scope.companyId,
+      counts,
+      attention: attention.map((item) => ({
+        id: item.id,
+        status: item.status,
+        attempts: item.attempts,
+        availableAt: item.availableAt,
+        lastAttemptAt: item.lastAttemptAt,
+        lastError: item.lastError,
+        chainPosition: item.record.chainPosition.toString(),
+        invoiceId: item.record.invoice.id,
+        invoiceNumber: item.record.invoice.fullNumber ?? "Sin número",
+      })),
+    };
+  }
+
   /**
    * Produces one unsigned AEAT XML batch for inspection/validation. It never
    * changes the chain and intentionally does not transmit it to AEAT.

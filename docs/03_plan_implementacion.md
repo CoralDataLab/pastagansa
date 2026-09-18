@@ -821,6 +821,13 @@ El workflow CI `#35341071096` pasó completo. Con el checkout de staging en
 1 aceptado con errores y 1 rechazado, sin `UNKNOWN` ni `RETRY`; por tanto, aún
 no existe evidencia de recuperación real con la AEAT. Véase el acta
 `docs/14_aceptacion_aeat_pruebas.md`.
+La configuración muestra ahora un resumen de remisiones AEAT Pruebas por empresa,
+con recuentos de todos los estados y los veinte envíos inciertos, fallidos o en
+reintento más recientes enlazados a su factura. La consulta exige
+`sif_record.read`, aplica el ámbito de empresa/organización y no devuelve XML
+ni secretos. Esta visibilidad permite detectar futuros casos sin SQL; el
+recuento de staging anterior sigue siendo una observación manual, no una
+aceptación de esta nueva pantalla.
 Pendientes subsanación general de errores y rechazos, firma/eventos NO
 VERI*FACTU, soporte de toda la casuística fiscal y revisión de conformidad para
 producción.

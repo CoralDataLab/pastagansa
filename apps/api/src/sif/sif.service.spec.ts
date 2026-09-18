@@ -1,4 +1,4 @@
-import { RectificationImpact, SifMode, SifRecordType } from "@prisma/client";
+import { RectificationImpact, SifAeatSubmissionStatus as SubmissionStatus, SifMode, SifRecordType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { createHash } from "node:crypto";
 import { SifService } from "./sif.service";
@@ -28,6 +28,40 @@ describe("SifService transition audit", () => {
       }],
     });
     expect(queryRaw).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SifService AEAT test overview", () => {
+  it("returns only scoped counts and actionable rows without XML or certificate data", async () => {
+    const organizationId = "11111111-1111-4111-8111-111111111111";
+    const companyId = "22222222-2222-4222-8222-222222222222";
+    const groupBy = jest.fn().mockResolvedValue([
+      { status: SubmissionStatus.ACCEPTED, _count: { _all: 6 } },
+      { status: SubmissionStatus.UNKNOWN, _count: { _all: 1 } },
+    ]);
+    const findMany = jest.fn().mockResolvedValue([{
+      id: "submission", status: SubmissionStatus.UNKNOWN, attempts: 2,
+      availableAt: new Date("2026-09-18T12:00:00.000Z"),
+      lastAttemptAt: new Date("2026-09-18T11:58:00.000Z"),
+      lastError: "Timeout", responseXml: "private SOAP response",
+      record: { chainPosition: 9n, invoice: { id: "invoice", fullNumber: "F2026-0005" } },
+    }]);
+    const service = new SifService({
+      required: { organizationId, companyId },
+      db: { sifAeatSubmission: { groupBy, findMany } },
+    } as never, {} as never);
+
+    const result = await service.testSubmissionOverview();
+    expect(result).toMatchObject({
+      companyId,
+      counts: { ACCEPTED: 6, UNKNOWN: 1, FAILED: 0, RETRY: 0 },
+      attention: [{ status: "UNKNOWN", chainPosition: "9", invoiceNumber: "F2026-0005" }],
+    });
+    expect(JSON.stringify(result)).not.toContain("private SOAP response");
+    expect(groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId, companyId } }));
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ organizationId, companyId }), take: 20,
+    }));
   });
 });
 
