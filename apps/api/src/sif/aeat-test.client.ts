@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { Agent, request } from "node:https";
 import { createSecureContext } from "node:tls";
 import { aeatTestSoapEnvelope } from "./aeat-test-soap";
+import { aeatTestQueryEnvelope, type AeatTestQueryIdentity } from "./aeat-test-query";
 
 // SistemaVerifactuPruebas in the AEAT SistemaFacturacion.wsdl. Never accept a
 // configurable production URL while this integration is limited to testing.
@@ -44,8 +45,16 @@ export class AeatTestClient implements OnModuleDestroy {
   }
 
   async send(batchXml: string): Promise<{ httpStatus: number; responseXml: string }> {
+    return this.post(aeatTestSoapEnvelope(batchXml));
+  }
+
+  async query(identity: AeatTestQueryIdentity): Promise<{ httpStatus: number; responseXml: string }> {
+    return this.post(aeatTestQueryEnvelope(identity));
+  }
+
+  private async post(soapXml: string): Promise<{ httpStatus: number; responseXml: string }> {
     if (!this.agent) throw new Error("AEAT test sender is not configured");
-    const body = Buffer.from(aeatTestSoapEnvelope(batchXml), "utf8");
+    const body = Buffer.from(soapXml, "utf8");
     return new Promise((resolve, reject) => {
       let sent = false;
       const req = request(AEAT_TEST_ENDPOINT, {

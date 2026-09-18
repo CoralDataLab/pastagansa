@@ -5,6 +5,14 @@ import { createHash } from "node:crypto";
 import { formatSifIssueDate } from "./sif-hash-v1";
 import { AeatTestClient, AeatTestTransportError } from "./aeat-test.client";
 import { parseAeatTestSoapResponse } from "./aeat-test-soap";
+import { queryConfirmsDuplicate } from "./aeat-test-query";
+
+const LEASE_MS = 120_000;
+const RETRY_CAP_SECONDS = 3_600;
+
+export function aeatRetryDelaySeconds(attempts: number): number {
+  return Math.min(60 * 2 ** Math.min(attempts, 6), RETRY_CAP_SECONDS);
+}
 
 export function predecessorHasDefinitiveAeatResponse(submission: {
   status: SifAeatSubmissionStatus;
@@ -48,13 +56,15 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
 
   async processOne(): Promise<boolean> {
     if (!this.admin) return false;
-    const stale = new Date(Date.now() - 120_000);
+    const stale = new Date(Date.now() - LEASE_MS);
     await this.admin.sifAeatSubmission.updateMany({
       where: { status: SifAeatSubmissionStatus.SENDING, lockedAt: { lt: stale } },
       data: {
         status: SifAeatSubmissionStatus.UNKNOWN,
         lockedAt: null,
-        lastError: "Worker lease expired; delivery may have reached AEAT. Reconcile before retrying.",
+        availableAt: new Date(Date.now() + 60_000),
+        completedAt: null,
+        lastError: "Worker lease expired; delivery may have reached AEAT. Frozen XML will be retried.",
       },
     });
     const claim = await this.admin.$transaction(async (db) => {
@@ -73,7 +83,7 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
         return null;
       const candidates = await db.sifAeatSubmission.findMany({
         where: {
-          status: { in: [SifAeatSubmissionStatus.PENDING, SifAeatSubmissionStatus.RETRY] },
+          status: { in: [SifAeatSubmissionStatus.PENDING, SifAeatSubmissionStatus.RETRY, SifAeatSubmissionStatus.UNKNOWN] },
           availableAt: { lte: now },
         },
         include: { record: { select: { previousRecordId: true, chainPosition: true } } },
@@ -98,16 +108,16 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
             attempts: { increment: 1 },
             lockedAt: now,
             lastAttemptAt: now,
+            completedAt: null,
             waitSeconds: 60,
-            lastError: null,
           },
-          select: { id: true, attempts: true },
+          select: { id: true, attempts: true, lockedAt: true },
         });
       }
       return null;
     });
     if (!claim) return false;
-    await this.deliver(claim.id, claim.attempts);
+    await this.deliver(claim.id, claim.attempts, claim.lockedAt!);
     return true;
   }
 
@@ -119,15 +129,18 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
     finally { this.running = false; }
   }
 
-  private async deliver(id: string, attempts: number) {
+  private async deliver(id: string, attempts: number, lockedAt: Date) {
     if (!this.admin) return;
     let responseXml: string | null = null;
+    let reconciliationXml: string | null = null;
     let httpStatus: number | null = null;
     let transportAttempted = false;
     try {
       const submission = await this.admin.sifAeatSubmission.findUniqueOrThrow({
         where: { id },
-        include: { record: { include: { invoice: { select: { aeatEnvironment: true, sifMode: true } } } } },
+        include: { record: { include: { invoice: { select: {
+          aeatEnvironment: true, sifMode: true, issuerLegalName: true, operationDate: true,
+        } } } } },
       });
       const payload = submission.record.payload;
       const xml = payload && typeof payload === "object" && !Array.isArray(payload)
@@ -143,7 +156,7 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
       responseXml = response.responseXml;
       httpStatus = response.httpStatus;
       if (httpStatus === 503 || httpStatus === 429) {
-        await this.retry(id, attempts, `AEAT returned HTTP ${httpStatus}`, responseXml, httpStatus);
+        await this.retry(id, attempts, lockedAt, `AEAT returned HTTP ${httpStatus}`, responseXml, httpStatus);
         return;
       }
       const parsed = parseAeatTestSoapResponse(responseXml, {
@@ -153,10 +166,10 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
       });
       if (parsed.kind === "FAULT") {
         if (parsed.faultCode.endsWith(":Server") || parsed.faultCode === "Server") {
-          await this.retry(id, attempts, `AEAT SOAP Server fault: ${parsed.faultString}`, responseXml, httpStatus);
+          await this.retry(id, attempts, lockedAt, `AEAT SOAP Server fault: ${parsed.faultString}`, responseXml, httpStatus);
           return;
         }
-        await this.finish(id, {
+        await this.finish(id, lockedAt, {
           status: SifAeatSubmissionStatus.REJECTED,
           httpStatus,
           responseXml,
@@ -165,7 +178,50 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
         });
         return;
       }
-      await this.finish(id, {
+      if (parsed.recordStatus === "Incorrecto" &&
+          (parsed.duplicate || /duplicad/i.test(parsed.errorDescription ?? ""))) {
+        const duplicate = parsed.duplicate;
+        // A duplicate invoice number alone does not prove that our frozen record
+        // arrived. Verify both its SIF hash and AEAT's original request ID.
+        if (duplicate && submission.record.recordType !== "CANCELLATION" &&
+            ["Correcta", "AceptadaConErrores"].includes(duplicate.status)) {
+          const identity = {
+            issuerName: submission.record.invoice.issuerLegalName,
+            issuerTaxId: submission.record.issuerTaxId,
+            invoiceNumber: submission.record.invoiceNumber,
+            issueDate: formatSifIssueDate(submission.record.invoiceIssueDate),
+            operationDate: submission.record.invoice.operationDate ?? submission.record.invoiceIssueDate,
+          };
+          const consultation = await this.client.query(identity);
+          reconciliationXml = consultation.responseXml;
+          if (consultation.httpStatus === 200 && queryConfirmsDuplicate(
+            consultation.responseXml, identity, submission.record.recordHash,
+            duplicate.requestId, duplicate.status as "Correcta" | "AceptadaConErrores",
+          )) {
+            await this.finish(id, lockedAt, {
+              status: duplicate.status === "Correcta"
+                ? SifAeatSubmissionStatus.ACCEPTED : SifAeatSubmissionStatus.ACCEPTED_WITH_ERRORS,
+              httpStatus, responseXml, reconciliationXml,
+              globalStatus: parsed.globalStatus,
+              recordStatus: duplicate.status === "Correcta" ? "Correcto" : "AceptadoConErrores",
+              waitSeconds: parsed.waitSeconds,
+              csv: null,
+              errorCode: duplicate.errorCode,
+              errorDescription: [
+                "Registro previo confirmado por consulta AEAT (huella e IdPeticion); CSV original no recuperable.",
+                duplicate.errorDescription,
+              ].filter(Boolean).join(" ").slice(0, 1500),
+              lastError: null,
+            });
+            return;
+          }
+        }
+        await this.unknown(id, attempts, lockedAt,
+          "AEAT reports a duplicate, but its identity and hash could not be verified",
+          responseXml, httpStatus, parsed.waitSeconds, reconciliationXml);
+        return;
+      }
+      await this.finish(id, lockedAt, {
         status: parsed.recordStatus === "Correcto"
           ? SifAeatSubmissionStatus.ACCEPTED
           : parsed.recordStatus === "AceptadoConErrores"
@@ -184,43 +240,65 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 1500) : "Unknown AEAT test failure";
       if (!transportAttempted) {
-        await this.finish(id, {
+        await this.finish(id, lockedAt, {
           status: SifAeatSubmissionStatus.FAILED,
           lastError: message,
         });
       } else if (error instanceof AeatTestTransportError && !error.ambiguous) {
-        await this.retry(id, attempts, message, responseXml, httpStatus);
+        await this.retry(id, attempts, lockedAt, message, responseXml, httpStatus);
       } else {
-        await this.finish(id, {
-          status: SifAeatSubmissionStatus.UNKNOWN,
-          httpStatus,
-          responseXml,
-          lastError: message,
-        });
+        await this.unknown(id, attempts, lockedAt, message, responseXml, httpStatus,
+          undefined, reconciliationXml);
       }
     }
   }
 
-  private async retry(id: string, attempts: number, reason: string, responseXml: string | null, httpStatus: number | null) {
+  private async retry(id: string, attempts: number, lockedAt: Date, reason: string, responseXml: string | null, httpStatus: number | null) {
     if (!this.admin) return;
-    const exhausted = attempts >= 5;
     await this.admin.sifAeatSubmission.updateMany({
-      where: { id, status: SifAeatSubmissionStatus.SENDING },
+      where: { id, status: SifAeatSubmissionStatus.SENDING, lockedAt },
       data: {
-        status: exhausted ? SifAeatSubmissionStatus.FAILED : SifAeatSubmissionStatus.RETRY,
-        availableAt: new Date(Date.now() + Math.min(60 * 2 ** attempts, 3_600) * 1_000),
+        status: SifAeatSubmissionStatus.RETRY,
+        availableAt: new Date(Date.now() + aeatRetryDelaySeconds(attempts) * 1_000),
         lockedAt: null,
-        completedAt: exhausted ? new Date() : null,
+        completedAt: null,
         responseXml,
         httpStatus,
+        globalStatus: null,
+        recordStatus: null,
+        csv: null,
+        errorCode: null,
+        errorDescription: null,
         lastError: reason.slice(0, 1500),
       },
     });
   }
 
-  private async finish(id: string, data: Parameters<PrismaClient["sifAeatSubmission"]["updateMany"]>[0]["data"]) {
+  private async unknown(id: string, attempts: number, lockedAt: Date, reason: string, responseXml: string | null, httpStatus: number | null, waitSeconds?: number, reconciliationXml?: string | null) {
     await this.admin?.sifAeatSubmission.updateMany({
-      where: { id, status: SifAeatSubmissionStatus.SENDING },
+      where: { id, status: SifAeatSubmissionStatus.SENDING, lockedAt },
+      data: {
+        status: SifAeatSubmissionStatus.UNKNOWN,
+        availableAt: new Date(Date.now() + aeatRetryDelaySeconds(attempts) * 1_000),
+        lockedAt: null,
+        completedAt: null,
+        httpStatus,
+        responseXml,
+        ...(reconciliationXml ? { reconciliationXml } : {}),
+        ...(waitSeconds === undefined ? {} : { waitSeconds }),
+        globalStatus: null,
+        recordStatus: null,
+        csv: null,
+        errorCode: null,
+        errorDescription: null,
+        lastError: reason.slice(0, 1500),
+      },
+    });
+  }
+
+  private async finish(id: string, lockedAt: Date, data: Parameters<PrismaClient["sifAeatSubmission"]["updateMany"]>[0]["data"]) {
+    await this.admin?.sifAeatSubmission.updateMany({
+      where: { id, status: SifAeatSubmissionStatus.SENDING, lockedAt },
       data: { ...data, lockedAt: null, completedAt: new Date() },
     });
   }

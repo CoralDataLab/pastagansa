@@ -16,6 +16,7 @@ export type AeatTestResult = {
   requestId: string | null;
   errorCode: string | null;
   errorDescription: string | null;
+  duplicate: { requestId: string; status: string; errorCode: string | null; errorDescription: string | null } | null;
 } | {
   kind: "FAULT";
   faultCode: string;
@@ -67,7 +68,7 @@ export function parseAeatTestSoapResponse(xml: string, expected: {
   if (lines.length === 0 && globalStatus === "Incorrecto")
     return {
       kind: "RESPONSE", globalStatus, recordStatus: null, waitSeconds,
-      csv: null, requestId: null, errorCode: null, errorDescription: null,
+      csv: null, requestId: null, errorCode: null, errorDescription: null, duplicate: null,
     };
   if (lines.length !== 1) throw new Error("AEAT response must contain exactly one line");
   const line = lines.item(0)!;
@@ -80,6 +81,9 @@ export function parseAeatTestSoapResponse(xml: string, expected: {
   const recordStatus = text(line, RESPONSE_NAMESPACE, "EstadoRegistro");
   if (!isRecordStatus(recordStatus)) throw new Error("AEAT record status is invalid");
   const presentation = first(response, RESPONSE_NAMESPACE, "DatosPresentacion");
+  const duplicate = first(line, RESPONSE_NAMESPACE, "RegistroDuplicado");
+  const duplicateRequestId = duplicate ? text(duplicate, INFO_NAMESPACE, "IdPeticionRegistroDuplicado") : "";
+  const duplicateStatus = duplicate ? text(duplicate, INFO_NAMESPACE, "EstadoRegistroDuplicado") : "";
   return {
     kind: "RESPONSE",
     globalStatus,
@@ -89,6 +93,14 @@ export function parseAeatTestSoapResponse(xml: string, expected: {
     requestId: presentation ? text(presentation, INFO_NAMESPACE, "IdPeticion") || null : null,
     errorCode: text(line, RESPONSE_NAMESPACE, "CodigoErrorRegistro") || null,
     errorDescription: text(line, RESPONSE_NAMESPACE, "DescripcionErrorRegistro") || null,
+    duplicate: duplicateRequestId && duplicateStatus
+      ? {
+        requestId: duplicateRequestId,
+        status: duplicateStatus,
+        errorCode: text(duplicate!, INFO_NAMESPACE, "CodigoErrorRegistro") || null,
+        errorDescription: text(duplicate!, INFO_NAMESPACE, "DescripcionErrorRegistro") || null,
+      }
+      : null,
   };
 }
 

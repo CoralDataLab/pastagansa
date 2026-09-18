@@ -129,10 +129,20 @@ indicada por la AEAT y conserva el estado, CSV, error y respuesta por registro e
 `GET /v1/sif/records/{recordId}/test-submissions` (permiso `sif_record.read`).
 `ACCEPTED` y `ACCEPTED_WITH_ERRORS` son respuestas registradas; `REJECTED` exige
 corregir el registro conforme a la respuesta de la AEAT. `UNKNOWN` indica que la
-petición pudo llegar sin respuesta verificable: consultar lo recibido en la AEAT
-antes de cualquier reenvío manual. El worker no reenvía automáticamente estados
-`UNKNOWN` para evitar duplicados. `FAILED` indica que se agotaron los reintentos
-seguros. Estos estados deben revisarse antes de seguir con la cadena.
+petición pudo llegar sin respuesta verificable. El worker reenvía automáticamente
+**el mismo XML congelado** tras una espera creciente (máximo una hora), sin crear
+otro registro SIF ni otra huella. Si la AEAT responde «duplicado» para un alta,
+consulta el registro previo y solo lo marca aceptado cuando coinciden NIF,
+número, fecha, huella y `IdPeticion`. Conserva la respuesta de esa consulta en
+`reconciliation_xml`; el CSV del primer envío no se puede recuperar por consulta.
+Un duplicado no verificable, una anulación duplicada o una respuesta ambigua
+mantienen `UNKNOWN` y bloquean los registros posteriores de la cadena hasta
+obtener una respuesta definitiva o revisión administrativa. `RETRY` cubre fallos
+temporales y también se reintenta con espera creciente. `FAILED` indica un fallo
+local anterior al envío, que requiere revisión. Antes de un reenvío manual,
+consultar los intentos y lo recibido en la AEAT.
+Referencia: [FAQ oficial de reenvío sin respuesta](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/sistemas-verifactu.html)
+y [descripción oficial del servicio de consulta y duplicados](https://sede.agenciatributaria.gob.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_Descripcion_SWeb.pdf).
 
 Para desactivar los envíos nuevos, poner `AEAT_TEST_ENABLED=false` y desplegar sin
 el archivo adicional de Compose. La configuración de producción mantiene el

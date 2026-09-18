@@ -53,6 +53,23 @@ describe("AEAT test SOAP", () => {
     });
   });
 
+  it("reads the original request ID and state from a duplicate rejection", () => {
+    const xml = answer("Incorrecto", "Incorrecto").replace(
+      "</r:RespuestaLinea>",
+      "<r:RegistroDuplicado><s:IdPeticionRegistroDuplicado>987654</s:IdPeticionRegistroDuplicado>" +
+      "<s:EstadoRegistroDuplicado>AceptadaConErrores</s:EstadoRegistroDuplicado>" +
+      "<s:CodigoErrorRegistro>2004</s:CodigoErrorRegistro>" +
+      "<s:DescripcionErrorRegistro>Aviso original</s:DescripcionErrorRegistro>" +
+      "</r:RegistroDuplicado></r:RespuestaLinea>",
+    );
+    expect(parseAeatTestSoapResponse(xml, identity)).toMatchObject({
+      recordStatus: "Incorrecto", duplicate: {
+        requestId: "987654", status: "AceptadaConErrores", errorCode: "2004",
+        errorDescription: "Aviso original",
+      },
+    });
+  });
+
   it("distinguishes a SOAP fault from a record rejection", () => {
     const xml = `<e:Envelope xmlns:e="${soap}"><e:Body><e:Fault>` +
       `<faultcode>e:Server</faultcode><faultstring>Busy</faultstring>` +

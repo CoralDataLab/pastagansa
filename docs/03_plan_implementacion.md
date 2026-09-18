@@ -808,6 +808,14 @@ anulación aceptadas, con cinco registros en la cadena local verificada. El XML
 exportado de la anulación se inspeccionó y validó localmente; véase el acta.
 Una R4 por diferencias se aceptó también en pruebas en la posición 6, con XML
 congelado validado localmente y cadena verificada de seis registros.
+La recuperación de remisiones inciertas de AEAT pruebas reenvía el XML congelado
+tras timeout o lease caducado, con espera exponencial limitada y protección de
+lease frente a respuestas tardías. Una respuesta de duplicado de alta solo se
+reconcilia si la consulta oficial confirma identidad, huella SIF, estado e
+`IdPeticion`; la respuesta de consulta queda almacenada, sin atribuirle el CSV
+original. Los duplicados no verificables y las anulaciones duplicadas siguen
+inciertos y bloquean la cadena. Validación local: pruebas de timeout, reenvío
+idéntico, duplicado coincidente/no coincidente, parser SOAP, build y migración.
 Pendientes subsanación general de errores y rechazos, firma/eventos NO
 VERI*FACTU, soporte de toda la casuística fiscal y revisión de conformidad para
 producción.
