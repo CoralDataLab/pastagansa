@@ -317,8 +317,14 @@ test("completes the sales flow from registration to payment", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await expectNoSeriousAccessibilityViolations(page, "mobile collections workspace");
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.getByLabel("Fecha de referencia").fill(new Date().toISOString().slice(0, 10));
+  const referenceDate = new Date().toISOString().slice(0, 10);
+  await page.getByLabel("Fecha de referencia").fill(referenceDate);
+  await expect(page).toHaveURL((url) => url.searchParams.get("asOf") === referenceDate);
   await page.getByLabel("Tramo").selectOption("OVERDUE_31_60");
+  await expect(page).toHaveURL((url) =>
+    url.searchParams.get("asOf") === referenceDate &&
+    url.searchParams.get("bucket") === "OVERDUE_31_60",
+  );
   await expect(page.locator(".collections-table")).toContainText("FE2E-0001");
   await expect(page.getByRole("region", { name: "Resumen de cartera" }).locator("article", { hasText: "Vencido" })).toContainText("121,00 €");
   await page.locator(".collections-table tr").filter({ hasText: "FE2E-0001" }).getByRole("button", { name: "Gestionar" }).click();

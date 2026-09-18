@@ -32,6 +32,15 @@ servidor SMTP local que captura el PDF de presupuesto, factura y recordatorio y 
 su representación con la descarga del navegador. La misma suite prueba el camino sin
 SMTP cuando no se configura correo.
 
+El 18/09/2026, una nueva ejecución de **Staging acceptance** falló en el recorrido
+de ventas (1 fallo, 2 pruebas correctas): el test intentó abrir «Gestionar» mientras
+seguía pendiente la navegación asíncrona de los filtros de Cartera. Se corrigió
+la sincronización del test esperando a que la URL refleje la fecha y el tramo
+seleccionados. Desde el entorno local, contra el staging HTTPS y con el destinatario
+controlado configurado, el recorrido afectado pasó y después pasó la suite completa
+(3/3). También pasaron lint y TypeScript de web. Quedan por registrar la nueva
+ejecución del workflow en GitHub y la confirmación externa de esos correos.
+
 ## Cierre en staging publicado
 
 1. Anotar SHA y URL HTTPS del candidato; comprobar que el host sigue siendo el staging

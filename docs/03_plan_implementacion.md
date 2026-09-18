@@ -36,6 +36,9 @@ migraciones; aceptación HTTPS 3/3 sobre `bb337bb` con los tres correos y PDF en
 buzón controlado, y prueba moderada administrativa sin incidencias. El acta distingue
 la evidencia observada de los datos de restauración remota aún sin archivar. Véase
 `docs/12_aceptacion_u6.md`.
+Una repetición del 18/09 falló en el test de Cartera por navegación de filtros aún
+pendiente; tras sincronizar el E2E, la suite volvió a pasar 3/3 contra staging desde
+el entorno local. La repetición del workflow GitHub queda pendiente.
 
 **AEAT pruebas (18/09/2026):** un alta F1 de la posición 3 fue aceptada sin
 errores por el servicio de pruebas, con CSV visible y cadena local verificada.
