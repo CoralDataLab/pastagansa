@@ -51,8 +51,9 @@ cadena local aparece verificada con cinco registros. Evidencia y
 límites en `docs/14_aceptacion_aeat_pruebas.md`.
 Una rectificativa R4 por diferencias fue aceptada en AEAT pruebas en la posición
 6, con cadena local verificada y libro de IVA negativo. Su XML validó con el XSD
-local y las huellas propia y anterior coincidieron. La clasificación fiscal del
-motivo de una operación real sigue sin validarse con esta prueba.
+local y las huellas propia y anterior coincidieron. La captura posterior mostró
+la original `F2026-0003` **Rectificada** y con 0,00 € pendientes. La clasificación
+fiscal del motivo de una operación real sigue sin validarse con esta prueba.
 
 **Anulación de factura emitida por error (aceptación manual en staging, 18/09/2026):**
 API y web incorporan un flujo para operación inexistente sin cobros ni

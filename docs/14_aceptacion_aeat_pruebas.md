@@ -149,10 +149,13 @@ volvió a confirmar `04160cdc2f82ffdfe7a2dd4c1ed4980f5d090ce5` como HEAD de
 staging. El XML no se copia al repositorio por contener identificadores fiscales.
 
 La respuesta consta por la interfaz capturada; no se ha cotejado el SOAP ni el
-CSV directamente en la sede de la AEAT. Tampoco se comprobó en esta captura el
-estado o saldo posterior de la factura original. La aceptación técnica de un
-ensayo R4 no acredita que el motivo elegido corresponda a R4 en una operación
-real; la [AEAT distingue las causas R1 y R4](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html).
+CSV directamente en la sede de la AEAT. Una captura posterior mostró la
+rectificativa `R2026-0001` emitida y con 0,00 € pendientes, y la factura original
+`F2026-0003` en estado **Rectificada** y con 0,00 € pendientes. El botón de
+recordatorio de pago que aparece en la original está deshabilitado por saldo
+cero según la condición de la interfaz. La aceptación técnica de un ensayo R4
+no acredita que el motivo elegido corresponda a R4 en una operación real; la
+[AEAT distingue las causas R1 y R4](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html).
 
 Referencias: [preguntas frecuentes de la AEAT sobre factura emitida por error](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html),
 [anulación de registros de facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/registros-facturacion-anulacion.html)
