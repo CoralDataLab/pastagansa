@@ -842,6 +842,10 @@ de solo lectura: no reenvía, no altera la cadena y no declara resuelta una
 incidencia por existir un registro posterior. La [guía AEAT sobre integridad e
 inalterabilidad](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/caracteristicas-requisitos-sif-integridad-inalterabilidad.html)
 exige conservar el registro erróneo y generar uno nuevo para subsanarlo.
+La captura posterior al despliegue mostró los dos resultados históricos con
+sus seguimientos aceptados (posiciones 2→4 y 1→5), mantuvo los recuentos
+6/1/1 y cero pendientes. SSH confirmó el checkout `6fc6171`; el acta precisa
+los límites de esta comprobación.
 Pendientes subsanación general de errores y rechazos, firma/eventos NO
 VERI*FACTU, soporte de toda la casuística fiscal y revisión de conformidad para
 producción.

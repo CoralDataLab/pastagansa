@@ -233,3 +233,16 @@ seguimiento. Una consulta SSH de solo lectura confirmó el checkout en
 respondieron HTTP 200 y una ruta de API sin sesión respondió 401. No se
 inspeccionaron los healthchecks de Docker ni el digest de las imágenes por la
 restricción de `sudo` interactivo, y no se provocó una remisión incierta real.
+
+Tras desplegar la clasificación de incidencias, una nueva captura del operador
+del 18/09/2026 mostró **2 de 2 resultados con incidencias**: el alta de la
+posición 2 aceptada con errores enlazada con la subsanación aceptada de la
+posición 4, y el alta rechazada de la posición 1 enlazada con la anulación
+aceptada de la posición 5. Los recuentos permanecían en 6 aceptados, 1
+aceptado con errores, 1 rechazado y 0 en cola, inciertos o fallidos. Una
+consulta SSH de solo lectura confirmó el checkout
+`6fc6171cbac179fccb2327a49976370ba6aeb416` y la URL pública `/acceso`
+respondió HTTP 200. La captura verifica la presentación y el enlace de los
+seguimientos; no es una nueva respuesta de AEAT ni acredita que las dos
+incidencias históricas estén fiscalmente resueltas. No se cotejaron el digest
+de las imágenes ni los healthchecks de Docker.
