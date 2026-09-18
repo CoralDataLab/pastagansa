@@ -184,7 +184,7 @@ export interface InvoiceTrace {
   };
   sifRecord: null | {
     id: string;
-    recordType: "REGISTRATION" | "CANCELLATION";
+    recordType: "REGISTRATION" | "CANCELLATION" | "SUBSANATION";
     chainPosition: string;
     invoiceType: string;
     generatedAt: string;
@@ -195,7 +195,7 @@ export interface InvoiceTrace {
   };
   sifRecords: Array<{
     id: string;
-    recordType: "REGISTRATION" | "CANCELLATION";
+    recordType: "REGISTRATION" | "CANCELLATION" | "SUBSANATION";
     chainPosition: string;
     invoiceType: string;
     generatedAt: string;
@@ -209,6 +209,7 @@ export interface InvoiceTrace {
     submissions: Array<{
       status: "PENDING" | "SENDING" | "RETRY" | "ACCEPTED" | "ACCEPTED_WITH_ERRORS" | "REJECTED" | "FAILED" | "UNKNOWN";
       attempts: number;
+      recordStatus: string | null;
       csv: string | null;
       errorCode: string | null;
       errorDescription: string | null;

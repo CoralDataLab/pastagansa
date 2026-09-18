@@ -33,6 +33,8 @@ type SifXmlBaseRecord = {
 
 export type SifXmlRegistration = SifXmlBaseRecord & {
   kind: "REGISTRATION";
+  subsanacion?: "S";
+  rechazoPrevio?: "X";
   issuerTaxId: string;
   invoiceNumber: string;
   issueDate: string;
@@ -56,6 +58,7 @@ export type SifXmlRegistration = SifXmlBaseRecord & {
 
 export type SifXmlCancellation = SifXmlBaseRecord & {
   kind: "CANCELLATION";
+  sinRegistroPrevio?: "S";
   issuerTaxId: string;
   invoiceNumber: string;
   issueDate: string;
@@ -97,6 +100,8 @@ function registration(record: SifXmlRegistration) {
     element("sf:FechaExpedicionFactura", record.issueDate, 8),
     "      </sf:IDFactura>",
     element("sf:NombreRazonEmisor", record.issuerLegalName, 6),
+    ...(record.subsanacion ? [element("sf:Subsanacion", record.subsanacion, 6)] : []),
+    ...(record.rechazoPrevio ? [element("sf:RechazoPrevio", record.rechazoPrevio, 6)] : []),
     element("sf:TipoFactura", record.invoiceType, 6),
     ...(record.rectification
       ? [
@@ -149,6 +154,7 @@ function cancellation(record: SifXmlCancellation) {
     element("sf:NumSerieFacturaAnulada", record.invoiceNumber, 8),
     element("sf:FechaExpedicionFacturaAnulada", record.issueDate, 8),
     "      </sf:IDFactura>",
+    ...(record.sinRegistroPrevio ? [element("sf:SinRegistroPrevio", record.sinRegistroPrevio, 6)] : []),
     chain(record, 6),
     software(record.software, 6),
     element("sf:FechaHoraHusoGenRegistro", record.generatedAt, 6),

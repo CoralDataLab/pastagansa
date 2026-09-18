@@ -16,6 +16,13 @@ export class SifController {
     return this.sif.createCancellation(invoiceId);
   }
 
+  @Post(":invoiceId/timestamp-subsanation")
+  @HttpCode(200)
+  @RequirePermissions("invoice.issue")
+  timestampSubsanation(@Param("invoiceId", ParseUUIDPipe) invoiceId: string) {
+    return this.sif.createTimestampSubsanation(invoiceId);
+  }
+
   @Get("transition-audit")
   @RequirePermissions("sif_record.read")
   transitionAudit() {

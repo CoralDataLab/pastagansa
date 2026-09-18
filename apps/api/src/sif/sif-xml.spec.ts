@@ -75,6 +75,39 @@ describe("AEAT SIF XML", () => {
     expectValidAeatXml(xml);
   });
 
+  it("renders an accepted-with-errors subsanation in XSD order", () => {
+    const xml = renderSifAeatXml({
+      header,
+      record: {
+        kind: "REGISTRATION", subsanacion: "S",
+        issuerTaxId: "B12345674", invoiceNumber: "F2026-0001",
+        issueDate: "16-09-2026", issuerLegalName: header.issuerLegalName,
+        invoiceType: "F1", customer: { legalName: "Client", taxId: "B76543210" },
+        description: "Services", taxLines: [{ taxableBase: "100.00", taxRate: "21.00", taxAmount: "21.00", reverseCharge: false }],
+        taxTotal: "21.00", total: "121.00", previousRecord: null,
+        software, generatedAt: "2026-09-16T12:00:00+02:00", recordHash: "A".repeat(64),
+      },
+    });
+    expect(xml).toMatch(/<sf:NombreRazonEmisor>.*<\/sf:NombreRazonEmisor>\s*<sf:Subsanacion>S<\/sf:Subsanacion>\s*<sf:TipoFactura>/);
+    expect(xml).not.toContain("<sf:RechazoPrevio>");
+    expectValidAeatXml(xml);
+  });
+
+  it("marks cancellation of a confirmed rejected alta as having no prior AEAT registration", () => {
+    const xml = renderSifAeatXml({
+      header,
+      record: {
+        kind: "CANCELLATION", sinRegistroPrevio: "S",
+        issuerTaxId: "B12345674", invoiceNumber: "F2026-0001", issueDate: "16-09-2026",
+        previousRecord: null, software,
+        generatedAt: "2026-09-16T12:01:00+02:00", recordHash: "C".repeat(64),
+      },
+    });
+    expect(xml).toContain("<sf:SinRegistroPrevio>S</sf:SinRegistroPrevio>");
+    expect(xml).not.toContain("<sf:RechazoPrevio>");
+    expectValidAeatXml(xml);
+  });
+
   it("renders an R4 difference rectification with the original invoice identity", () => {
     const xml = renderSifAeatXml({
       header,

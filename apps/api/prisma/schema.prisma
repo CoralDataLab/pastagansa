@@ -161,6 +161,7 @@ enum TaxBookType {
 enum SifRecordType {
   REGISTRATION
   CANCELLATION
+  SUBSANATION
 }
 
 enum SifAeatSubmissionStatus {
@@ -590,7 +591,7 @@ model SifRecord {
   nextRecords          SifRecord[]   @relation("SifRecordChain")
   aeatSubmissions      SifAeatSubmission[]
 
-  @@unique([companyId, invoiceId, recordType])
+  @@index([companyId, invoiceId, recordType])
   @@unique([companyId, chainPosition])
   @@unique([previousRecordId])
   @@unique([id, organizationId, companyId])

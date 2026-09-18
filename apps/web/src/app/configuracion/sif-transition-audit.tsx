@@ -60,7 +60,7 @@ export function SifTransitionAudit({ companyId }: { companyId: string }) {
                   {audit.data.groups.map((group) => (
                     <tr key={`${group.sifMode}:${group.aeatEnvironment}:${group.recordType}:${group.softwareId ?? "null"}`}>
                       <td><strong>{group.sifMode}</strong><small>{group.aeatEnvironment}</small></td>
-                      <td>{group.recordType === "REGISTRATION" ? "Alta" : group.recordType === "CANCELLATION" ? "Anulación" : group.recordType}</td>
+                      <td>{group.recordType === "REGISTRATION" ? "Alta" : group.recordType === "CANCELLATION" ? "Anulación" : group.recordType === "SUBSANATION" ? "Subsanación" : group.recordType}</td>
                       <td><strong>{group.softwareId ?? "Sin capturar"}</strong><small>{group.softwareIdValid ? "Formato válido" : "Formato no válido o ausente"}</small></td>
                       <td>{group.records}</td>
                       <td>{group.firstPosition}–{group.lastPosition}</td>

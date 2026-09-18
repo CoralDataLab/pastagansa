@@ -50,9 +50,28 @@ export function verifySifChain(
     if (record.previousRecordHash !== (previous?.recordHash ?? null))
       return invalid("Previous record hash does not match");
 
-    if (record.recordType === SifRecordType.REGISTRATION) {
+    if (record.recordType === SifRecordType.REGISTRATION ||
+        record.recordType === SifRecordType.SUBSANATION) {
       const input = readRegistrationHashInput(record.payload);
       if (!input) return invalid("Stored registration hash input is invalid");
+      if (record.recordType === SifRecordType.SUBSANATION) {
+        const sourceLink = readSubsanationOf(record.payload);
+        const source = records.slice(0, index).find(
+          (candidate) => candidate.id === sourceLink?.recordId,
+        );
+        if (!source ||
+            (source.recordType !== SifRecordType.REGISTRATION &&
+             source.recordType !== SifRecordType.SUBSANATION) ||
+            source.invoiceId !== record.invoiceId ||
+            source.recordHash !== sourceLink?.recordHash ||
+            source.issuerTaxId !== record.issuerTaxId ||
+            source.invoiceNumber !== record.invoiceNumber ||
+            formatSifIssueDate(source.invoiceIssueDate) !== formatSifIssueDate(record.invoiceIssueDate) ||
+            source.invoiceType !== record.invoiceType ||
+            source.taxTotal.toFixed(2) !== record.taxTotal.toFixed(2) ||
+            source.total.toFixed(2) !== record.total.toFixed(2))
+          return invalid("Subsanation does not identify its source registration");
+      }
       if (
         input.issuerTaxId !== record.issuerTaxId ||
         input.invoiceNumber !== record.invoiceNumber ||
@@ -154,6 +173,14 @@ function readCancellationOf(value: unknown) {
     registrationId: cancellationOf.registrationId,
     registrationHash: cancellationOf.registrationHash,
   };
+}
+
+function readSubsanationOf(value: unknown) {
+  if (!isRecord(value) || !isRecord(value.subsanationOf)) return null;
+  const source = value.subsanationOf;
+  if (typeof source.recordId !== "string" || typeof source.recordHash !== "string")
+    return null;
+  return { recordId: source.recordId, recordHash: source.recordHash };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

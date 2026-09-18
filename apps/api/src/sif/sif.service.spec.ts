@@ -399,6 +399,101 @@ describe("SifService cancellation snapshot", () => {
   });
 });
 
+describe("SifService AEAT recovery", () => {
+  const invoiceId = "33333333-3333-4333-8333-333333333333";
+  const source = {
+    ...(record() as Record<string, unknown>),
+    id: "44444444-4444-4444-8444-444444444444",
+    invoiceId,
+    recordHash: "A".repeat(64),
+    payload: { aeatXml: "<original/>" },
+  };
+  const context = {
+    organizationId: "11111111-1111-4111-8111-111111111111",
+    companyId: "22222222-2222-4222-8222-222222222222",
+  };
+
+  it("uses SinRegistroPrevio only after a confirmed line-level rejection", async () => {
+    const create = jest.fn().mockImplementation(({ data }) => Promise.resolve(data));
+    const service = new SifService({
+      required: context,
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn()
+          .mockResolvedValueOnce(null).mockResolvedValueOnce(source)
+          .mockResolvedValueOnce(source), create },
+        sifAeatSubmission: {
+          findFirst: jest.fn().mockResolvedValue({ status: "REJECTED", recordStatus: "Incorrecto" }),
+          create: jest.fn(),
+        },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          status: "ISSUED", sifMode: "VERIFACTU", aeatEnvironment: "TEST",
+          issuerLegalName: "Coral Data Lab", issuerTaxId: "B12345674",
+          company: { timezone: "Europe/Madrid" },
+        }) },
+      },
+    } as never, { record: jest.fn() } as never, { enabled: true } as never);
+
+    await service.createCancellation(invoiceId);
+    const payload = create.mock.calls[0][0].data.payload;
+    expect(payload.sinRegistroPrevio).toBe("S");
+    expect(payload.aeatXml).toContain("<sf:SinRegistroPrevio>S</sf:SinRegistroPrevio>");
+  });
+
+  it("does not cancel when AEAT has not given a definitive line response", async () => {
+    const create = jest.fn();
+    const service = new SifService({
+      required: context,
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(source), create },
+        sifAeatSubmission: { findFirst: jest.fn().mockResolvedValue({ status: "REJECTED", recordStatus: null }) },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          status: "ISSUED", sifMode: "VERIFACTU", aeatEnvironment: "TEST",
+        }) },
+      },
+    } as never, {} as never, { enabled: true } as never);
+    await expect(service.createCancellation(invoiceId)).rejects.toThrow("definitive AEAT response");
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("appends a frozen alta subsanation for the confirmed time warning", async () => {
+    const create = jest.fn().mockImplementation(({ data }) => Promise.resolve(data));
+    const enqueue = jest.fn();
+    const service = new SifService({
+      required: context,
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn()
+          .mockResolvedValueOnce(null).mockResolvedValueOnce(source)
+          .mockResolvedValueOnce(null).mockResolvedValueOnce(source), create },
+        sifAeatSubmission: {
+          findFirst: jest.fn().mockResolvedValue({
+            status: "ACCEPTED_WITH_ERRORS", recordStatus: "AceptadoConErrores",
+            errorDescription: "El valor del campo FechaHoraHusoGenRegistro debe ser la fecha actual",
+          }),
+          create: enqueue,
+        },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          ...((source as Record<string, unknown>).invoice as Record<string, unknown>),
+          id: invoiceId, status: "ISSUED", sifMode: "VERIFACTU", aeatEnvironment: "TEST",
+          issuerLegalName: "Acme S.L.", issuerTaxId: "B12345674",
+          sifInvoiceType: "F1", company: { timezone: "Europe/Madrid" },
+        }) },
+      },
+    } as never, { record: jest.fn() } as never, { enabled: true } as never);
+
+    await service.createTimestampSubsanation(invoiceId);
+    const data = create.mock.calls[0][0].data;
+    expect(data.recordType).toBe(SifRecordType.SUBSANATION);
+    expect(data.chainPosition).toBe(2n);
+    expect(data.payload.subsanationOf).toEqual({ recordId: source.id, recordHash: source.recordHash });
+    expect(data.payload.aeatXml).toContain("<sf:Subsanacion>S</sf:Subsanacion>");
+    expect(data.payload.aeatXml).not.toContain("<sf:RechazoPrevio>");
+    expect(enqueue).toHaveBeenCalledTimes(1);
+  });
+});
+
 function record(profile: { softwareId?: string } = {}) {
   return {
     recordType: SifRecordType.REGISTRATION,

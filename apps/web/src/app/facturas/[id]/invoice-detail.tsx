@@ -781,6 +781,26 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
       setNotice("Se ha añadido el registro SIF de anulación.");
     },
   });
+  const subsanateTimestamp = useMutation({
+    mutationFn: () =>
+      requestJson(`/api/sif/records/${invoice.id}/timestamp-subsanation`, {
+        method: "POST",
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["invoice-trace", invoice.id] });
+      setNotice("Se ha añadido un alta de subsanación a la cadena SIF.");
+    },
+  });
+  const registrationSubmission = trace.data?.aeatTestSubmissions.find(
+    (entry) => entry.recordId === trace.data?.sifRecord?.id,
+  )?.submissions[0];
+  const definitiveAeatResponse = registrationSubmission?.status === "ACCEPTED" ||
+    registrationSubmission?.status === "ACCEPTED_WITH_ERRORS" ||
+    (registrationSubmission?.status === "REJECTED" &&
+     registrationSubmission.recordStatus === "Incorrecto");
+  const timestampWarning = registrationSubmission?.status === "ACCEPTED_WITH_ERRORS" &&
+    registrationSubmission.recordStatus === "AceptadoConErrores" &&
+    registrationSubmission.errorDescription?.includes("FechaHoraHusoGenRegistro");
   return (
     <section
       className="trace-panel"
@@ -884,7 +904,7 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                   )?.submissions[0];
                   return (
                     <small key={`aeat-${record.id}`} role="status">
-                      AEAT pruebas · {record.recordType === "REGISTRATION" ? "alta" : "anulación"}: {submission ? aeatTestStatusLabel(submission.status) : "sin envío"}
+                      AEAT pruebas · {record.recordType === "REGISTRATION" ? "alta" : record.recordType === "SUBSANATION" ? "subsanación" : "anulación"}: {submission ? aeatTestStatusLabel(submission.status) : "sin envío"}
                       {submission?.csv ? ` · CSV ${submission.csv}` : ""}
                       {submission?.errorDescription ? ` · ${submission.errorDescription}` : ""}
                       {submission?.lastError ? ` · ${submission.lastError}` : ""}
@@ -922,12 +942,29 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                       href={`/api/sif/records/${record.id}/xml`}
                       key={record.id}
                     >
-                      Descargar XML {record.recordType === "REGISTRATION" ? "de alta" : "de anulación"}
+                      Descargar XML {record.recordType === "REGISTRATION" ? "de alta" : record.recordType === "SUBSANATION" ? "de subsanación" : "de anulación"}
                     </a>
                   ))}
+                  {invoice.sifMode === "VERIFACTU" && timestampWarning &&
+                    !trace.data.sifRecords.some((record) =>
+                      record.recordType === "SUBSANATION" || record.recordType === "CANCELLATION",
+                    ) && (
+                      <button
+                        className="secondary-button compact"
+                        disabled={subsanateTimestamp.isPending}
+                        onClick={() => {
+                          if (window.confirm(
+                            "Se enviará a AEAT pruebas una nueva alta de subsanación con la hora actual. El alta anterior y la factura permanecerán intactas. ¿Continuar?",
+                          )) subsanateTimestamp.mutate();
+                        }}
+                        type="button"
+                      >
+                        {subsanateTimestamp.isPending ? "Subsanando…" : "Subsanar aviso de fecha/hora"}
+                      </button>
+                    )}
                   {!trace.data.sifRecords.some(
                     (record) => record.recordType === "CANCELLATION",
-                  ) && (
+                  ) && (invoice.sifMode !== "VERIFACTU" || definitiveAeatResponse) && (
                     <button
                       className="secondary-button compact"
                       disabled={cancelSifRecord.isPending}
@@ -950,6 +987,9 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                 {notice && <small role="status">{notice}</small>}
                 {cancelSifRecord.error && (
                   <p className="form-error">{cancelSifRecord.error.message}</p>
+                )}
+                {subsanateTimestamp.error && (
+                  <p className="form-error">{subsanateTimestamp.error.message}</p>
                 )}
                 {!trace.data.sifRecords.some(
                   (record) => record.recordType === "CANCELLATION",

@@ -10,6 +10,7 @@ import {
   Prisma,
   RectificationImpact,
   SifRecord,
+  SifAeatSubmissionStatus,
   SifRecordType,
   SifMode,
 } from "@prisma/client";
@@ -159,6 +160,8 @@ export class SifService {
       };
     const snapshotUnavailable = storedXmlSnapshotUnavailable(record.payload);
     if (snapshotUnavailable) throw new ConflictException(snapshotUnavailable);
+    if (record.recordType === SifRecordType.SUBSANATION)
+      throw new ConflictException("Subsanation XML requires its original immutable snapshot");
     if (record.recordType === SifRecordType.REGISTRATION && record.invoiceType !== "F1")
       throw new ConflictException(
         "Historical rectification XML cannot be reconstructed without its original immutable snapshot",
@@ -445,6 +448,21 @@ export class SifService {
         "Only an invoice with a SIF registration can be cancelled",
       );
 
+    let sinRegistroPrevio: "S" | undefined;
+    if (invoice.sifMode === SifMode.VERIFACTU) {
+      const submission = await this.tenant.db.sifAeatSubmission.findFirst({
+        where: { recordId: registration.id, ...scope },
+      });
+      if (submission?.status === SifAeatSubmissionStatus.REJECTED &&
+          submission.recordStatus === "Incorrecto")
+        sinRegistroPrevio = "S";
+      else if (submission?.status !== SifAeatSubmissionStatus.ACCEPTED &&
+               submission?.status !== SifAeatSubmissionStatus.ACCEPTED_WITH_ERRORS)
+        throw new ConflictException(
+          "Confirm the registration's definitive AEAT response before cancelling its SIF record",
+        );
+    }
+
     const previous = await this.tenant.db.sifRecord.findFirst({
       where: scope,
       orderBy: { chainPosition: "desc" },
@@ -476,6 +494,7 @@ export class SifService {
         },
         record: {
           kind: "CANCELLATION",
+          sinRegistroPrevio,
           issuerTaxId: hashInput.issuerTaxId,
           invoiceNumber: hashInput.invoiceNumber,
           issueDate: hashInput.issueDate,
@@ -497,6 +516,7 @@ export class SifService {
         registrationId: registration.id,
         registrationHash: registration.recordHash,
       },
+      ...(sinRegistroPrevio ? { sinRegistroPrevio } : {}),
       previousRecord,
       ...(aeatXml ? { aeatXml } : { xmlSnapshotUnavailable }),
     };
@@ -529,6 +549,116 @@ export class SifService {
       chainPosition: record.chainPosition.toString(),
       recordHash,
       specificationVersion: SIF_HASH_SPECIFICATION_VERSION,
+    });
+    return presentSifRecord(record);
+  }
+
+  /** Appends a new alta for a timestamp warning without changing the accepted record. */
+  async createTimestampSubsanation(invoiceId: string) {
+    const scope = this.scope();
+    await this.tenant.db.$executeRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${scope.companyId}, 0))
+    `;
+    const existing = await this.tenant.db.sifRecord.findFirst({
+      where: { invoiceId, recordType: SifRecordType.SUBSANATION, ...scope },
+    });
+    if (existing) return presentSifRecord(existing);
+
+    const source = await this.tenant.db.sifRecord.findFirst({
+      where: { invoiceId, recordType: SifRecordType.REGISTRATION, ...scope },
+    });
+    if (!source) throw new NotFoundException("SIF registration not found");
+    const submission = await this.tenant.db.sifAeatSubmission.findFirst({
+      where: { recordId: source.id, ...scope },
+    });
+    if (submission?.status !== SifAeatSubmissionStatus.ACCEPTED_WITH_ERRORS ||
+        submission.recordStatus !== "AceptadoConErrores" ||
+        !submission.errorDescription?.includes("FechaHoraHusoGenRegistro"))
+      throw new ConflictException(
+        "This subsanation is available only for a confirmed AEAT generation-time warning",
+      );
+    if (!storedAeatXml(source.payload))
+      throw new ConflictException("The original immutable AEAT XML is unavailable");
+    const invoice = await this.tenant.db.invoice.findFirst({
+      where: { id: invoiceId, ...scope },
+      include: {
+        originalInvoice: true,
+        lines: { orderBy: { position: "asc" } },
+        taxLines: true,
+        company: true,
+      },
+    });
+    if (!invoice || invoice.sifMode !== SifMode.VERIFACTU ||
+        invoice.aeatEnvironment !== "TEST" || !this.aeatTest?.enabled)
+      throw new ConflictException("AEAT test subsanation requires the enabled test sender");
+    const cancelled = await this.tenant.db.sifRecord.findFirst({
+      where: { invoiceId, recordType: SifRecordType.CANCELLATION, ...scope },
+    });
+    if (cancelled)
+      throw new ConflictException("A cancelled registration cannot be subsanated");
+
+    const previous = await this.tenant.db.sifRecord.findFirst({
+      where: scope,
+      orderBy: { chainPosition: "desc" },
+    });
+    const generatedAt = new Date(Math.floor(Date.now() / 1_000) * 1_000);
+    const hashInput = {
+      issuerTaxId: source.issuerTaxId,
+      invoiceNumber: source.invoiceNumber,
+      issueDate: formatSifIssueDate(source.invoiceIssueDate),
+      invoiceType: source.invoiceType,
+      taxTotal: source.taxTotal.toFixed(2),
+      total: source.total.toFixed(2),
+      previousHash: previous?.recordHash ?? "",
+      generatedAt: formatSifTimestamp(generatedAt, invoice.company.timezone),
+    };
+    const recordHash = hashSifRegistration(hashInput);
+    const previousRecord: SifXmlPreviousRecord | null = previous ? {
+      issuerTaxId: previous.issuerTaxId,
+      invoiceNumber: previous.invoiceNumber,
+      issueDate: formatSifIssueDate(previous.invoiceIssueDate),
+      hash: previous.recordHash,
+    } : null;
+    const aeatXml = renderSifAeatXml({
+      header: { issuerLegalName: invoice.issuerLegalName, issuerTaxId: invoice.issuerTaxId },
+      record: registrationXmlRecord(invoice, {
+        ...hashInput,
+        previousRecord,
+        software: readSoftwareSnapshot(source.softwareSnapshot),
+        recordHash,
+        subsanacion: "S",
+      }),
+    });
+    const record = await this.tenant.db.sifRecord.create({
+      data: {
+        ...scope,
+        invoiceId,
+        recordType: SifRecordType.SUBSANATION,
+        chainPosition: (previous?.chainPosition ?? 0n) + 1n,
+        issuerTaxId: source.issuerTaxId,
+        invoiceNumber: source.invoiceNumber,
+        invoiceIssueDate: source.invoiceIssueDate,
+        invoiceType: source.invoiceType,
+        taxTotal: source.taxTotal,
+        total: source.total,
+        generatedAt,
+        previousRecordId: previous?.id,
+        previousRecordHash: previous?.recordHash,
+        recordHash,
+        specificationVersion: SIF_HASH_SPECIFICATION_VERSION,
+        payload: {
+          hashInput,
+          subsanationOf: { recordId: source.id, recordHash: source.recordHash },
+          previousRecord,
+          aeatXml,
+        },
+        softwareSnapshot: source.softwareSnapshot ?? undefined,
+      },
+    });
+    await this.enqueueAeatTest(record.id, aeatXml);
+    await this.audit.record("sif_record.subsanated", "sif_record", record.id, {
+      invoiceId, sourceRecordId: source.id,
+      chainPosition: record.chainPosition.toString(), recordHash,
     });
     return presentSifRecord(record);
   }

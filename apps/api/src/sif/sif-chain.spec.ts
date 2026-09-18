@@ -67,6 +67,31 @@ describe("SIF chain verification", () => {
     expect(result.firstInvalid?.reason).toMatch(/hash/i);
   });
 
+  it("accepts an append-only subsanation linked to its earlier alta", () => {
+    const original = record();
+    const correctedInput = {
+      ...input, previousHash: original.recordHash,
+      generatedAt: "2027-01-01T12:01:00+01:00",
+    };
+    const correction = record({
+      id: "record-2", recordType: SifRecordType.SUBSANATION,
+      chainPosition: 2n, previousRecordId: original.id,
+      previousRecordHash: original.recordHash,
+      recordHash: hashSifRegistration(correctedInput),
+      payload: {
+        hashInput: correctedInput,
+        subsanationOf: { recordId: original.id, recordHash: original.recordHash },
+      },
+    });
+    expect(verifySifChain([original, correction]).valid).toBe(true);
+    const tampered = record({
+      ...correction,
+      payload: { hashInput: correctedInput, subsanationOf: { recordId: original.id, recordHash: "A".repeat(64) } },
+    });
+    expect(verifySifChain([original, tampered]).firstInvalid?.reason)
+      .toMatch(/source registration/i);
+  });
+
   it("accepts a cancellation linked to an earlier registration", () => {
     const registration = record();
     const cancellationInput = {
