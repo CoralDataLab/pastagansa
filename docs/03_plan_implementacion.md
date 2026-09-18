@@ -72,7 +72,8 @@ huella y enlace con la posición 7; los CSV y SOAP no se cotejaron
 directamente. Véase `docs/14_aceptacion_aeat_pruebas.md`.
 El PDF reserva espacio adicional al QR cuando muestra una fecha de operación
 distinta: la maquetación se inspeccionó y una prueba comprueba que la etiqueta
-del QR quede por debajo del vencimiento. Este ajuste aún requiere despliegue.
+del QR quede por debajo del vencimiento. El operador confirmó la corrección en
+staging y el PDF redescargado se inspeccionó sin solapamiento; véase el acta.
 
 **Anulación de factura emitida por error (aceptación manual en staging, 18/09/2026):**
 API y web incorporan un flujo para operación inexistente sin cobros ni

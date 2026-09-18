@@ -189,8 +189,15 @@ no se ha comprobado de forma independiente en la base de datos.
 
 El PDF F1 desplegado mostraba un solapamiento del QR con las fechas. El
 ajuste visual se publicó en `5e87a36`; su PDF de muestra se inspeccionó y una
-prueba comprueba la separación vertical. Aún no consta desplegado ese ajuste
-ni se ha verificado un PDF redescargado de staging.
+prueba comprueba la separación vertical. El operador confirmó el resultado
+después de actualizar staging. Se inspeccionó el PDF redescargado
+`/Users/alberto/Downloads/factura-F2026-0004-2.pdf` (SHA-256 de archivo
+`9a59e8762fe0366b613dbe38852682657fa06e43265c8711e59ec11ae967fb54`):
+una página A4, fecha de operación `15/09/2026`, vencimiento `02/10/2026` y
+QR debajo de ambas fechas, sin solapamiento visual. En la extracción de
+posiciones del PDF, el vencimiento termina en `y=174,325` y la etiqueta QR
+comienza en `y=192`. No se obtuvo un SHA del nuevo HEAD de staging para esta
+comprobación; el archivo redescargado sí muestra la disposición corregida.
 
 Referencias: [preguntas frecuentes de la AEAT sobre factura emitida por error](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html),
 [anulación de registros de facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/registros-facturacion-anulacion.html)
