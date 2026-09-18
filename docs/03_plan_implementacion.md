@@ -816,6 +816,11 @@ reconcilia si la consulta oficial confirma identidad, huella SIF, estado e
 original. Los duplicados no verificables y las anulaciones duplicadas siguen
 inciertos y bloquean la cadena. Validación local: pruebas de timeout, reenvío
 idéntico, duplicado coincidente/no coincidente, parser SOAP, build y migración.
+El workflow CI `#35341071096` pasó completo. Con el checkout de staging en
+`56de778`, el recuento agregado comunicado por el operador fue 6 aceptados,
+1 aceptado con errores y 1 rechazado, sin `UNKNOWN` ni `RETRY`; por tanto, aún
+no existe evidencia de recuperación real con la AEAT. Véase el acta
+`docs/14_aceptacion_aeat_pruebas.md`.
 Pendientes subsanación general de errores y rechazos, firma/eventos NO
 VERI*FACTU, soporte de toda la casuística fiscal y revisión de conformidad para
 producción.

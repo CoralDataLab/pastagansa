@@ -202,3 +202,24 @@ comprobación; el archivo redescargado sí muestra la disposición corregida.
 Referencias: [preguntas frecuentes de la AEAT sobre factura emitida por error](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html),
 [anulación de registros de facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/registros-facturacion-anulacion.html)
 y [descripción del servicio web](https://sede.agenciatributaria.gob.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_Descripcion_SWeb.pdf).
+
+## Recuperación de remisiones inciertas en staging
+
+El 18/09/2026 se confirmó por SSH de solo lectura que el checkout de staging
+apuntaba a `56de778a1c4bfdefc1d4f85d447afb2734fe1bd6`, que incorpora el
+reintento del XML congelado y la conciliación de altas duplicadas por huella e
+`IdPeticion`. La ruta local `/acceso` y la URL pública respondieron HTTP 200;
+una petición sin sesión a la API respondió 401, lo que confirma que era
+alcanzable. No se pudo inspeccionar Docker directamente con este acceso porque
+requiere `sudo` interactivo, por lo que el SHA del checkout no acredita por sí
+solo el digest de las imágenes en ejecución.
+
+El operador ejecutó en el PostgreSQL de staging una consulta agregada sobre
+`sif_aeat_submissions` y comunicó: `ACCEPTED=6`,
+`ACCEPTED_WITH_ERRORS=1`, `REJECTED=1`. No aparecieron filas `UNKNOWN` ni
+`RETRY`. Esta observación demuestra que no había remisiones inciertas pendientes
+en ese momento; **no constituye una prueba real de recuperación frente a la
+AEAT**. La ruta de timeout, lease caducado, reenvío idéntico y duplicado
+coincidente/no coincidente quedó cubierta por pruebas automatizadas. El workflow
+[CI #35341071096](https://github.com/CoralDataLab/pastagansa/actions/runs/35341071096)
+pasó migración, pruebas, aceptación de navegador, imágenes y restore drill.
