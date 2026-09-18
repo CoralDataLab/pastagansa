@@ -23,19 +23,24 @@ Secuencia observada en la misma cadena de prueba:
    que `FechaHoraHusoGenRegistro` estaba fuera del margen de 240 segundos. El
    outbox había retenido este registro mientras esperaba la aceptación de la
    posición 1; el reloj del servidor estaba sincronizado por NTP cuando se
-   investigó el aviso. No se ha subsanado este registro.
+   investigó el aviso. La captura posterior aportada el 18/09/2026 muestra una
+   nueva **subsanación aceptada** y la cadena local verificada con cuatro registros.
+   El alta original continúa figurando como aceptada con errores, como corresponde
+   a un registro inmutable.
 3. Posición 3: alta **Aceptado**, sin aviso mostrado, CSV
    `A-DS7J3EGMD6UAJ8`. La cadena local figuraba verificada.
 
 La aceptación de la posición 3 demuestra el recorrido técnico de emisión,
 congelación del XML, remisión autenticada y procesamiento de una alta F1 ordinaria
-por el servicio de pruebas. No certifica todas las clases de factura, ni resuelve
-los registros de las posiciones 1 y 2, ni habilita el uso en producción. Antes de
-considerar completa la recuperación de errores hacen falta pruebas remotas de
-los flujos append-only descritos abajo y de sus respuestas AEAT. La revisión independiente de
-conformidad y la declaración responsable de cada versión siguen pendientes.
+por el servicio de pruebas. La captura posterior acredita en la interfaz la
+aceptación de la subsanación de la posición 2. No certifica todas las clases de
+factura, no resuelve la posición 1 ni habilita el uso en producción. Antes de
+considerar completa la recuperación general de errores hace falta comprobar
+el flujo de anulación cuando proceda y otros casos de subsanación. La revisión
+independiente de conformidad y la declaración responsable de cada versión siguen
+pendientes.
 
-## Recuperación preparada en código
+## Recuperación en pruebas
 
 Se añadieron dos acciones explícitas, sin remisión automática al desplegar:
 
@@ -50,12 +55,12 @@ Se añadieron dos acciones explícitas, sin remisión automática al desplegar:
   económicos ni otros avisos.
 
 Los XML se validaron con los XSD locales y las migraciones se aplicaron sobre un
-PostgreSQL temporal aislado. La suite de API y la de integración pasaron. Aún no
-hay respuesta AEAT de estas dos acciones ni evidencia de que las posiciones 1 y 2
-estén resueltas. En staging, tras respaldo y despliegue del commit, revisar la
-factura de la posición 2 y pulsar **Subsanar aviso de fecha/hora**; esperar un
-estado AEAT definitivo y verificar la cadena. La anulación de la posición 1 solo
-debe accionarse si se decide anular fiscalmente esa factura de prueba, atendiendo
+PostgreSQL temporal aislado. La suite de API y la de integración pasaron. La
+captura aportada del staging muestra **subsanación: aceptado** y cuatro registros
+en la cadena local verificada. No se ha contrastado aún esa respuesta directamente
+en la sede de la AEAT ni se ha archivado la respuesta SOAP completa. La anulación
+de la posición 1 no está probada y solo debe accionarse si se decide anular
+fiscalmente esa factura de prueba, atendiendo
 por separado cualquier corrección contable o de IVA necesaria.
 
 Referencia: [operativa de alta y subsanación de la AEAT](https://sede.agenciatributaria.gob.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_Descripcion_SWeb.pdf).
