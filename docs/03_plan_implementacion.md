@@ -40,7 +40,7 @@ Una repetición del 18/09 falló en el test de Cartera por navegación de filtro
 pendiente; tras sincronizar el E2E, la suite volvió a pasar 3/3 contra staging desde
 el entorno local. El workflow GitHub
 [`#35330297690`](https://github.com/CoralDataLab/pastagansa/actions/runs/35330297690)
-pasó 3/3 sobre `49b52d0`; falta confirmar la recepción externa de esos correos.
+pasó 3/3 sobre `49b52d0`; el operador confirmó la recepción de los tres correos.
 
 **AEAT pruebas (18/09/2026):** un alta F1 de la posición 3 fue aceptada sin
 errores por el servicio de pruebas, con CSV visible y cadena local verificada.
@@ -61,7 +61,8 @@ la cadena SIF de cinco registros sin una segunda anulación. El XML de la
 posición 5 se validó localmente y su SHA-256 consta en el acta, sin copiarlo al
 repositorio. El operador comunicó como SHA del segundo despliegue
 `04160cdc2f82ffdfe7a2dd4c1ed4980f5d090ce5`; el saldo pendiente no se
-mostró en la captura y la respuesta SOAP no se cotejó directamente. La
+mostró en la captura, pero el operador confirmó después que la factura anulada
+indicaba `0,00 €`. La respuesta SOAP no se cotejó directamente. La
 revisión fiscal y la aprobación para producción siguen pendientes.
 
 El operador comunicó `954085ffe78dfccee4bc2f80f2aaa26b163495b8` como SHA

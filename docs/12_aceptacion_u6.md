@@ -41,8 +41,9 @@ controlado configurado, el recorrido afectado pasó y después pasó la suite co
 (3/3). También pasaron lint y TypeScript de web. Sobre el commit
 `49b52d0d58e2d6bf0d7c5138efc16a8634686ffe`,
 [Staging acceptance #35330297690](https://github.com/CoralDataLab/pastagansa/actions/runs/35330297690)
-pasó 3/3 con HTTPS y destinatario controlado obligatorios. Queda pendiente la
-confirmación externa de recepción de los tres correos de esta ejecución.
+pasó 3/3 con HTTPS y destinatario controlado obligatorios. El operador confirmó
+la recepción de los tres correos de esta ejecución en el buzón controlado; no
+se ha documentado una nueva inspección de sus PDF adjuntos.
 
 ## Cierre en staging publicado
 

@@ -113,9 +113,13 @@ sin aparecer un segundo registro de anulación. El operador comunicó la salida
 de `sudo git -C /srv/apps/pastagansa rev-parse HEAD` como
 `04160cdc2f82ffdfe7a2dd4c1ed4980f5d090ce5`, commit que incluye el flujo
 `581e4b0`. El SHA no se verificó mediante acceso SSH independiente. La captura
-no muestra el saldo pendiente; la actualización a cero y las reversiones son
-atómicas según el código y las pruebas de integración, pero el saldo no se
-comprobó visualmente en esta aceptación.
+no muestra el saldo pendiente; posteriormente, el operador confirmó que la
+factura anulada indicaba `0,00 €`. Esa observación se registra como declaración
+del operador, sin captura adicional. La actualización a cero y las reversiones
+son atómicas según el código y las pruebas de integración.
+
+No consta en esta acta el resultado de un ensayo de restauración posterior a
+la migración de la anulación económica.
 
 El XML congelado de la posición 5 se verificó como se describe arriba.
 
