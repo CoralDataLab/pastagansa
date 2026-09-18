@@ -62,8 +62,14 @@ incluye `FechaOperacion`, referencia de la factura rectificada y importes con
 signo. La fecha distinta aparece también en el XML F1 original, el PDF y el
 libro de IVA. No se rellena retroactivamente la fecha de originales históricos y se
 bloquea la creación de R1 si falta. Migración, XSD, pruebas unitarias e
-integrales locales verificados. Pendiente desplegar en staging y obtener una
-respuesta AEAT de pruebas; aún no hay aceptación R1 remota.
+integrales locales verificados. El operador confirmó `565883e` desplegado en
+staging; el PDF F1 `F2026-0004` y su XML de alta de la posición 7 muestran
+`FechaOperacion=15-09-2026`. El XML validó contra el XSD local y su huella
+enlaza con la posición 6. Pendientes la confirmación de la respuesta AEAT de
+esta F1 y la aceptación R1 remota.
+El PDF reserva espacio adicional al QR cuando muestra una fecha de operación
+distinta: la maquetación se inspeccionó y una prueba comprueba que la etiqueta
+del QR quede por debajo del vencimiento. Este ajuste aún requiere despliegue.
 
 **Anulación de factura emitida por error (aceptación manual en staging, 18/09/2026):**
 API y web incorporan un flujo para operación inexistente sin cobros ni

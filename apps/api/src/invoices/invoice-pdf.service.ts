@@ -172,12 +172,13 @@ export class InvoicePdfService {
       .fillColor(primary)
       .text(title, 421, PAGE.top + 8, { width: 126, align: "center" });
     if (qr) {
+      const qrTop = 172 + (hasSeparateOperationDate(invoice) ? 20 : 0);
       document
         .font("Helvetica-Bold")
         .fontSize(7)
         .fillColor(COLOR.ink)
-        .text("QR tributario:", 451, 172, { width: 96, align: "center" });
-      document.image(qr, 451, 184, { fit: [96, 96] });
+        .text("QR tributario:", 451, qrTop, { width: 96, align: "center" });
+      document.image(qr, 451, qrTop + 12, { fit: [96, 96] });
     }
     document.y = 106;
   }
@@ -258,7 +259,7 @@ export class InvoicePdfService {
     const rows = [
       ["Nº de factura", invoice.fullNumber],
       ["Fecha de emisión", formatDate(invoice.issueDate)],
-      ...(invoice.operationDate && invoice.operationDate.getTime() !== invoice.issueDate.getTime()
+      ...(hasSeparateOperationDate(invoice)
         ? [["Fecha de operación", formatDate(invoice.operationDate)]]
         : []),
       ["Fecha de vencimiento", invoice.dueDate ? formatDate(invoice.dueDate) : "-"],
@@ -319,7 +320,7 @@ export class InvoicePdfService {
           { width: 330, lineGap: 2 },
         ) +
         12,
-      invoice.sifQr ? 292 : 0,
+      invoice.sifQr ? 292 + (hasSeparateOperationDate(invoice) ? 20 : 0) : 0,
     );
   }
 
@@ -520,6 +521,15 @@ export class InvoicePdfService {
       });
     }
   }
+}
+
+function hasSeparateOperationDate(
+  invoice: InvoicePdfInput,
+): invoice is InvoicePdfInput & { operationDate: Date } {
+  return Boolean(
+    invoice.operationDate &&
+      invoice.operationDate.getTime() !== invoice.issueDate.getTime(),
+  );
 }
 
 function formatDate(value: Date) {

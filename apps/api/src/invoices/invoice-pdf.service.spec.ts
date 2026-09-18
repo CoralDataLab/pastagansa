@@ -20,6 +20,7 @@ describe("InvoicePdfService", () => {
       },
       issuerLogoMediaType: null,
       issuerLogoContent: null,
+      sifQr: { mode: "VERIFACTU", environment: "TEST" },
       customerLegalName: "Cliente Ejemplo, S.A.",
       customerTaxId: "A58818501",
       billingAddress: {
@@ -29,6 +30,7 @@ describe("InvoicePdfService", () => {
         country: "ES",
       },
       issueDate: new Date("2026-09-08"),
+      operationDate: new Date("2026-09-07"),
       dueDate: new Date("2026-10-08"),
       currency: "EUR",
       notes: "Pago mediante transferencia bancaria.",
@@ -49,6 +51,13 @@ describe("InvoicePdfService", () => {
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pdf.length).toBeGreaterThan(5_000);
     expect(pdf.toString("latin1").match(/\/Type \/Page\b/g)?.length).toBe(4);
+    const boxes = spawnSync("pdftotext", ["-bbox", "-", "-"], { input: pdf });
+    expect(boxes.status).toBe(0);
+    const html = boxes.stdout.toString();
+    const dueDateBottom = Number(html.match(/<word[^>]*yMax="([^"]+)"[^>]*>08\/10\/2026<\/word>/)?.[1]);
+    const qrLabelTop = Number(html.match(/<word[^>]*yMin="([^"]+)"[^>]*>QR<\/word>/)?.[1]);
+    expect(Number.isFinite(dueDateBottom)).toBe(true);
+    expect(qrLabelTop).toBeGreaterThan(dueDateBottom + 8);
   });
 
   it("renders rectification metadata in a valid PDF", async () => {
