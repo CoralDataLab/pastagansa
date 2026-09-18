@@ -62,8 +62,9 @@ posición 5 se validó localmente y su SHA-256 consta en el acta, sin copiarlo a
 repositorio. El operador comunicó como SHA del segundo despliegue
 `04160cdc2f82ffdfe7a2dd4c1ed4980f5d090ce5`; el saldo pendiente no se
 mostró en la captura, pero el operador confirmó después que la factura anulada
-indicaba `0,00 €`. La respuesta SOAP no se cotejó directamente. La
-revisión fiscal y la aprobación para producción siguen pendientes.
+indicaba `0,00 €`. Una consulta SSH posterior confirmó ese HEAD. La respuesta
+SOAP no se cotejó directamente. La revisión fiscal y la aprobación para
+producción siguen pendientes.
 
 El operador comunicó `954085ffe78dfccee4bc2f80f2aaa26b163495b8` como SHA
 desplegado en la prueba AEAT inicial; incluye la recuperación AEAT probada,
