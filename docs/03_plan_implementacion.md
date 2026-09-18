@@ -45,19 +45,23 @@ conserva su aviso horario y su subsanación figura aceptada en la posición 4. L
 cadena local aparece verificada con cinco registros. Evidencia y
 límites en `docs/14_aceptacion_aeat_pruebas.md`.
 
-**Anulación de factura emitida por error (candidata local, 18/09/2026):**
+**Anulación de factura emitida por error (aceptación manual en staging, 18/09/2026):**
 API y web incorporan un flujo para operación inexistente sin cobros ni
 rectificativas. Reutiliza la anulación SIF si ya existe y añade en una sola
 transacción el estado `CANCELLED`, un apunte negativo vinculado en Tax Ledger y
 un asiento de reversión. La migración y las pruebas de integración pasaron en
-PostgreSQL local aislado. Falta desplegar y validar sobre staging; el XML
-congelado de la anulación de posición 5 se validó localmente y su huella
-SHA-256 consta en el acta, sin copiar el archivo al repositorio. La revisión fiscal
-independiente y la aprobación para producción siguen pendientes.
+PostgreSQL local aislado. La captura posterior al despliegue mostró la factura
+anulada, la reversión contable #4, el apunte de IVA de −200,00 € / −42,00 € y
+la cadena SIF de cinco registros sin una segunda anulación. El XML de la
+posición 5 se validó localmente y su SHA-256 consta en el acta, sin copiarlo al
+repositorio. El operador comunicó como SHA del segundo despliegue
+`04160cdc2f82ffdfe7a2dd4c1ed4980f5d090ce5`; el saldo pendiente no se
+mostró en la captura y la respuesta SOAP no se cotejó directamente. La
+revisión fiscal y la aprobación para producción siguen pendientes.
 
 El operador comunicó `954085ffe78dfccee4bc2f80f2aaa26b163495b8` como SHA
-desplegado en staging; incluye la recuperación AEAT probada, pero precede al
-flujo de anulación económica de `581e4b0`.
+desplegado en la prueba AEAT inicial; incluye la recuperación AEAT probada,
+pero precede al flujo de anulación económica de `581e4b0`.
 
 Antes de cada commit que cambie producto, infraestructura, datos o documentación de alcance, actualizar esta tabla y/o su detalle cuando el estado real cambie. El commit debe incluir esa actualización y la validación ejecutada debe quedar indicada en su mensaje de entrega.
 

@@ -11,9 +11,9 @@ La prueba se realizó en el staging aislado con un certificado de representante
 montado en la API. El código del cliente SOAP fija el endpoint de pruebas
 `prewww1.aeat.es`; no admite configurar una URL de producción. La captura no
 acredita por sí sola el SHA exacto desplegado. Posteriormente, la persona que
-administra staging comunicó como SHA desplegado
+administra staging comunicó como SHA de aquel despliegue
 `954085ffe78dfccee4bc2f80f2aaa26b163495b8`; es un ancestro de
-`581e4b0` y no incluye el nuevo flujo de anulación económica. El SHA se deja
+`581e4b0` y no incluía el nuevo flujo de anulación económica. El SHA se deja
 constar como declaración del operador, sin comprobación SSH independiente.
 
 El cambio `b99d684` se publicó en
@@ -90,7 +90,7 @@ por separado.
 
 ## Anulación de factura emitida por error
 
-El código local añade una acción específica para una factura ordinaria emitida
+La aplicación añade una acción específica para una factura ordinaria emitida
 cuando **no existió la operación**. Conserva el número, PDF y alta originales;
 reutiliza una anulación SIF ya creada (como la observada en la posición 5) o añade
 una nueva. En la misma transacción marca la factura `CANCELLED`, deja su saldo
@@ -103,9 +103,21 @@ de permitir la anulación.
 
 La migración y las pruebas de integración pasaron en PostgreSQL local aislado,
 incluyendo aislamiento entre empresas, reintento y reutilización de la anulación
-SIF preexistente. **Este cambio aún no está desplegado en staging** y, por tanto,
-no se ha ejecutado sobre la factura de la posición 1. El XML congelado de su
-anulación SIF en la posición 5 sí se verificó como se describe arriba.
+SIF preexistente. El 18/09/2026, tras el nuevo despliegue, la captura de staging
+mostró la factura de prueba de la posición 1 como **anulada** por operación
+inexistente. La trazabilidad mostró el asiento original #1 y su reversión #4;
+el libro de IVA conservó la base y cuota originales de 200,00 € y 42,00 € y
+añadió un apunte de anulación de −200,00 € y −42,00 €. La cadena SIF siguió
+verificada con cinco registros y la anulación aceptada continuó en posición 5,
+sin aparecer un segundo registro de anulación. El operador comunicó la salida
+de `sudo git -C /srv/apps/pastagansa rev-parse HEAD` como
+`04160cdc2f82ffdfe7a2dd4c1ed4980f5d090ce5`, commit que incluye el flujo
+`581e4b0`. El SHA no se verificó mediante acceso SSH independiente. La captura
+no muestra el saldo pendiente; la actualización a cero y las reversiones son
+atómicas según el código y las pruebas de integración, pero el saldo no se
+comprobó visualmente en esta aceptación.
+
+El XML congelado de la posición 5 se verificó como se describe arriba.
 
 Referencias: [preguntas frecuentes de la AEAT sobre factura emitida por error](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html),
 [anulación de registros de facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/registros-facturacion-anulacion.html)
