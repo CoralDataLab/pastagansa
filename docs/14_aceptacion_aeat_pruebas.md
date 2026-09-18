@@ -128,6 +128,32 @@ remotos.
 
 El XML congelado de la posición 5 se verificó como se describe arriba.
 
+## Rectificativa R4 por diferencias en pruebas
+
+El 18/09/2026, la captura de staging mostró el alta de la rectificativa de prueba
+`R2026-0001` como **aceptada** por AEAT pruebas, con CSV visible, posición SIF 6
+y cadena local verificada con seis registros. El registro identifica como factura
+rectificada `F2026-0003`. La trazabilidad mostró el asiento #5 equilibrado por
+12,10 € y el apunte de IVA con base −10,00 € y cuota −2,10 €.
+
+Se inspeccionó el XML descargado en
+`/Users/alberto/Downloads/sif-6-registration.xml` (SHA-256 del archivo:
+`a77ce1d458dabb788575309f58a7270cd95aa55cab9fbc71e55b56a8e82e050c`).
+Incluye `TipoFactura=R4`, `TipoRectificativa=I`, referencia a `F2026-0003`,
+base −10,00 €, cuota −2,10 € e importe total −12,10 €. Validó con el XSD local
+`SuministroLR.xsd`; la huella propia coincidió con el SHA-256 recalculado de sus
+campos canónicos y la huella de `RegistroAnterior` coincidió con la del XML de
+la posición 5. La referencia a la factura rectificada y el encadenamiento al
+registro anterior cumplen funciones distintas. Una consulta SSH de solo lectura
+volvió a confirmar `04160cdc2f82ffdfe7a2dd4c1ed4980f5d090ce5` como HEAD de
+staging. El XML no se copia al repositorio por contener identificadores fiscales.
+
+La respuesta consta por la interfaz capturada; no se ha cotejado el SOAP ni el
+CSV directamente en la sede de la AEAT. Tampoco se comprobó en esta captura el
+estado o saldo posterior de la factura original. La aceptación técnica de un
+ensayo R4 no acredita que el motivo elegido corresponda a R4 en una operación
+real; la [AEAT distingue las causas R1 y R4](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html).
+
 Referencias: [preguntas frecuentes de la AEAT sobre factura emitida por error](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html),
 [anulación de registros de facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/registros-facturacion-anulacion.html)
 y [descripción del servicio web](https://sede.agenciatributaria.gob.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_Descripcion_SWeb.pdf).

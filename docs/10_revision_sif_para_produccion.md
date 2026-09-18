@@ -5,6 +5,10 @@ ordinaria fue aceptada sin errores por el servicio AEAT de pruebas, con cadena
 local verificada y CSV visible en staging
 ([acta](14_aceptacion_aeat_pruebas.md)). Esta prueba no demuestra conformidad
 integral ni habilita remisión en producción.
+Posteriormente también se aceptó en pruebas un alta R4 por diferencias,
+con XML congelado validado localmente y cadena SIF de seis registros. La aceptación
+del servicio no determina por sí sola que el motivo R4 sea correcto para una
+operación real; sigue pendiente la revisión fiscal independiente.
 
 El [contraste técnico del 17/09/2026](13_contraste_xml_aeat.md) confirmó los XSD locales
 frente a los publicados por la AEAT y revisó el WSDL y las validaciones v1.2.2. A partir

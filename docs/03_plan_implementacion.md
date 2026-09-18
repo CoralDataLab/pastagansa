@@ -49,6 +49,10 @@ muestra su anulación aceptada en la posición 5. El alta original de la posici�
 conserva su aviso horario y su subsanación figura aceptada en la posición 4. La
 cadena local aparece verificada con cinco registros. Evidencia y
 límites en `docs/14_aceptacion_aeat_pruebas.md`.
+Una rectificativa R4 por diferencias fue aceptada en AEAT pruebas en la posición
+6, con cadena local verificada y libro de IVA negativo. Su XML validó con el XSD
+local y las huellas propia y anterior coincidieron. La clasificación fiscal del
+motivo de una operación real sigue sin validarse con esta prueba.
 
 **Anulación de factura emitida por error (aceptación manual en staging, 18/09/2026):**
 API y web incorporan un flujo para operación inexistente sin cobros ni
@@ -779,6 +783,8 @@ nueva alta `Subsanacion=S` con hora actual, enlazada a la original y sin alterar
 factura ni XML anteriores. Las capturas de staging muestran la subsanación y la
 anulación aceptadas, con cinco registros en la cadena local verificada. El XML
 exportado de la anulación se inspeccionó y validó localmente; véase el acta.
+Una R4 por diferencias se aceptó también en pruebas en la posición 6, con XML
+congelado validado localmente y cadena verificada de seis registros.
 Pendientes subsanación general de errores y rechazos, firma/eventos NO
 VERI*FACTU, soporte de toda la casuística fiscal y revisión de conformidad para
 producción.
