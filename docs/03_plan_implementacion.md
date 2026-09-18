@@ -55,6 +55,10 @@ congelado de la anulación de posición 5 se validó localmente y su huella
 SHA-256 consta en el acta, sin copiar el archivo al repositorio. La revisión fiscal
 independiente y la aprobación para producción siguen pendientes.
 
+El operador comunicó `954085ffe78dfccee4bc2f80f2aaa26b163495b8` como SHA
+desplegado en staging; incluye la recuperación AEAT probada, pero precede al
+flujo de anulación económica de `581e4b0`.
+
 Antes de cada commit que cambie producto, infraestructura, datos o documentación de alcance, actualizar esta tabla y/o su detalle cuando el estado real cambie. El commit debe incluir esa actualización y la validación ejecutada debe quedar indicada en su mensaje de entrega.
 
 > Los tiempos se expresan como referencia de planificación y dependen del tamaño, experiencia y dedicación del equipo. La prioridad del plan es el orden de dependencias y los criterios de calidad, no prometer una fecha fija.

@@ -10,7 +10,13 @@ de la AEAT ni se ha archivado aquí la respuesta SOAP completa.
 La prueba se realizó en el staging aislado con un certificado de representante
 montado en la API. El código del cliente SOAP fija el endpoint de pruebas
 `prewww1.aeat.es`; no admite configurar una URL de producción. La captura no
-acredita por sí sola el SHA exacto desplegado. El cambio `b99d684` se publicó en
+acredita por sí sola el SHA exacto desplegado. Posteriormente, la persona que
+administra staging comunicó como SHA desplegado
+`954085ffe78dfccee4bc2f80f2aaa26b163495b8`; es un ancestro de
+`581e4b0` y no incluye el nuevo flujo de anulación económica. El SHA se deja
+constar como declaración del operador, sin comprobación SSH independiente.
+
+El cambio `b99d684` se publicó en
 `main` para que el outbox continuase después de un rechazo de registro confirmado;
 su suite de API pasó 97 pruebas, además de lint y build.
 
