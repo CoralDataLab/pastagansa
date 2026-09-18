@@ -17,28 +17,32 @@ su suite de API pasó 97 pruebas, además de lint y build.
 Secuencia observada en la misma cadena de prueba:
 
 1. Posición 1: alta rechazada por NIF/nombre del destinatario no identificado en
-   el censo de la AEAT. El registro local permanece inmutable y aún requiere una
-   subsanación o la actuación fiscal que corresponda.
+   el censo de la AEAT. El registro local permanece inmutable. Tras decidir anular
+   esa factura de prueba, la captura posterior muestra una anulación aceptada en
+   la posición 5.
 2. Posición 2: alta **AceptadoConErrores**, CSV `A-WXJSWRTFEDXDNF`. La AEAT señaló
    que `FechaHoraHusoGenRegistro` estaba fuera del margen de 240 segundos. El
    outbox había retenido este registro mientras esperaba la aceptación de la
    posición 1; el reloj del servidor estaba sincronizado por NTP cuando se
-   investigó el aviso. La captura posterior aportada el 18/09/2026 muestra una
-   nueva **subsanación aceptada** y la cadena local verificada con cuatro registros.
-   El alta original continúa figurando como aceptada con errores, como corresponde
-   a un registro inmutable.
+   investigó el aviso. El alta original continúa figurando como aceptada con
+   errores, como corresponde a un registro inmutable; la subsanación consta en
+   la posición 4.
 3. Posición 3: alta **Aceptado**, sin aviso mostrado, CSV
    `A-DS7J3EGMD6UAJ8`. La cadena local figuraba verificada.
+4. Posición 4: alta de subsanación del aviso horario de la posición 2;
+   **aceptada** según la interfaz, con CSV visible en la captura aportada.
+5. Posición 5: anulación del alta rechazada de la posición 1;
+   **aceptada** según la interfaz, con CSV visible y cadena local verificada
+   con cinco registros. El alta original sigue visible como rechazada.
 
 La aceptación de la posición 3 demuestra el recorrido técnico de emisión,
 congelación del XML, remisión autenticada y procesamiento de una alta F1 ordinaria
-por el servicio de pruebas. La captura posterior acredita en la interfaz la
-aceptación de la subsanación de la posición 2. No certifica todas las clases de
-factura, no resuelve la posición 1 ni habilita el uso en producción. Antes de
-considerar completa la recuperación general de errores hace falta comprobar
-el flujo de anulación cuando proceda y otros casos de subsanación. La revisión
-independiente de conformidad y la declaración responsable de cada versión siguen
-pendientes.
+por el servicio de pruebas. Las capturas posteriores muestran en la interfaz la
+aceptación de la subsanación y de la anulación de prueba. No certifican todas las
+clases de factura ni habilitan el uso en producción. Antes de considerar completa
+la recuperación general de errores quedan otros casos de subsanación y rechazo.
+La revisión independiente de conformidad y la declaración responsable de cada
+versión siguen pendientes.
 
 ## Recuperación en pruebas
 
@@ -57,10 +61,13 @@ Se añadieron dos acciones explícitas, sin remisión automática al desplegar:
 Los XML se validaron con los XSD locales y las migraciones se aplicaron sobre un
 PostgreSQL temporal aislado. La suite de API y la de integración pasaron. La
 captura aportada del staging muestra **subsanación: aceptado** y cuatro registros
-en la cadena local verificada. No se ha contrastado aún esa respuesta directamente
-en la sede de la AEAT ni se ha archivado la respuesta SOAP completa. La anulación
-de la posición 1 no está probada y solo debe accionarse si se decide anular
-fiscalmente esa factura de prueba, atendiendo
-por separado cualquier corrección contable o de IVA necesaria.
+en la cadena local verificada. La captura siguiente muestra **anulación: aceptado**
+en la posición 5 y cinco registros en la cadena local verificada. Estas respuestas
+no se han contrastado directamente en la sede de la AEAT ni se han archivado aquí
+los SOAP completos. La captura tampoco muestra el contenido del XML de anulación;
+el código genera `SinRegistroPrevio=S` para un rechazo de línea confirmado, pero
+no se ha verificado el XML exportado de este registro. La acción SIF no modifica
+la factura, la contabilidad ni el IVA; cualquier corrección económica se atiende
+por separado.
 
 Referencia: [operativa de alta y subsanación de la AEAT](https://sede.agenciatributaria.gob.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_Descripcion_SWeb.pdf).
