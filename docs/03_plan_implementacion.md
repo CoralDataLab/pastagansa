@@ -792,7 +792,13 @@ y huella históricos. R1 usa la fecha de operación capturada antes de emitir la
 se bloquea para originales históricos sin ese dato, sin inferirlo. El exportador rechaza
 R2–R3, R5 y desgloses exentos, no sujetos o con
 recargo, inversión del sujeto pasivo y tipos IVA fuera de `0`, `4`, `10`, `21` hasta
-modelar sus claves y reglas AEAT, en vez de inventar campos fiscales. El contraste
+modelar sus claves y reglas AEAT, en vez de inventar campos fiscales.
+La creación y emisión de borradores R1–R3 exige ahora la fecha de operación conservada en
+la factura original, tal como indica la [FAQ AEAT de procedimientos de
+facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html).
+R2 (concurso) y R3 (crédito incobrable) siguen sin XML AEAT: su tratamiento
+fiscal no se reduce a cambiar `TipoFactura` y requiere modelar y validar la
+rectificación correspondiente antes de habilitar su remisión. El contraste
 del 17/09/2026 confirmó los XSD locales, el elemento de entrada WSDL y los tres casos
 sintéticos; el 18/09/2026 una alta F1 ordinaria obtuvo respuesta **Aceptado**
 en el servicio AEAT de pruebas (véase `docs/14_aceptacion_aeat_pruebas.md`). También limita

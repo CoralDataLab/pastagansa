@@ -2265,12 +2265,30 @@ describe("platform integrity", () => {
       .set("idempotency-key", "issue-r1-historical-a")
       .send({ sequenceId: sequence.body.id })
       .expect(200);
-    await authed(accountA.accessToken, tenantA)
+    for (const sifInvoiceType of ["R1", "R2", "R3"]) {
+      const response = await authed(accountA.accessToken, tenantA)
+        .post(`/v1/invoices/${historicalDraft.body.id}/rectifications`)
+        .send({
+          sifInvoiceType, kind: "TOTAL", impact: "DECREASE",
+          reason: "Correction after delivery", issueDate: "2026-09-16",
+        })
+        .expect(409);
+      expect(JSON.stringify(response.body)).toContain(`${sifInvoiceType} requires the original invoice operation date`);
+    }
+    const historicalR4Draft = await authed(accountA.accessToken, tenantA)
       .post(`/v1/invoices/${historicalDraft.body.id}/rectifications`)
       .send({
-        sifInvoiceType: "R1", kind: "TOTAL", impact: "DECREASE",
-        reason: "Returned goods after delivery", issueDate: "2026-09-16",
+        sifInvoiceType: "R4", kind: "TOTAL", impact: "DECREASE",
+        reason: "Legacy draft before date validation", issueDate: "2026-09-16",
       })
+      .expect(201);
+    await admin.invoice.update({
+      where: { id: historicalR4Draft.body.id }, data: { sifInvoiceType: "R2" },
+    });
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${historicalR4Draft.body.id}/issue`)
+      .set("idempotency-key", "issue-r2-historical-a")
+      .send({ sequenceId: creditSequence.body.id })
       .expect(409);
 
     const erroneousDraft = await authed(accountA.accessToken, tenantA)

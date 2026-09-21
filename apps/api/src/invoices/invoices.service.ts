@@ -194,9 +194,12 @@ export class InvoicesService {
       throw new BadRequestException(
         "R5 can only rectify a simplified invoice, which is not supported yet",
       );
-    if (input.sifInvoiceType === SifInvoiceType.R1 && !original.operationDate)
+    if (
+      requiresOriginalOperationDate(input.sifInvoiceType) &&
+      !original.operationDate
+    )
       throw new ConflictException(
-        "R1 requires the original invoice operation date recorded before issuance; historical invoices without that date cannot be inferred",
+        `${input.sifInvoiceType} requires the original invoice operation date recorded before issuance; historical invoices without that date cannot be inferred`,
       );
     if (
       input.kind === RectificationKind.TOTAL &&
@@ -664,6 +667,7 @@ export class InvoicesService {
   private async validateRectificationForIssue(invoice: {
     id: string;
     originalInvoiceId: string | null;
+    sifInvoiceType: SifInvoiceType;
     rectificationKind: RectificationKind | null;
     rectificationImpact: RectificationImpact | null;
     total: Decimal;
@@ -686,7 +690,7 @@ export class InvoicesService {
       throw new ConflictException("Original invoice no longer exists");
     const original = await this.tenant.db.invoice.findFirstOrThrow({
       where: { id: invoice.originalInvoiceId, ...scope },
-      select: { status: true, documentType: true, total: true },
+      select: { status: true, documentType: true, total: true, operationDate: true },
     });
     if (
       original.documentType !== DocumentType.INVOICE ||
@@ -696,6 +700,13 @@ export class InvoicesService {
     )
       throw new ConflictException(
         "Original invoice is not eligible for rectification",
+      );
+    if (
+      requiresOriginalOperationDate(invoice.sifInvoiceType) &&
+      !original.operationDate
+    )
+      throw new ConflictException(
+        `${invoice.sifInvoiceType} requires the original invoice operation date recorded before issuance; historical invoices without that date cannot be inferred`,
       );
     const prior = await this.tenant.db.invoice.findMany({
       where: {
@@ -984,6 +995,12 @@ function zeroTotals() {
     taxTotal: new Decimal(0),
     total: new Decimal(0),
   };
+}
+
+function requiresOriginalOperationDate(type: SifInvoiceType) {
+  return type === SifInvoiceType.R1 ||
+    type === SifInvoiceType.R2 ||
+    type === SifInvoiceType.R3;
 }
 
 function sumInvoiceLines(
