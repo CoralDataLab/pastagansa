@@ -33,7 +33,7 @@ type Overview = {
     chainPosition: string;
     invoiceId: string;
     invoiceNumber: string;
-    followUps: Array<{ recordType: RecordType; chainPosition: string; status: SubmissionStatus | null }>;
+    followUps: Array<{ recordType: RecordType; chainPosition: string; status: SubmissionStatus | null; resolutionNote: string | null }>;
     reviewKind: "FOLLOW_UP_RECORDED" | "TIMESTAMP_SUBSANATION_CANDIDATE" | "REJECTED_REGISTRATION_REVIEW" | "GLOBAL_REJECTION_REVIEW" | "MANUAL_REVIEW";
   }>;
 };
@@ -119,7 +119,7 @@ export function SifAeatOverview({ companyId }: { companyId: string }) {
                       <td>{item.errorCode ? `Código ${item.errorCode} · ` : ""}{item.errorDescription ?? item.lastError ?? item.recordStatus ?? "Sin detalle"}</td>
                       <td>
                         {item.reviewKind === "FOLLOW_UP_RECORDED"
-                          ? item.followUps.map((followUp) => `${recordTypeLabel(followUp.recordType)} · posición ${followUp.chainPosition} · ${followUpLabel(followUp.status)}`).join("; ")
+                          ? item.followUps.map((followUp) => `${recordTypeLabel(followUp.recordType)} · posición ${followUp.chainPosition} · ${followUpLabel(followUp.status)}${followUp.resolutionNote ? ` · motivo: ${followUp.resolutionNote}` : ""}`).join("; ")
                           : item.reviewKind === "TIMESTAMP_SUBSANATION_CANDIDATE"
                             ? "Posible subsanación de fecha/hora: comprobar en la factura"
                             : item.reviewKind === "REJECTED_REGISTRATION_REVIEW"

@@ -153,14 +153,14 @@ export class SifService {
           id: true, status: true, recordStatus: true, errorCode: true,
           errorDescription: true, lastError: true, csv: true,
           record: { select: {
-            recordType: true, chainPosition: true,
+            id: true, recordType: true, chainPosition: true,
             invoice: { select: {
               id: true, fullNumber: true,
               sifRecords: {
                 where: { recordType: { in: [SifRecordType.SUBSANATION, SifRecordType.CANCELLATION] } },
                 orderBy: { chainPosition: "asc" },
                 select: {
-                  recordType: true, chainPosition: true,
+                  recordType: true, chainPosition: true, payload: true,
                   aeatSubmissions: { take: 1, select: { status: true } },
                 },
               },
@@ -189,11 +189,14 @@ export class SifService {
       })),
       review: review.map((item) => {
         const followUps = item.record.recordType === SifRecordType.REGISTRATION
-          ? item.record.invoice.sifRecords.map((record) => ({
-              recordType: record.recordType,
-              chainPosition: record.chainPosition.toString(),
-              status: record.aeatSubmissions[0]?.status ?? null,
-            }))
+          ? item.record.invoice.sifRecords
+              .filter((record) => followUpSourceId(record.payload) === item.record.id)
+              .map((record) => ({
+                recordType: record.recordType,
+                chainPosition: record.chainPosition.toString(),
+                status: record.aeatSubmissions[0]?.status ?? null,
+                resolutionNote: recoveryResolutionNote(record.payload),
+              }))
           : [];
         const timestampCandidate =
           item.record.recordType === SifRecordType.REGISTRATION &&
@@ -909,6 +912,19 @@ function storedAeatXml(payload: Prisma.JsonValue): string | null {
   if (!payload || typeof payload !== "object" || Array.isArray(payload))
     return null;
   return typeof payload.aeatXml === "string" ? payload.aeatXml : null;
+}
+
+function followUpSourceId(payload: Prisma.JsonValue): string | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const link = payload.subsanationOf ?? payload.cancellationOf;
+  if (!link || typeof link !== "object" || Array.isArray(link)) return null;
+  const id = "recordId" in link ? link.recordId : link.registrationId;
+  return typeof id === "string" ? id : null;
+}
+
+function recoveryResolutionNote(payload: Prisma.JsonValue): string | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  return typeof payload.resolutionNote === "string" ? payload.resolutionNote : null;
 }
 
 function storedXmlSnapshotUnavailable(payload: Prisma.JsonValue): string | null {

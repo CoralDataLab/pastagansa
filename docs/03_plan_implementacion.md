@@ -834,10 +834,11 @@ checkout `a91f8ba` y la web/API fueron alcanzables. Los healthchecks Docker
 no se cotejaron directamente. Evidencia y límites en el acta AEAT.
 Como primer paso de subsanación general, la misma vista lista hasta veinte
 resultados con errores o rechazo, con código, descripción, factura,
-posición SIF y estados de subsanaciones o anulaciones posteriores. Señala como
-posible acción el único caso ya soportado, el aviso de fecha/hora aún sin
-seguimiento; los rechazos globales sin respuesta de línea y los demás casos
-requieren revisión individual. Es una clasificación
+posición SIF y estados de subsanaciones o anulaciones posteriores vinculadas
+al registro incidente, junto con la nota de recuperación cuando exista. Señala
+como posibles acciones el aviso de fecha/hora aún sin seguimiento y el alta
+rechazada con respuesta definitiva de línea cuya causa externa se haya resuelto;
+los rechazos globales y los demás casos requieren revisión individual. Es una clasificación
 de solo lectura: no reenvía, no altera la cadena y no declara resuelta una
 incidencia por existir un registro posterior. La [guía AEAT sobre integridad e
 inalterabilidad](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/caracteristicas-requisitos-sif-integridad-inalterabilidad.html)

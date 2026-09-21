@@ -53,9 +53,10 @@ describe("SifService AEAT test overview", () => {
           recordStatus: "AceptadoConErrores", errorCode: "2000",
           errorDescription: "FechaHoraHusoGenRegistro fuera de margen", csv: "CSV-1",
           record: {
-            recordType: SifRecordType.REGISTRATION, chainPosition: 2n,
+            id: "record-2", recordType: SifRecordType.REGISTRATION, chainPosition: 2n,
             invoice: { id: "invoice-2", fullNumber: "F2026-0002", sifRecords: [{
               recordType: SifRecordType.SUBSANATION, chainPosition: 4n,
+              payload: { subsanationOf: { recordId: "record-2" }, resolutionNote: "Causa externa resuelta y datos verificados" },
               aeatSubmissions: [{ status: SubmissionStatus.ACCEPTED }],
             }] },
           },
@@ -65,8 +66,15 @@ describe("SifService AEAT test overview", () => {
           recordStatus: "Incorrecto", errorCode: "4112",
           errorDescription: "Destinatario no identificado", csv: null,
           record: {
-            recordType: SifRecordType.REGISTRATION, chainPosition: 1n,
-            invoice: { id: "invoice-1", fullNumber: "F2026-0001", sifRecords: [] },
+            id: "record-1", recordType: SifRecordType.REGISTRATION, chainPosition: 1n,
+            invoice: { id: "invoice-1", fullNumber: "F2026-0001", sifRecords: [
+              { recordType: SifRecordType.SUBSANATION, chainPosition: 5n,
+                payload: { subsanationOf: { recordId: "different-record" }, resolutionNote: "Unrelated follow-up" },
+                aeatSubmissions: [{ status: SubmissionStatus.ACCEPTED }] },
+              { recordType: SifRecordType.CANCELLATION, chainPosition: 6n,
+                payload: { cancellationOf: { registrationId: "record-1" } },
+                aeatSubmissions: [{ status: SubmissionStatus.ACCEPTED }] },
+            ] },
           },
         },
         {
@@ -74,7 +82,7 @@ describe("SifService AEAT test overview", () => {
           recordStatus: "AceptadoConErrores", errorCode: "2000",
           errorDescription: "FechaHoraHusoGenRegistro fuera de margen", csv: "CSV-2",
           record: {
-            recordType: SifRecordType.REGISTRATION, chainPosition: 7n,
+            id: "record-7", recordType: SifRecordType.REGISTRATION, chainPosition: 7n,
             invoice: { id: "invoice-7", fullNumber: "F2026-0007", sifRecords: [] },
           },
         },
@@ -83,7 +91,7 @@ describe("SifService AEAT test overview", () => {
           recordStatus: null, errorCode: null, errorDescription: "SOAP client fault",
           lastError: "AEAT SOAP fault env:Client", csv: null,
           record: {
-            recordType: SifRecordType.REGISTRATION, chainPosition: 8n,
+            id: "record-8", recordType: SifRecordType.REGISTRATION, chainPosition: 8n,
             invoice: { id: "invoice-8", fullNumber: "F2026-0008", sifRecords: [] },
           },
         },
@@ -99,8 +107,10 @@ describe("SifService AEAT test overview", () => {
       counts: { ACCEPTED: 6, UNKNOWN: 1, FAILED: 0, RETRY: 0 },
       attention: [{ status: "UNKNOWN", chainPosition: "9", invoiceNumber: "F2026-0005" }],
       review: [
-        { reviewKind: "FOLLOW_UP_RECORDED", followUps: [{ chainPosition: "4", status: "ACCEPTED" }] },
-        { reviewKind: "REJECTED_REGISTRATION_REVIEW", errorCode: "4112", invoiceNumber: "F2026-0001" },
+        { reviewKind: "FOLLOW_UP_RECORDED", followUps: [{ chainPosition: "4", status: "ACCEPTED", resolutionNote: "Causa externa resuelta y datos verificados" }] },
+        { reviewKind: "FOLLOW_UP_RECORDED", errorCode: "4112", invoiceNumber: "F2026-0001", followUps: [
+          { chainPosition: "6", recordType: "CANCELLATION", status: "ACCEPTED" },
+        ] },
         { reviewKind: "TIMESTAMP_SUBSANATION_CANDIDATE", invoiceNumber: "F2026-0007" },
         { reviewKind: "GLOBAL_REJECTION_REVIEW", invoiceNumber: "F2026-0008" },
       ],

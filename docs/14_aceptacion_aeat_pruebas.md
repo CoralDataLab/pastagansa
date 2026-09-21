@@ -1,5 +1,22 @@
 # Aceptación de remisión AEAT en staging — 18/09/2026
 
+## Recuperación de alta rechazada sin cambio de factura — pendiente
+
+El commit `bbb0bd8` añade una acción para un alta con rechazo definitivo de línea
+cuando los datos de la factura emitida siguen siendo correctos y la causa externa
+del rechazo ya se resolvió. Genera una nueva alta con `Subsanacion=S` y
+`RechazoPrevio=X`; el XML pasa el XSD local y las pruebas de servicio, pero **no
+hay todavía una respuesta AEAT de pruebas para este recorrido**. Tampoco se ha
+confirmado aquí que ese commit esté desplegado en staging.
+
+Las capturas aportadas el 21/09/2026 muestran 6 envíos aceptados, 1 aceptado con
+errores y 1 rechazado, sin envíos pendientes. Los dos resultados con incidencia
+ya tienen seguimiento: F2026-0002, posición 2 → subsanación aceptada en la 4;
+F2026-0001, posición 1 → anulación aceptada en la 5. La factura F2026-0001
+figura anulada por operación inexistente. Ninguno de estos registros sirve para
+probar la nueva recuperación. Se espera un caso nuevo y legítimo; no se debe
+generar una factura incorrecta para forzar un rechazo.
+
 ## Evidencia exportable y cobertura pendiente
 
 La API ofrece `GET /sif/records/{recordId}/test-submissions/{submissionId}/evidence`
