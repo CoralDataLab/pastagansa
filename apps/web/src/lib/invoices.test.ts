@@ -100,10 +100,7 @@ describe("invoice presentation", () => {
       rectificationInputSchema.safeParse({ ...input, sifInvoiceType: "R5" })
         .success,
     ).toBe(false);
-    expect(
-      rectificationInputSchema.safeParse({ ...input, sifInvoiceType: "R3" })
-        .success,
-    ).toBe(false);
+    expect(rectificationInputSchema.safeParse({ ...input, sifInvoiceType: "R3" }).success).toBe(true);
     expect(sifInvoiceTypeLabel("R3")).toBe("Crédito incobrable");
   });
 });

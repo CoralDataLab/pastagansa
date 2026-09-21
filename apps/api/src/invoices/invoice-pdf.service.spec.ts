@@ -114,6 +114,38 @@ describe("InvoicePdfService", () => {
     expect(extracted.stdout.toString()).toContain("Fecha de operación");
     expect(extracted.stdout.toString()).toContain("08/09/2026");
   });
+
+  it("shows an R3 VAT-only decrease without a zero-price sales row", async () => {
+    const service = new InvoicePdfService();
+    const pdf = await service.render({
+      fullNumber: "R2026-00002", status: "ISSUED", documentType: "CREDIT_NOTE",
+      sifInvoiceType: "R3", rectificationKind: "DIFFERENCE", rectificationImpact: "DECREASE",
+      rectificationReason: "Crédito incobrable revisado", originalInvoice: {
+        id: "original", fullNumber: "F2026-00002",
+        issueDate: new Date("2026-09-09"), operationDate: new Date("2026-09-08"),
+      },
+      issuerLegalName: "Example Company", issuerTaxId: "B12345674",
+      issuerSnapshot: { version: 1, source: "company_profile", legalName: "Example Company", taxId: "B12345674" },
+      issuerLogoMediaType: null, issuerLogoContent: null,
+      customerLegalName: "Example Customer", customerTaxId: "B76543210", billingAddress: null,
+      issueDate: new Date("2026-09-18"), operationDate: new Date("2026-09-08"), dueDate: null,
+      currency: "EUR", notes: null,
+      subtotal: value("0"), discountTotal: value("0"), taxTotal: value("210"), total: value("210"),
+      lines: [{ position: 1, description: "Ajuste de cuota IVA por impago de F2026-00002",
+        quantity: value("1"), unitPrice: value("0"), discountPct: value("0"),
+        taxRate: value("21"), totalAmount: value("210") }],
+    }, { compress: false });
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    const text = [...pdf.toString("latin1").matchAll(/\[(.*?)\]\s*TJ/gs)]
+      .map(([, operation]) => [...operation.matchAll(/<([0-9a-fA-F]+)>/g)]
+        .map(([, hex]) => Buffer.from(hex, "hex").toString("latin1")).join(""))
+      .join(" ");
+    expect(text).toContain("Ajuste de cuota IVA por impago");
+    expect(text).toContain("Base de la diferencia:");
+    expect(text).toContain("-210,00");
+    expect(text).toContain("Emisión original:");
+    expect(text).not.toContain("Precio");
+  });
 });
 
 function value(input: string) {

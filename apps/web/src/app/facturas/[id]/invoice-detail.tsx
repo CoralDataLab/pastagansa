@@ -31,6 +31,7 @@ import {
   type PaymentInput,
   type PaymentInstallment,
   type RectificationInput,
+  type VatRecoveryReviewInput,
   sifInvoiceTypeLabel,
 } from "@/lib/invoices";
 import { InvoiceDialog } from "../invoices-view";
@@ -123,16 +124,14 @@ export function InvoiceDetail({ id }: { id: string }) {
                   Editar borrador
                 </button>
               )}
-              {!vatOnlyDraft && (
-                <button
-                  className="primary-button compact"
-                  onClick={() => setIssuing(true)}
-                >
-                  {document.documentType === "CREDIT_NOTE"
-                    ? "Emitir rectificativa"
-                    : "Emitir factura"}
-                </button>
-              )}
+              <button
+                className="primary-button compact"
+                onClick={() => setIssuing(true)}
+              >
+                {document.documentType === "CREDIT_NOTE"
+                  ? "Emitir rectificativa"
+                  : "Emitir factura"}
+              </button>
             </>
           ) : (
             <>
@@ -178,8 +177,15 @@ export function InvoiceDetail({ id }: { id: string }) {
       )}
       {vatOnlyDraft && (
         <div className="notice" role="status">
-          Esta rectificativa solo puede revisarse como borrador. La emisión R2/R3
-          sigue pendiente de validación fiscal y contable.
+          Antes de emitir, documenta la revisión fiscal, la causa legal y sus pruebas.
+          Solo se admite una factura original sin cobros, con una línea de IVA ordinario.
+        </div>
+      )}
+      {document.vatRecoveryReview && (
+        <div className="notice" role="status">
+          Revisión fiscal registrada el {formatInvoiceDate(document.vatRecoveryReview.reviewedAt)}.
+          Conserva la prueba de entrega al cliente y la comunicación específica de modificación
+          de base a la AEAT; estos trámites no se registran aquí y son independientes de la remisión SIF.
         </div>
       )}
       {document.sourceQuote && (
@@ -364,6 +370,11 @@ function RectificationDialog({
   onSubmit(input: RectificationInput): void;
 }) {
   const originalIssueDate = invoice.issueDate.slice(0, 10);
+  const [sifType, setSifType] = useState<RectificationInput["sifInvoiceType"]>("R4");
+  const vatOnlyEligible = Boolean(invoice.operationDate && invoice.sifInvoiceType === "F1" &&
+    invoice.currency === "EUR" && invoice.customerTaxId && invoice.lines?.length === 1 &&
+    Number(invoice.amountPaid) === 0 && Number(invoice.creditedAmount) === 0 &&
+    Number(invoice.amountDue) === Number(invoice.total));
   const defaultIssueDate =
     todayIso() < originalIssueDate ? originalIssueDate : todayIso();
   useEffect(() => {
@@ -410,7 +421,7 @@ function RectificationDialog({
         <header>
           <div>
             <p className="eyebrow">Factura {invoice.fullNumber}</p>
-            <h2 id="rectification-title">Rectificar factura completa</h2>
+            <h2 id="rectification-title">Rectificar factura</h2>
           </div>
           <button
             className="icon-button"
@@ -423,15 +434,16 @@ function RectificationDialog({
         </header>
         <form className="invoice-form" onSubmit={submit}>
           <p className="dialog-helper">
-            Se creará un abono total en borrador, enlazado a la factura
-            original. Podrás revisarlo antes de emitirlo.
+            {sifType === "R2" || sifType === "R3"
+              ? "Se creará un ajuste solo de cuota IVA en borrador. Su emisión exigirá una revisión fiscal documentada."
+              : "Se creará un abono total en borrador, enlazado a la factura original. Podrás revisarlo antes de emitirlo."}
           </p>
           <div className="payment-fields">
             <label className="field full">
               <span>Motivo fiscal AEAT</span>
-              <select name="sifInvoiceType" defaultValue="R4" required>
-                {(["R1", "R4"] as const).map((type) => (
-                  <option key={type} value={type} disabled={type !== "R4" && !invoice.operationDate}>
+              <select name="sifInvoiceType" value={sifType} onChange={(event) => setSifType(event.target.value as RectificationInput["sifInvoiceType"])} required>
+                {(["R1", "R2", "R3", "R4"] as const).map((type) => (
+                  <option key={type} value={type} disabled={(type === "R1" && !invoice.operationDate) || ((type === "R2" || type === "R3") && !vatOnlyEligible)}>
                     {type} · {sifInvoiceTypeLabel(type)}
                   </option>
                 ))}
@@ -439,7 +451,7 @@ function RectificationDialog({
               {!invoice.operationDate && (
                 <small>R1 requiere la fecha de operación conservada en la factura original.</small>
               )}
-              <small>R2 y R3 aún no se pueden emitir y no están disponibles en este formulario.</small>
+              {!vatOnlyEligible && <small>R2/R3 requieren una factura F1 en EUR, sin cobros ni créditos y con una sola línea de IVA ordinario.</small>}
             </label>
             <label className="field">
               <span>Fecha de rectificación</span>
@@ -1587,9 +1599,11 @@ function IssueDialog({
     mutationFn: async ({
       sequenceId,
       series,
+      vatRecoveryReview,
     }: {
       sequenceId: string;
       series: string;
+      vatRecoveryReview?: VatRecoveryReviewInput;
     }) => {
       let selectedId = sequenceId;
       if (!selectedId) {
@@ -1617,7 +1631,7 @@ function IssueDialog({
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ sequenceId: selectedId, idempotencyKey: key }),
+          body: JSON.stringify({ sequenceId: selectedId, idempotencyKey: key, vatRecoveryReview }),
         },
       );
       sessionStorage.removeItem(storageName);
@@ -1637,12 +1651,24 @@ function IssueDialog({
     (sequence) =>
       sequence.active && sequence.documentType === invoice.documentType,
   );
+  const vatOnly = invoice.sifInvoiceType === "R2" || invoice.sifInvoiceType === "R3";
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
+    if (vatOnly && (!values.has("fiscalReviewConfirmed") || !values.has("exclusionsReviewed"))) {
+      event.currentTarget.reportValidity();
+      return;
+    }
     issue.mutate({
       sequenceId: String(values.get("sequenceId") ?? ""),
       series: String(values.get("series") ?? "").trim(),
+      vatRecoveryReview: vatOnly ? {
+        fiscalReviewConfirmed: true,
+        exclusionsReviewed: true,
+        legalEventDate: String(values.get("legalEventDate") ?? ""),
+        legalEventReference: String(values.get("legalEventReference") ?? "").trim(),
+        ...(invoice.sifInvoiceType === "R3" ? { claimEvidenceReference: String(values.get("claimEvidenceReference") ?? "").trim() } : {}),
+      } : undefined,
     });
   }
 
@@ -1713,9 +1739,30 @@ function IssueDialog({
               </label>
             )}
             <div className="issue-amount">
-              <span>Total definitivo</span>
-              <strong>{formatMoney(invoice.total, invoice.currency)}</strong>
+              <span>{vatOnly ? "Reducción de cuota IVA" : "Total definitivo"}</span>
+              <strong>{vatOnly ? "−" : ""}{formatMoney(invoice.total, invoice.currency)}</strong>
             </div>
+            {vatOnly && (
+              <div className="payment-fields">
+                <p className="dialog-helper">{invoice.sifInvoiceType === "R2" ? "Concurso de acreedores (art. 80.Tres LIVA)." : "Crédito incobrable (art. 80.Cuatro LIVA)."} Indica las referencias de los documentos revisados. La entrega al cliente y la comunicación de la modificación a la AEAT deben seguirse por separado.</p>
+                <label className="field">
+                  <span>Fecha del hecho legal</span>
+                  <input name="legalEventDate" type="date" max={invoice.issueDate.slice(0, 10)} required />
+                </label>
+                <label className="field full">
+                  <span>Referencia de la prueba legal</span>
+                  <input name="legalEventReference" minLength={5} maxLength={500} required />
+                </label>
+                {invoice.sifInvoiceType === "R3" && (
+                  <label className="field full">
+                    <span>Referencia de la reclamación de cobro</span>
+                    <input name="claimEvidenceReference" minLength={5} maxLength={500} required />
+                  </label>
+                )}
+                <label className="field full"><input name="fiscalReviewConfirmed" type="checkbox" required /> He revisado la elegibilidad fiscal, los plazos y la cuota recuperable.</label>
+                <label className="field full"><input name="exclusionsReviewed" type="checkbox" required /> He comprobado las exclusiones legales aplicables.</label>
+              </div>
+            )}
             {issue.error && (
               <p className="form-error" role="alert">
                 {issue.error.message}

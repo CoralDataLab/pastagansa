@@ -29,7 +29,7 @@ export interface InvoicePdfInput {
   rectificationKind?: string | null;
   rectificationImpact?: string | null;
   rectificationReason?: string | null;
-  originalInvoice?: { id: string; fullNumber: string | null } | null;
+  originalInvoice?: { id: string; fullNumber: string | null; issueDate?: Date; operationDate?: Date | null } | null;
   issuerLegalName: string;
   issuerTaxId: string;
   issuerSnapshot: unknown;
@@ -74,7 +74,7 @@ const COLOR = {
 
 @Injectable()
 export class InvoicePdfService {
-  async render(invoice: InvoicePdfInput): Promise<Buffer> {
+  async render(invoice: InvoicePdfInput, options?: { compress?: boolean }): Promise<Buffer> {
     const isRectification = invoice.documentType === "CREDIT_NOTE";
     const issuer = readIssuerSnapshot(invoice.issuerSnapshot, {
       legalName: invoice.issuerLegalName,
@@ -82,6 +82,7 @@ export class InvoicePdfService {
     });
     const document = new PDFDocument({
       size: "A4",
+      compress: options?.compress,
       margins: { top: PAGE.top, right: 48, bottom: 48, left: PAGE.left },
       bufferPages: true,
       info: {
@@ -112,21 +113,25 @@ export class InvoicePdfService {
     this.header(document, invoice, issuer, qr);
     this.parties(document, invoice, issuer);
     if (isRectification) this.rectification(document, invoice);
-    let y = this.tableHeader(document, document.y + 22);
-    for (const line of invoice.lines) {
-      const height = Math.max(
-        28,
-        document.heightOfString(line.description, { width: 190 }) + 12,
-      );
-      if (y + height > PAGE.bottom) {
-        document.addPage();
-        this.continuation(document, invoice.fullNumber);
-        y = this.tableHeader(document, document.y + 16);
+    if (isVatRecovery(invoice)) {
+      this.vatRecoveryAdjustment(document, invoice);
+    } else {
+      let y = this.tableHeader(document, document.y + 22);
+      for (const line of invoice.lines) {
+        const height = Math.max(
+          28,
+          document.heightOfString(line.description, { width: 190 }) + 12,
+        );
+        if (y + height > PAGE.bottom) {
+          document.addPage();
+          this.continuation(document, invoice.fullNumber);
+          y = this.tableHeader(document, document.y + 16);
+        }
+        this.line(document, line, invoice.currency, y, height);
+        y += height;
       }
-      this.line(document, line, invoice.currency, y, height);
-      y += height;
+      document.y = y + 20;
     }
-    document.y = y + 20;
     this.ensureSpace(document, 145, invoice.fullNumber);
     this.totals(document, invoice);
     this.notesAndTerms(document, invoice, issuer);
@@ -189,9 +194,10 @@ export class InvoicePdfService {
   ) {
     const top = document.y + 12;
     const reason = invoice.rectificationReason ?? "-";
+    const vatRecovery = isVatRecovery(invoice);
     const height = Math.max(
-      62,
-      document.heightOfString(reason, { width: 475, lineGap: 2 }) + 42,
+      vatRecovery ? 82 : 62,
+      document.heightOfString(reason, { width: 475, lineGap: 2 }) + (vatRecovery ? 62 : 42),
     );
     document
       .roundedRect(PAGE.left, top, PAGE.right - PAGE.left, height, 8)
@@ -223,7 +229,27 @@ export class InvoicePdfService {
       .font("Helvetica")
       .fillColor(COLOR.muted)
       .text(reason, PAGE.left + 62, top + 30, { width: 471, lineGap: 2 });
+    if (vatRecovery && invoice.originalInvoice?.issueDate) {
+      document.font("Helvetica").fontSize(8).fillColor(COLOR.muted)
+        .text(`Emisión original: ${formatDate(invoice.originalInvoice.issueDate)} · Operación original: ${formatDate(invoice.originalInvoice.operationDate ?? invoice.operationDate ?? invoice.issueDate)}`,
+          PAGE.left + 14, top + height - 19, { width: 465 });
+    }
     document.y = top + height;
+  }
+
+  private vatRecoveryAdjustment(document: PDFKit.PDFDocument, invoice: InvoicePdfInput) {
+    this.ensureSpace(document, 92, invoice.fullNumber);
+    const y = document.y + 20;
+    document.roundedRect(PAGE.left, y, PAGE.right - PAGE.left, 72, 6)
+      .strokeColor(COLOR.line).stroke();
+    document.font("Helvetica-Bold").fontSize(9).fillColor(COLOR.ink)
+      .text("Ajuste de cuota IVA por impago", PAGE.left + 12, y + 10);
+    document.font("Helvetica").fontSize(8).fillColor(COLOR.muted)
+      .text(`Tipo IVA original: ${decimal(invoice.lines[0].taxRate, 2)}% · Base de la diferencia: ${money(invoice.subtotal, invoice.currency)}`,
+        PAGE.left + 12, y + 29, { width: 465 })
+      .text(`Cuota rectificada: ${signedMoney(invoice.taxTotal, invoice.currency, true)} · Total de la diferencia: ${signedMoney(invoice.total, invoice.currency, true)}`,
+        PAGE.left + 12, y + 48, { width: 465 });
+    document.y = y + 92;
   }
 
   private parties(
@@ -385,7 +411,7 @@ export class InvoicePdfService {
     const rows = [
       ["Subtotal", money(invoice.subtotal, invoice.currency)],
       ["Descuentos", discountMoney(invoice.discountTotal, invoice.currency)],
-      ["IVA", money(invoice.taxTotal, invoice.currency)],
+      ["IVA", signedMoney(invoice.taxTotal, invoice.currency, isVatRecovery(invoice))],
     ];
     rows.forEach(([label, value]) => {
       document
@@ -407,7 +433,7 @@ export class InvoicePdfService {
       .text("Total", x, y + 14);
     document
       .fillColor(COLOR.primary)
-      .text(money(invoice.total, invoice.currency), x + 82, y + 14, {
+      .text(signedMoney(invoice.total, invoice.currency, isVatRecovery(invoice)), x + 82, y + 14, {
         width: PAGE.right - x - 82,
         align: "right",
       });
@@ -552,6 +578,15 @@ function money(value: DecimalValue, currency: string) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(value.toString()))} ${currency}`;
+}
+
+function signedMoney(value: DecimalValue, currency: string, negative: boolean) {
+  return negative && Number(value.toString()) !== 0 ? `-${money(value, currency)}` : money(value, currency);
+}
+
+function isVatRecovery(invoice: InvoicePdfInput) {
+  return invoice.documentType === "CREDIT_NOTE" &&
+    (invoice.sifInvoiceType === "R2" || invoice.sifInvoiceType === "R3");
 }
 
 function discountMoney(value: DecimalValue, currency: string) {

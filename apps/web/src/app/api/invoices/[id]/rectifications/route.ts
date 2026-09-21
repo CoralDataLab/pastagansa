@@ -27,7 +27,7 @@ export async function POST(
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...input.data,
-          kind: "TOTAL",
+          kind: input.data.sifInvoiceType === "R2" || input.data.sifInvoiceType === "R3" ? "DIFFERENCE" : "TOTAL",
           impact: "DECREASE",
           dueDate: input.data.dueDate || undefined,
           notes: input.data.notes || undefined,

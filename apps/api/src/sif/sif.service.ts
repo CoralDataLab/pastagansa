@@ -490,7 +490,7 @@ export class SifService {
       if (!(error instanceof ConflictException)) throw error;
       xmlSnapshotUnavailable = error.message;
     }
-    if (invoice.sifMode === SifMode.VERIFACTU && !aeatXml)
+    if ((invoice.sifMode === SifMode.VERIFACTU || invoice.sifInvoiceType === "R2" || invoice.sifInvoiceType === "R3") && !aeatXml)
       throw new ConflictException(xmlSnapshotUnavailable ?? "VERI*FACTU test issuance requires exportable XML");
     const payload: Prisma.InputJsonObject = {
       hashInput,
@@ -959,16 +959,17 @@ function registrationXmlRecord(
   invoice: RegistrationInvoice,
   meta: Omit<SifXmlRegistration, "kind" | "issuerLegalName" | "customer" | "description" | "taxLines">,
 ): SifXmlRegistration {
-  if (invoice.sifInvoiceType !== "F1" && invoice.sifInvoiceType !== "R1" && invoice.sifInvoiceType !== "R4")
+  if (!["F1", "R1", "R2", "R3", "R4"].includes(invoice.sifInvoiceType))
     throw new ConflictException(
-      "SIF XML export supports F1, R1 and R4 difference rectifications only",
+      "SIF XML export supports F1 and R1-R4 difference rectifications only",
     );
-  const rectification = invoice.sifInvoiceType === "R1" || invoice.sifInvoiceType === "R4"
+  const requiresOperationDate = ["R1", "R2", "R3"].includes(invoice.sifInvoiceType);
+  const rectification = invoice.sifInvoiceType !== "F1"
     ? differenceRectification(invoice)
     : undefined;
-  if (invoice.sifInvoiceType === "R1" && !invoice.originalInvoice?.operationDate)
-    throw new ConflictException("R1 SIF XML requires the original operation date");
-  const operationDate = invoice.sifInvoiceType === "R1"
+  if (requiresOperationDate && !invoice.originalInvoice?.operationDate)
+    throw new ConflictException(`${invoice.sifInvoiceType} SIF XML requires the original operation date`);
+  const operationDate = requiresOperationDate
     ? invoice.originalInvoice!.operationDate
     : invoice.sifInvoiceType === "F1" && invoice.operationDate && invoice.operationDate.getTime() !== invoice.issueDate.getTime()
       ? invoice.operationDate

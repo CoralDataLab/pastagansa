@@ -508,6 +508,7 @@ model Invoice {
   rectificationKind   RectificationKind?     @map("rectification_kind")
   rectificationImpact RectificationImpact?   @map("rectification_impact")
   rectificationReason String?                @map("rectification_reason") @db.VarChar(1000)
+  vatRecoveryReview   Json?                  @map("vat_recovery_review")
   draftCode           String                 @default(cuid()) @map("draft_code") @db.VarChar(40)
   series              String?                @db.VarChar(30)
   number              BigInt?

@@ -497,7 +497,9 @@ export class AccountingService {
       invoice.rectificationImpact === RectificationImpact.DECREASE;
     const lines: PostingLine[] = decrease
       ? [
-          posting(accounts.SALES_REVENUE, net, false, invoice.contactId),
+          ...(net.greaterThan(0)
+            ? [posting(accounts.SALES_REVENUE, net, false, invoice.contactId)]
+            : []),
           ...(invoice.taxTotal.greaterThan(0)
             ? [posting(accounts.OUTPUT_VAT, invoice.taxTotal, false)]
             : []),

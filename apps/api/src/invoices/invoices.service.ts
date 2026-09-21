@@ -34,7 +34,7 @@ import {
 import { CreateRectificationDto } from "./dto/create-rectification.dto";
 import { planReceivableCredit } from "../payments/receivable-credit";
 import { ListInvoicesDto } from "./dto/list-invoices.dto";
-import { IssueInvoiceDto } from "./dto/issue-invoice.dto";
+import { IssueInvoiceDto, VatRecoveryReviewDto } from "./dto/issue-invoice.dto";
 import { CancelIssuedInErrorDto } from "./dto/cancel-issued-in-error.dto";
 import { InvoicePdfService } from "./invoice-pdf.service";
 
@@ -104,7 +104,7 @@ export class InvoicesService {
           include: { taxLines: true },
         },
         installments: { orderBy: { position: "asc" } },
-        originalInvoice: { select: { id: true, fullNumber: true } },
+        originalInvoice: { select: { id: true, fullNumber: true, issueDate: true, operationDate: true } },
         sourceQuote: { select: { id: true, code: true } },
       },
     });
@@ -443,8 +443,11 @@ export class InvoicesService {
       throw new ConflictException(
         "Idempotency-Key has already been used for another invoice",
       );
-    if (invoice.documentType === DocumentType.CREDIT_NOTE)
-      await this.validateRectificationForIssue(invoice);
+    const vatRecoveryReview = invoice.documentType === DocumentType.CREDIT_NOTE
+      ? await this.validateRectificationForIssue(invoice, input.vatRecoveryReview)
+      : undefined;
+    if (invoice.documentType !== DocumentType.CREDIT_NOTE && input.vatRecoveryReview)
+      throw new BadRequestException("VAT recovery review applies only to R2/R3 rectifications");
     const sequence = await this.tenant.db.documentSequence.findFirst({
       where: {
         id: input.sequenceId,
@@ -503,6 +506,7 @@ export class InvoicesService {
           issuanceKey: idempotencyKey,
           issuedAt: new Date(),
           status: InvoiceStatus.ISSUED,
+          ...(vatRecoveryReview ? { vatRecoveryReview } : {}),
           issuerLegalName: issuer.legalName,
           issuerTaxId: issuer.taxId,
           sifMode: issuer.sifMode,
@@ -528,10 +532,13 @@ export class InvoicesService {
       number: allocated.number.toString(),
       fullNumber,
       idempotencyKey,
+      ...(vatRecoveryReview ? { vatRecoveryReview } : {}),
     });
     await this.tax.postInvoice(id);
     await this.accounting.postSalesInvoice(id);
-    await this.sif.createRegistration(id);
+    const sifRegistration = await this.sif.createRegistration(id);
+    if (vatRecoveryReview && !sifRegistration)
+      throw new ConflictException("R2/R3 issuance requires a frozen SIF registration");
     if (
       invoice.documentType === DocumentType.CREDIT_NOTE &&
       invoice.rectificationImpact === RectificationImpact.DECREASE &&
@@ -720,18 +727,42 @@ export class InvoicesService {
     sifInvoiceType: SifInvoiceType;
     rectificationKind: RectificationKind | null;
     rectificationImpact: RectificationImpact | null;
+    issueDate: Date;
+    operationDate: Date | null;
+    subtotal: Decimal;
+    discountTotal: Decimal;
+    taxTotal: Decimal;
     total: Decimal;
-  }) {
+    lines: Array<{
+      position: number;
+      catalogItemId: string | null;
+      description: string;
+      quantity: Decimal;
+      unitPrice: Decimal;
+      discountPct: Decimal;
+      netAmount: Decimal;
+      taxAmount: Decimal;
+      totalAmount: Decimal;
+      taxRate: Decimal;
+      taxLines: Array<{
+        taxableBase: Decimal; taxAmount: Decimal; taxRate: Decimal | null;
+        taxRuleId: string; taxCode: string; subject: boolean; exempt: boolean;
+        exemptionReason: string | null; reverseCharge: boolean;
+        surchargeRate: Decimal | null; surchargeAmount: Decimal;
+      }>;
+    }>;
+  }, review?: VatRecoveryReviewDto): Promise<Prisma.InputJsonObject | undefined> {
     if (
       !invoice.originalInvoiceId ||
       !invoice.rectificationKind ||
       !invoice.rectificationImpact
     )
       throw new ConflictException("Rectification metadata is incomplete");
-    if (isVatOnlyRectificationType(invoice.sifInvoiceType))
-      throw new ConflictException(
-        "R2/R3 issuance remains blocked pending tax, accounting, payment, PDF and SIF validation",
-      );
+    const vatOnly = isVatOnlyRectificationType(invoice.sifInvoiceType);
+    if (vatOnly && !review)
+      throw new ConflictException("R2/R3 issuance requires a documented fiscal review");
+    if (!vatOnly && review)
+      throw new BadRequestException("VAT recovery review applies only to R2/R3 rectifications");
     const scope = this.scope();
     const locked = await this.tenant.db.$queryRaw<Array<{ id: string }>>`
       SELECT "id" FROM "invoices"
@@ -744,13 +775,8 @@ export class InvoicesService {
       throw new ConflictException("Original invoice no longer exists");
     const original = await this.tenant.db.invoice.findFirstOrThrow({
       where: { id: invoice.originalInvoiceId, ...scope },
-      select: {
-        status: true,
-        documentType: true,
-        total: true,
-        amountDue: true,
-        creditedAmount: true,
-        operationDate: true,
+      include: {
+        lines: { orderBy: { position: "asc" }, include: { taxLines: true } },
       },
     });
     if (
@@ -783,6 +809,76 @@ export class InvoicesService {
         total: true,
       },
     });
+    let vatRecoveryReview: Prisma.InputJsonObject | undefined;
+    if (vatOnly) {
+      if (!review!.fiscalReviewConfirmed || !review!.exclusionsReviewed)
+        throw new ConflictException("R2/R3 requires confirmed fiscal and exclusion review");
+      const company = await this.tenant.db.company.findFirstOrThrow({
+        where: { id: scope.companyId, organizationId: scope.organizationId },
+        select: { sifMode: true },
+      });
+      if (company.sifMode === SifMode.DISABLED)
+        throw new ConflictException("R2/R3 issuance requires an active SIF mode with frozen XML");
+      if (invoice.rectificationKind !== RectificationKind.DIFFERENCE ||
+          invoice.rectificationImpact !== RectificationImpact.DECREASE)
+        throw new ConflictException("R2/R3 supports only a VAT-only decrease by difference");
+      if (prior.length || !original.creditedAmount.isZero())
+        throw new ConflictException("R2/R3 requires an original without earlier issued corrections");
+      const expected = buildVatOnlyRectificationLine(original);
+      const actual = invoice.lines[0];
+      const tax = actual?.taxLines[0];
+      if (invoice.lines.length !== 1 || !tax ||
+          !invoice.subtotal.isZero() ||
+          !invoice.discountTotal.isZero() ||
+          !invoice.taxTotal.equals(expected.persisted.taxAmount) ||
+          !invoice.total.equals(expected.persisted.totalAmount) ||
+          actual.position !== 1 ||
+          actual.catalogItemId !== null ||
+          actual.description !== expected.persisted.description ||
+          !actual.quantity.equals(expected.persisted.quantity) ||
+          !actual.unitPrice.isZero() ||
+          !actual.discountPct.isZero() ||
+          !actual.netAmount.isZero() ||
+          !actual.taxAmount.equals(expected.persisted.taxAmount) ||
+          !actual.totalAmount.equals(expected.persisted.totalAmount) ||
+          !actual.taxRate.equals(expected.persisted.taxRate) ||
+          !tax.taxableBase.isZero() ||
+          !tax.taxAmount.equals(expected.tax.taxAmount) ||
+          !tax.taxRate?.equals(expected.persisted.taxRate) ||
+          tax.taxRuleId !== expected.tax.taxRuleId ||
+          tax.taxCode !== expected.tax.taxCode ||
+          !tax.subject || tax.exempt || tax.exemptionReason !== null ||
+          tax.reverseCharge || tax.surchargeRate !== null ||
+          !tax.surchargeAmount.isZero() ||
+          !invoice.operationDate ||
+          invoice.operationDate.getTime() !== original.operationDate?.getTime())
+        throw new ConflictException("R2/R3 draft no longer matches the original VAT-only calculation");
+      const eventDate = new Date(review!.legalEventDate);
+      if (eventDate < original.operationDate! || eventDate > invoice.issueDate)
+        throw new ConflictException("R2/R3 legal event date must follow the operation and precede issuance");
+      if (!review!.legalEventReference.trim() ||
+          (invoice.sifInvoiceType === SifInvoiceType.R3 && !review!.claimEvidenceReference?.trim()))
+        throw new ConflictException("R2/R3 requires legal-event evidence and R3 requires collection-claim evidence");
+      vatRecoveryReview = {
+        legalBasis: invoice.sifInvoiceType === SifInvoiceType.R2 ? "LIVA_80_3" : "LIVA_80_4",
+        fiscalReviewConfirmed: true,
+        exclusionsReviewed: true,
+        reviewedByUserId: this.tenant.required.userId,
+        reviewedAt: new Date().toISOString(),
+        legalEventDate: review!.legalEventDate,
+        legalEventReference: review!.legalEventReference.trim(),
+        ...(review!.claimEvidenceReference ? { claimEvidenceReference: review!.claimEvidenceReference.trim() } : {}),
+        originalInvoiceId: invoice.originalInvoiceId,
+        originalInvoiceNumber: original.fullNumber!,
+        originalOperationDate: original.operationDate!.toISOString().slice(0, 10),
+        originalTaxableBase: original.lines[0].taxLines[0].taxableBase.toFixed(2),
+        originalTaxAmount: original.taxTotal.toFixed(2),
+        originalUnpaidAmount: original.amountDue.toFixed(2),
+        recoveredTaxAmount: invoice.taxTotal.toFixed(2),
+        customerDeliveryStatus: "NOT_RECORDED",
+        baseModificationCommunicationStatus: "NOT_RECORDED",
+      };
+    }
     if (
       invoice.rectificationKind === RectificationKind.TOTAL &&
       prior.length > 0
@@ -822,6 +918,7 @@ export class InvoicesService {
           "Rectifications cannot decrease more than the original invoice total",
         );
     }
+    return vatRecoveryReview;
   }
 
   private async applyReceivableCredit(

@@ -185,4 +185,30 @@ describe("AEAT SIF XML", () => {
     expect(xml).toMatch(/<sf:FacturasRectificadas>[\s\S]*<\/sf:FacturasRectificadas>\s*<sf:FechaOperacion>10-09-2026<\/sf:FechaOperacion>\s*<sf:DescripcionOperacion>/);
     expectValidAeatXml(xml);
   });
+
+  it.each(["R2", "R3"])("validates a VAT-only %s difference with zero base and negative VAT", (invoiceType) => {
+    const xml = renderSifAeatXml({
+      header,
+      record: {
+        kind: "REGISTRATION", issuerTaxId: "B12345674", invoiceNumber: "R2026-0003",
+        issueDate: "18-09-2026", issuerLegalName: header.issuerLegalName,
+        invoiceType, operationDate: "08-09-2026",
+        rectification: { type: "I", original: {
+          issuerTaxId: "B12345674", invoiceNumber: "F2026-0003", issueDate: "09-09-2026",
+        } },
+        customer: { legalName: "Client", taxId: "B76543210" },
+        description: "Ajuste de cuota IVA por impago", taxLines: [{
+          taxableBase: "0.00", taxRate: "21.00", taxAmount: "-210.00", reverseCharge: false,
+        }],
+        taxTotal: "-210.00", total: "-210.00", previousRecord: null,
+        software, generatedAt: "2026-09-18T12:00:00+02:00", recordHash: "A".repeat(64),
+      },
+    });
+    expect(xml).toContain(`<sf:TipoFactura>${invoiceType}</sf:TipoFactura>`);
+    expect(xml).toContain("<sf:FechaOperacion>08-09-2026</sf:FechaOperacion>");
+    expect(xml).toContain("<sf:BaseImponibleOimporteNoSujeto>0.00</sf:BaseImponibleOimporteNoSujeto>");
+    expect(xml).toContain("<sf:CuotaRepercutida>-210.00</sf:CuotaRepercutida>");
+    expect(xml).toContain("<sf:ImporteTotal>-210.00</sf:ImporteTotal>");
+    expectValidAeatXml(xml);
+  });
 });

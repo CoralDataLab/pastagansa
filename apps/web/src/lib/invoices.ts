@@ -42,6 +42,19 @@ export interface Invoice {
   rectificationKind: "TOTAL" | "PARTIAL" | "DIFFERENCE" | null;
   rectificationImpact: "DECREASE" | "INCREASE" | null;
   rectificationReason: string | null;
+  vatRecoveryReview?: {
+    legalBasis: string;
+    legalEventDate: string;
+    legalEventReference: string;
+    claimEvidenceReference?: string;
+    reviewedAt: string;
+    reviewedByUserId: string;
+    originalTaxAmount: string;
+    originalUnpaidAmount: string;
+    recoveredTaxAmount: string;
+    customerDeliveryStatus: "NOT_RECORDED";
+    baseModificationCommunicationStatus: "NOT_RECORDED";
+  } | null;
   originalInvoiceId: string | null;
   originalInvoice?: { id: string; fullNumber: string | null } | null;
   sourceQuote?: { id: string; code: string } | null;
@@ -78,7 +91,7 @@ export interface Invoice {
 }
 
 export const rectificationInputSchema = z.object({
-  sifInvoiceType: z.enum(["R1", "R4"]),
+  sifInvoiceType: z.enum(["R1", "R2", "R3", "R4"]),
   reason: z.string().trim().min(5).max(1_000),
   issueDate: z.iso.date(),
   dueDate: z.union([z.iso.date(), z.literal("")]).optional(),
@@ -86,6 +99,16 @@ export const rectificationInputSchema = z.object({
 });
 
 export type RectificationInput = z.infer<typeof rectificationInputSchema>;
+
+export const vatRecoveryReviewSchema = z.object({
+  fiscalReviewConfirmed: z.literal(true),
+  exclusionsReviewed: z.literal(true),
+  legalEventDate: z.iso.date(),
+  legalEventReference: z.string().trim().min(5).max(500),
+  claimEvidenceReference: z.string().trim().min(5).max(500).optional(),
+});
+
+export type VatRecoveryReviewInput = z.infer<typeof vatRecoveryReviewSchema>;
 
 export function sifInvoiceTypeLabel(type: Invoice["sifInvoiceType"]) {
   return {

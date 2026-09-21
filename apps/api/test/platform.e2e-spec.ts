@@ -2339,7 +2339,7 @@ describe("platform integrity", () => {
       .set("idempotency-key", "issue-r2-historical-a")
       .send({ sequenceId: creditSequence.body.id })
       .expect(409);
-    expect(JSON.stringify(historicalR2Issue.body)).toContain("R2/R3 issuance remains blocked");
+    expect(JSON.stringify(historicalR2Issue.body)).toContain("R2/R3 issuance requires a documented fiscal review");
 
     const vatOnlyOriginal = await authed(accountA.accessToken, tenantA)
       .post("/v1/invoices")
@@ -2377,7 +2377,132 @@ describe("platform integrity", () => {
       .set("idempotency-key", "issue-vat-only-draft-a")
       .send({ sequenceId: creditSequence.body.id })
       .expect(409);
-    expect(JSON.stringify(blockedVatOnlyIssue.body)).toContain("R2/R3 issuance remains blocked");
+    expect(JSON.stringify(blockedVatOnlyIssue.body)).toContain("R2/R3 issuance requires a documented fiscal review");
+    const issuedVatOnly = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${vatOnlyDraft.body.id}/issue`)
+      .set("idempotency-key", "issue-vat-only-draft-a")
+      .send({ sequenceId: creditSequence.body.id, vatRecoveryReview: {
+        fiscalReviewConfirmed: true,
+        exclusionsReviewed: true,
+        legalEventDate: "2026-09-10",
+        legalEventReference: "Fiscal review file R3-2026-01",
+        claimEvidenceReference: "Certified payment demand R3-2026-01",
+      } })
+      .expect(200);
+    expect(issuedVatOnly.body).toMatchObject({
+      status: "ISSUED", sifInvoiceType: "R3",
+      vatRecoveryReview: {
+        legalBasis: "LIVA_80_4", originalTaxAmount: "21.00",
+        recoveredTaxAmount: "21.00", customerDeliveryStatus: "NOT_RECORDED",
+        baseModificationCommunicationStatus: "NOT_RECORDED",
+      },
+    });
+    const recoveredOriginal = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/invoices/${vatOnlyOriginal.body.id}`)
+      .expect(200);
+    expect(recoveredOriginal.body).toMatchObject({
+      total: "121", amountPaid: "0", creditedAmount: "21", amountDue: "100",
+    });
+    expect(recoveredOriginal.body.installments[0].creditedAmount).toBe("21");
+    const recoveryLedger = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/tax-ledger?invoiceId=${vatOnlyDraft.body.id}`)
+      .expect(200);
+    expect(recoveryLedger.body.data[0].amounts[0]).toMatchObject({
+      taxableBase: "0", taxAmount: "-21",
+    });
+    const recoveryEntries = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/accounting/journal-entries?sourceType=SALES_INVOICE&sourceId=${vatOnlyDraft.body.id}`)
+      .expect(200);
+    expect(accountingAmounts(recoveryEntries.body.data[0])).toEqual({
+      "430000": { debit: "0", credit: "21" },
+      "477000": { debit: "21", credit: "0" },
+    });
+    const recoveryRecords = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records?invoiceId=${vatOnlyDraft.body.id}`)
+      .expect(200);
+    expect(recoveryRecords.body).toHaveLength(1);
+    const recoveryXmlResponse = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records/${recoveryRecords.body[0].id}/xml`)
+      .expect("content-type", /application\/xml/)
+      .expect(200);
+    const recoveryXml = recoveryXmlResponse.text ?? recoveryXmlResponse.body.toString("utf8");
+    expect(recoveryXml).toContain("<sf:TipoFactura>R3</sf:TipoFactura>");
+    expect(recoveryXml).toContain("<sf:TipoRectificativa>I</sf:TipoRectificativa>");
+    expect(recoveryXml).toContain("<sf:BaseImponibleOimporteNoSujeto>0.00</sf:BaseImponibleOimporteNoSujeto>");
+    expect(recoveryXml).toContain("<sf:CuotaRepercutida>-21.00</sf:CuotaRepercutida>");
+    expect(recoveryXml).toContain("<sf:ImporteTotal>-21.00</sf:ImporteTotal>");
+    const recoverySchemaCheck = spawnSync("xmllint", [
+      "--noout", "--schema", join(__dirname, "../src/sif/xsd/SuministroLR.xsd"), "-",
+    ], { input: recoveryXml, encoding: "utf8" });
+    expect(recoverySchemaCheck.status).toBe(0);
+    await authed(accountA.accessToken, tenantA)
+      .get(`/v1/invoices/${vatOnlyDraft.body.id}/pdf`)
+      .expect("content-type", /application\/pdf/)
+      .expect(200);
+
+    const r2Original = await authed(accountA.accessToken, tenantA)
+      .post("/v1/invoices")
+      .send(invoice(r4Customer.body.id))
+      .expect(201);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r2Original.body.id}/issue`)
+      .set("idempotency-key", "issue-r2-original-a")
+      .send({ sequenceId: sequence.body.id })
+      .expect(200);
+    const r2Draft = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r2Original.body.id}/rectifications`)
+      .send({ ...vatOnlyInput, sifInvoiceType: "R2" })
+      .expect(201);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r2Draft.body.id}/issue`)
+      .set("idempotency-key", "issue-r2-vat-only-a")
+      .send({ sequenceId: creditSequence.body.id, vatRecoveryReview: {
+        fiscalReviewConfirmed: true,
+        exclusionsReviewed: true,
+        legalEventDate: "2026-09-10",
+        legalEventReference: "Published insolvency order R2-2026-01",
+      } })
+      .expect(200);
+    const r2Records = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records?invoiceId=${r2Draft.body.id}`)
+      .expect(200);
+    const r2XmlResponse = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/sif/records/${r2Records.body[0].id}/xml`)
+      .expect(200);
+    const r2Xml = r2XmlResponse.text ?? r2XmlResponse.body.toString("utf8");
+    expect(r2Xml).toContain("<sf:TipoFactura>R2</sf:TipoFactura>");
+    expect(r2Xml).toContain("<sf:CuotaRepercutida>-21.00</sf:CuotaRepercutida>");
+
+    const paymentBeforeReviewOriginal = await authed(accountA.accessToken, tenantA)
+      .post("/v1/invoices")
+      .send(invoice(r4Customer.body.id))
+      .expect(201);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${paymentBeforeReviewOriginal.body.id}/issue`)
+      .set("idempotency-key", "issue-r3-paid-original-a")
+      .send({ sequenceId: sequence.body.id })
+      .expect(200);
+    const paymentBeforeReviewDraft = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${paymentBeforeReviewOriginal.body.id}/rectifications`)
+      .send(vatOnlyInput)
+      .expect(201);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${paymentBeforeReviewOriginal.body.id}/payments`)
+      .set("idempotency-key", "r3-paid-before-issue-a")
+      .send({ amount: 10, paidAt: "2026-09-16T10:00:00.000Z", method: "BANK_TRANSFER" })
+      .expect(201);
+    const staleRecoveryIssue = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${paymentBeforeReviewDraft.body.id}/issue`)
+      .set("idempotency-key", "issue-r3-after-payment-a")
+      .send({ sequenceId: creditSequence.body.id, vatRecoveryReview: {
+        fiscalReviewConfirmed: true,
+        exclusionsReviewed: true,
+        legalEventDate: "2026-09-10",
+        legalEventReference: "Fiscal review file R3-2026-02",
+        claimEvidenceReference: "Certified payment demand R3-2026-02",
+      } })
+      .expect(409);
+    expect(JSON.stringify(staleRecoveryIssue.body)).toContain("does not yet support paid or partially paid invoices");
 
     const erroneousDraft = await authed(accountA.accessToken, tenantA)
       .post("/v1/invoices")

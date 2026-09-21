@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { normalizeApiError } from "@/lib/session";
 import { SessionError, tenantApiRequest } from "@/lib/server-session";
+import { vatRecoveryReviewSchema } from "@/lib/invoices";
 
 const inputSchema = z.object({
   sequenceId: z.uuid(),
   idempotencyKey: z.string().trim().min(1).max(128),
+  vatRecoveryReview: vatRecoveryReviewSchema.optional(),
 });
 
 export async function POST(
@@ -28,7 +30,7 @@ export async function POST(
         "content-type": "application/json",
         "idempotency-key": input.data.idempotencyKey,
       },
-      body: JSON.stringify({ sequenceId: input.data.sequenceId }),
+      body: JSON.stringify({ sequenceId: input.data.sequenceId, vatRecoveryReview: input.data.vatRecoveryReview }),
     });
     const body = await response.json().catch(() => undefined);
     if (!response.ok)
