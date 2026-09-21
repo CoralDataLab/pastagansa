@@ -1060,7 +1060,9 @@ describe("platform integrity", () => {
     const rectifiedOriginal = await authed(accountA.accessToken, tenantA)
       .get(`/v1/invoices/${invoiceDraft.body.id}`)
       .expect(200);
-    expect(rectifiedOriginal.body.status).toBe("RECTIFIED");
+    expect(rectifiedOriginal.body).toMatchObject({
+      status: "RECTIFIED", amountPaid: "121", creditedAmount: "0", amountDue: "0",
+    });
     await authed(accountA.accessToken, tenantA)
       .post(`/v1/invoices/${invoiceDraft.body.id}/rectifications`)
       .send({
@@ -2159,6 +2161,38 @@ describe("platform integrity", () => {
       .set("idempotency-key", "issue-r4-difference-a")
       .send({ sequenceId: creditSequence.body.id })
       .expect(200);
+    const creditedR4Original = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/invoices/${r4Original.body.id}`)
+      .expect(200);
+    expect(creditedR4Original.body).toMatchObject({
+      total: "121", amountPaid: "0", creditedAmount: "24.2", amountDue: "96.8",
+    });
+    expect(creditedR4Original.body.installments[0]).toMatchObject({
+      amount: "121", paidAmount: "0", creditedAmount: "24.2",
+    });
+    await expect(admin.invoice.update({
+      where: { id: r4Original.body.id },
+      data: { creditedAmount: "25.2" },
+    })).rejects.toThrow(/invoices_payment_balance_check/);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r4Original.body.id}/payments`)
+      .set("idempotency-key", "r4-overpayment-a")
+      .send({ amount: 97, paidAt: "2026-09-17T10:00:00.000Z", method: "BANK_TRANSFER" })
+      .expect(400);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${r4Original.body.id}/payments`)
+      .set("idempotency-key", "r4-settlement-a")
+      .send({ amount: 96.8, paidAt: "2026-09-17T10:00:00.000Z", method: "BANK_TRANSFER" })
+      .expect(201);
+    const settledR4Original = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/invoices/${r4Original.body.id}`)
+      .expect(200);
+    expect(settledR4Original.body).toMatchObject({
+      status: "SETTLED", amountPaid: "96.8", creditedAmount: "24.2", amountDue: "0",
+    });
+    expect(settledR4Original.body.installments[0]).toMatchObject({
+      amount: "121", paidAmount: "96.8", creditedAmount: "24.2",
+    });
     const r4Records = await authed(accountA.accessToken, tenantA)
       .get(`/v1/sif/records?invoiceId=${r4Draft.body.id}`)
       .expect(200);
@@ -2232,6 +2266,13 @@ describe("platform integrity", () => {
       .set("idempotency-key", "issue-r1-difference-a")
       .send({ sequenceId: creditSequence.body.id })
       .expect(200);
+    const creditedR1Original = await authed(accountA.accessToken, tenantA)
+      .get(`/v1/invoices/${r1Original.body.id}`)
+      .expect(200);
+    expect(creditedR1Original.body).toMatchObject({
+      status: "RECTIFIED", amountPaid: "0", creditedAmount: "121", amountDue: "0",
+    });
+    expect(creditedR1Original.body.installments[0].creditedAmount).toBe("121");
     const r1Ledger = await authed(accountA.accessToken, tenantA)
       .get(`/v1/tax-ledger?invoiceId=${r1Draft.body.id}`)
       .expect(200);

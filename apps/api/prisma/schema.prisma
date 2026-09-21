@@ -76,6 +76,7 @@ enum InvoiceStatus {
   SENT
   PARTIALLY_PAID
   PAID
+  SETTLED
   OVERDUE
   RECTIFIED
   CANCELLED
@@ -536,6 +537,7 @@ model Invoice {
   taxTotal            Decimal                @map("tax_total") @db.Decimal(14, 2)
   total               Decimal                @db.Decimal(14, 2)
   amountPaid          Decimal                @default(0) @map("amount_paid") @db.Decimal(14, 2)
+  creditedAmount      Decimal                @default(0) @map("credited_amount") @db.Decimal(14, 2)
   amountDue           Decimal                @default(0) @map("amount_due") @db.Decimal(14, 2)
   issuedAt            DateTime?              @map("issued_at") @db.Timestamptz(6)
   cancelledAt         DateTime?              @map("cancelled_at") @db.Timestamptz(6)
@@ -1277,6 +1279,7 @@ model InvoiceInstallment {
   dueDate        DateTime            @map("due_date") @db.Date
   amount         Decimal             @db.Decimal(14, 2)
   paidAmount     Decimal             @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  creditedAmount Decimal             @default(0) @map("credited_amount") @db.Decimal(14, 2)
   status         InstallmentStatus   @default(PENDING)
   createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)

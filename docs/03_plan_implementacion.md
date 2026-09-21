@@ -803,7 +803,12 @@ rectificativas previas. La emisión permanece bloqueada y no existe XML AEAT:
 su tratamiento fiscal completo requiere modelar y validar la
 rectificación correspondiente antes de habilitar su remisión. El mapa de
 invariantes, cambios y pruebas para ese trabajo está en
-[`16_rectificativas_r2_r3.md`](16_rectificativas_r2_r3.md). El contraste
+[`16_rectificativas_r2_r3.md`](16_rectificativas_r2_r3.md).
+Los nuevos abonos de disminución R1/R4 aplican su importe cobrable a la
+factura y sus vencimientos sin alterar los cobros registrados; el saldo distingue
+`amount_paid`, `credited_amount` y `amount_due`. Los históricos inconsistentes
+requieren revisión antes de otro abono y R2/R3 siguen sin emisión.
+El contraste
 del 17/09/2026 confirmó los XSD locales, el elemento de entrada WSDL y los tres casos
 sintéticos; el 18/09/2026 una alta F1 ordinaria obtuvo respuesta **Aceptado**
 en el servicio AEAT de pruebas (véase `docs/14_aceptacion_aeat_pruebas.md`). También limita

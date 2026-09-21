@@ -5,6 +5,7 @@ import { AuditService } from "../audit/audit.service";
 import { decodeCursor, encodeCursor } from "../common/cursor";
 import { TenantContextService } from "../tenancy/tenant-context.service";
 import { CollectionBucket, CollectionsQueryDto } from "./dto/collections-query.dto";
+import { installmentOpenAmount } from "../payments/receivable-credit";
 
 const payableStatuses = [InvoiceStatus.ISSUED, InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE];
 const buckets: CollectionBucket[] = ["DUE_THIS_WEEK", "OVERDUE_1_7", "OVERDUE_8_30", "OVERDUE_31_60", "OVERDUE_61_90", "OVERDUE_90_PLUS"];
@@ -101,14 +102,14 @@ export class CollectionsService {
       where,
       select: {
         id: true, contactId: true, customerLegalName: true, fullNumber: true, draftCode: true, currency: true, amountDue: true, dueDate: true,
-        installments: { select: { dueDate: true, amount: true, paidAmount: true }, orderBy: [{ dueDate: "asc" }, { position: "asc" }] },
+        installments: { select: { dueDate: true, amount: true, paidAmount: true, creditedAmount: true }, orderBy: [{ dueDate: "asc" }, { position: "asc" }] },
         commercialEvents: { where: { type: { in: ["SENT", "DELIVERY_FAILED", "DISPUTED", "PAYMENT_PROMISED"] } }, select: { type: true, source: true, effectiveAt: true, comment: true }, orderBy: [{ effectiveAt: "desc" }, { id: "desc" }], take: 1 },
       },
       orderBy: [{ dueDate: "asc" }, { id: "asc" }],
       ...(input.cursorId ? { cursor: { id: input.cursorId }, skip: 1 } : {}), take: input.limit,
     });
     return invoices.map((invoice) => {
-      const openInstallments = invoice.installments.map((installment) => ({ dueDate: installment.dueDate, open: installment.amount.minus(installment.paidAmount) })).filter((installment) => installment.open.greaterThan(0));
+      const openInstallments = invoice.installments.map((installment) => ({ dueDate: installment.dueDate, open: installmentOpenAmount(installment) })).filter((installment) => installment.open.greaterThan(0));
       const dueDate = openInstallments[0]?.dueDate ? isoDate(openInstallments[0].dueDate) : invoice.dueDate ? isoDate(invoice.dueDate) : null;
       const daysOverdue = dueDate ? Math.max(0, daysBetween(dueDate, input.asOf)) : 0;
       const bucket = classifyBucket(dueDate, input.asOf);

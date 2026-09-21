@@ -17,6 +17,7 @@ import { TenantContextService } from "../tenancy/tenant-context.service";
 import { RecordPaymentDto } from "./dto/record-payment.dto";
 import { SetPaymentScheduleDto } from "./dto/set-payment-schedule.dto";
 import { CommercialEventsService } from "../commercial-events/commercial-events.service";
+import { installmentOpenAmount } from "./receivable-credit";
 
 @Injectable()
 export class PaymentsService {
@@ -132,6 +133,7 @@ export class PaymentsService {
       new Set<InvoiceStatus>([
         InvoiceStatus.DRAFT,
         InvoiceStatus.PAID,
+        InvoiceStatus.SETTLED,
         InvoiceStatus.RECTIFIED,
         InvoiceStatus.CANCELLED,
       ]).has(invoice.status)
@@ -164,7 +166,7 @@ export class PaymentsService {
       let remaining = amount;
       for (const installment of installments) {
         if (remaining.isZero()) break;
-        const open = installment.amount.minus(installment.paidAmount);
+        const open = installmentOpenAmount(installment);
         if (open.lessThanOrEqualTo(0)) continue;
         const allocated = Decimal.min(open, remaining);
         const paidAmount = installment.paidAmount.plus(allocated);
@@ -200,7 +202,9 @@ export class PaymentsService {
           amountPaid,
           amountDue,
           status: amountDue.isZero()
-            ? InvoiceStatus.PAID
+            ? invoice.creditedAmount.greaterThan(0)
+              ? InvoiceStatus.SETTLED
+              : InvoiceStatus.PAID
             : InvoiceStatus.PARTIALLY_PAID,
         },
       });

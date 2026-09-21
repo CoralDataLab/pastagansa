@@ -8,6 +8,7 @@ import { CommercialDocumentEventType, DeliveryDocumentType, DeliveryPurpose, Inv
 import { AuditService } from "../audit/audit.service";
 import { captureIssuerSnapshot } from "../documents/issuer-snapshot";
 import { TenantContextService } from "../tenancy/tenant-context.service";
+import { installmentOpenAmount } from "../payments/receivable-credit";
 import { SendDocumentEmailDto } from "./dto/send-invoice-email.dto";
 import { ReminderTemplate } from "./dto/payment-reminder.dto";
 import { SmtpInvoiceMailer } from "./smtp-invoice-mailer.service";
@@ -232,7 +233,7 @@ export class InvoiceEmailService {
         where: { id: invoiceId, ...scope },
         select: {
           id: true, status: true, fullNumber: true, customerEmail: true, customerLegalName: true, issuerLegalName: true, amountDue: true, dueDate: true, currency: true,
-          installments: { select: { dueDate: true, amount: true, paidAmount: true }, orderBy: [{ dueDate: "asc" }, { position: "asc" }] },
+          installments: { select: { dueDate: true, amount: true, paidAmount: true, creditedAmount: true }, orderBy: [{ dueDate: "asc" }, { position: "asc" }] },
           commercialEvents: {
             where: { type: { in: [CommercialDocumentEventType.SENT, CommercialDocumentEventType.DELIVERY_FAILED, CommercialDocumentEventType.DISPUTED, CommercialDocumentEventType.PAYMENT_PROMISED] } },
             select: { type: true }, orderBy: [{ effectiveAt: "desc" }, { id: "desc" }], take: 1,
@@ -244,7 +245,7 @@ export class InvoiceEmailService {
     ]);
     if (!invoice) throw new NotFoundException("Invoice not found");
     const disputed = invoice.commercialEvents[0]?.type === CommercialDocumentEventType.DISPUTED;
-    const dueDate = invoice.installments.find((installment) => installment.amount.greaterThan(installment.paidAmount))?.dueDate ?? invoice.dueDate;
+    const dueDate = invoice.installments.find((installment) => installmentOpenAmount(installment).greaterThan(0))?.dueDate ?? invoice.dueDate;
     const dueDateIso = dueDate?.toISOString().slice(0, 10) ?? null;
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: company?.timezone ?? "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     const reminderStatuses: InvoiceStatus[] = [InvoiceStatus.ISSUED, InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE];

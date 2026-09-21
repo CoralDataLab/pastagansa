@@ -32,6 +32,7 @@ export interface Invoice {
     | "SENT"
     | "PARTIALLY_PAID"
     | "PAID"
+    | "SETTLED"
     | "OVERDUE"
     | "CANCELLED"
     | "RECTIFIED";
@@ -56,6 +57,7 @@ export interface Invoice {
   taxTotal: string;
   total: string;
   amountPaid: string;
+  creditedAmount: string;
   amountDue: string;
   notes: string | null;
   issuedAt: string | null;
@@ -157,6 +159,7 @@ export interface PaymentInstallment {
   dueDate: string;
   amount: string;
   paidAmount: string;
+  creditedAmount: string;
   status: "PENDING" | "PARTIALLY_PAID" | "PAID";
 }
 
@@ -268,6 +271,7 @@ export function invoiceStatusLabel(status: Invoice["status"]) {
     SENT: "Enviada",
     PARTIALLY_PAID: "Cobro parcial",
     PAID: "Cobrada",
+    SETTLED: "Saldada",
     OVERDUE: "Vencida",
     CANCELLED: "Anulada",
     RECTIFIED: "Rectificada",

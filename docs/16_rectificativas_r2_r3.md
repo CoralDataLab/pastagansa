@@ -1,6 +1,6 @@
 # Diseño pendiente: rectificativas R2 y R3 por diferencias
 
-Estado: **cálculo de borrador R2/R3 disponible en la API para un caso restringido; emisión y remisión bloqueadas**.
+Estado: **cálculo de borrador R2/R3 y modelo de saldo cobrable disponibles; emisión y remisión R2/R3 bloqueadas**.
 
 ## Regla fiscal que condiciona el modelo
 
@@ -15,7 +15,7 @@ La [guía de modificación de la base imponible de la AEAT](https://sede.agencia
 | Línea y desglose fiscal | `calculateInvoiceLine` deriva cuota de `base × tipo`; la cuota no puede ser positiva con base cero. | Una modalidad explícita `VAT_ONLY`, con cuota calculada a partir del IVA original impagado y base de la diferencia igual a cero. Conservar tipo, regla y referencia a las líneas fiscales originales. Prohibir un importe libre de IVA sin origen. |
 | Libro de IVA | `TaxService.postInvoice` invierte el signo de la cuota de un abono; ya podría registrar base cero y cuota negativa si existiese el desglose. | Verificar límite acumulado por cuota y tipo, incluyendo rectificativas previas, y registrar el vínculo al asiento original. |
 | Contabilidad | `postSalesInvoice` calcula venta como `total - IVA` y generaría una línea de venta de importe cero. | Para la diferencia de 210 €, cargar 210 € a IVA repercutido y abonar 210 € a clientes; omitir la línea de ventas de cero. Validar asiento equilibrado y período abierto. |
-| Cobros | `amount_paid + amount_due = total` y los vencimientos siguen sumando el total original. Emitir el abono dejaría 210 € menos en clientes contables, pero la factura todavía permitiría cobrar 1.210 €. | Definir saldo cobrable como total original menos rectificativas aplicadas y cobros. Ajustar vencimientos pendientes de forma transaccional, preservando pagos y factura original inmutables. Extender el invariante SQL y las consultas de cobro; cubrir abonos ordinarios previos. |
+| Cobros | `credited_amount` registra la parte de una rectificativa que reduce el saldo original; cada vencimiento conserva su importe y pagos y añade el crédito aplicado. `amount_paid + credited_amount + amount_due = total` para facturas activas. Los abonos R1/R4 nuevos de disminución actualizan estos saldos en la transacción de emisión, consumiendo primero los vencimientos más tardíos. | La emisión R2/R3 reutilizará la misma aplicación cuando estén listos contabilidad, PDF y XML. Los abonos históricos no se recalculan silenciosamente; una rectificación adicional sobre un histórico inconsistente exige revisión. |
 | PDF | La tabla muestra cantidad, precio y tipo de IVA calculado sobre el precio. | Presentar una línea de «Ajuste de cuota IVA por impago», base de diferencia 0 €, cuota rectificada y total, además de identidad y fecha de la factura original y motivo R2/R3. No presentar precio cero × tipo como si produjese la cuota. |
 | SIF/XML | `registrationXmlRecord` solo exporta F1/R1/R4. | Admitir R2/R3 `I` únicamente después de validar el nuevo documento completo. XML congelado: fecha de operación original, referencia original, `BaseImponibleOimporteNoSujeto=0`, `CuotaRepercutida=-210`, `ImporteTotal=-210` para el ejemplo. Validar XSD y respuesta AEAT de pruebas. |
 
@@ -37,3 +37,5 @@ La [guía de modificación de la base imponible de la AEAT](https://sede.agencia
 - PDF visual, XSD local, respuesta AEAT de pruebas y contabilización/cobro integral en PostgreSQL; comprobar que una remisión rechazada no se presenta como trámite fiscal completado.
 
 El borrador se crea con `POST /v1/invoices/:id/rectifications`, `sifInvoiceType=R2` o `R3`, `kind=DIFFERENCE`, `impact=DECREASE` y sin `lines`: base de diferencia cero y cuota positiva interna derivada de la línea original. El libro de IVA y el XML aplicarán el signo negativo cuando se habilite la emisión. La UI no ofrece todavía crear estos borradores y oculta su acción de emisión. Hasta completar los demás casos, R2/R3 quedan pendientes de XML AEAT y no se consideran soportados para operación real.
+
+Un abono total de una factura ya cobrada sigue siendo posible: no se resta de un saldo cobrable ya nulo. El importe no aplicado al cobro se registra en auditoría para revisión de devolución; la gestión de la devolución continúa fuera de este alcance.

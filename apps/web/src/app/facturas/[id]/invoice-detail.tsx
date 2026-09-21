@@ -227,6 +227,12 @@ export function InvoiceDetail({ id }: { id: string }) {
           <span>Cobrado</span>
           <strong>{formatMoney(document.amountPaid, document.currency)}</strong>
         </article>
+        {Number(document.creditedAmount) > 0 && (
+          <article className="summary-card">
+            <span>Abonado</span>
+            <strong>{formatMoney(document.creditedAmount, document.currency)}</strong>
+          </article>
+        )}
         <article className="summary-card due-card">
           <span>Pendiente</span>
           <strong>{formatMoney(document.amountDue, document.currency)}</strong>
@@ -1758,10 +1764,10 @@ function nextInstallmentText(
   currency: string,
 ) {
   const open = installments.find(
-    (installment) => installment.status !== "PAID",
+    (installment) => Number(installment.amount) - Number(installment.paidAmount) - Number(installment.creditedAmount) > 0,
   );
-  if (!open) return "Todos los vencimientos están cobrados.";
-  const pending = Number(open.amount) - Number(open.paidAmount);
+  if (!open) return "Todos los vencimientos están saldados.";
+  const pending = Number(open.amount) - Number(open.paidAmount) - Number(open.creditedAmount);
   return `Próximo vencimiento: ${formatInvoiceDate(open.dueDate)} · ${formatMoney(String(pending), currency)}`;
 }
 

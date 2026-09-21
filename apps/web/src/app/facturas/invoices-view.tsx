@@ -113,6 +113,7 @@ export function InvoicesView() {
               <option value="SENT">Enviadas</option>
               <option value="PARTIALLY_PAID">Cobro parcial</option>
               <option value="PAID">Cobradas</option>
+              <option value="SETTLED">Saldadas con abono</option>
               <option value="OVERDUE">Vencidas</option>
               <option value="RECTIFIED">Rectificadas</option>
               <option value="CANCELLED">Anuladas</option>

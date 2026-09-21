@@ -32,6 +32,7 @@ import {
   UpdateInvoiceDto,
 } from "./dto/invoice.dto";
 import { CreateRectificationDto } from "./dto/create-rectification.dto";
+import { planReceivableCredit } from "../payments/receivable-credit";
 import { ListInvoicesDto } from "./dto/list-invoices.dto";
 import { IssueInvoiceDto } from "./dto/issue-invoice.dto";
 import { CancelIssuedInErrorDto } from "./dto/cancel-issued-in-error.dto";
@@ -533,6 +534,17 @@ export class InvoicesService {
     await this.sif.createRegistration(id);
     if (
       invoice.documentType === DocumentType.CREDIT_NOTE &&
+      invoice.rectificationImpact === RectificationImpact.DECREASE &&
+      invoice.originalInvoiceId
+    )
+      await this.applyReceivableCredit(
+        invoice.originalInvoiceId,
+        id,
+        invoice.total,
+        invoice.rectificationKind === RectificationKind.TOTAL,
+      );
+    if (
+      invoice.documentType === DocumentType.CREDIT_NOTE &&
       invoice.rectificationKind === RectificationKind.TOTAL &&
       invoice.originalInvoiceId
     ) {
@@ -732,7 +744,14 @@ export class InvoicesService {
       throw new ConflictException("Original invoice no longer exists");
     const original = await this.tenant.db.invoice.findFirstOrThrow({
       where: { id: invoice.originalInvoiceId, ...scope },
-      select: { status: true, documentType: true, total: true, operationDate: true },
+      select: {
+        status: true,
+        documentType: true,
+        total: true,
+        amountDue: true,
+        creditedAmount: true,
+        operationDate: true,
+      },
     });
     if (
       original.documentType !== DocumentType.INVOICE ||
@@ -775,6 +794,22 @@ export class InvoicesService {
       invoice.rectificationImpact === RectificationImpact.DECREASE &&
       invoice.rectificationKind !== RectificationKind.TOTAL
     ) {
+      if (prior.some((item) => item.rectificationImpact === RectificationImpact.INCREASE))
+        throw new ConflictException(
+          "Receivable balance after an increase rectification requires review",
+        );
+      const priorCredits = prior.reduce(
+        (sum, item) => sum.plus(item.total),
+        new Decimal(0),
+      );
+      if (!priorCredits.equals(original.creditedAmount))
+        throw new ConflictException(
+          "Earlier rectifications are not reflected in the receivable balance; review before issuing another",
+        );
+      if (invoice.total.greaterThan(original.amountDue))
+        throw new ConflictException(
+          "Rectification exceeds the unpaid receivable; refund handling requires review",
+        );
       const correctedBalance = prior.reduce(
         (balance, item) =>
           item.rectificationImpact === RectificationImpact.INCREASE
@@ -787,6 +822,62 @@ export class InvoicesService {
           "Rectifications cannot decrease more than the original invoice total",
         );
     }
+  }
+
+  private async applyReceivableCredit(
+    originalInvoiceId: string,
+    rectificationInvoiceId: string,
+    credit: Decimal,
+    totalRectification: boolean,
+  ) {
+    const scope = this.scope();
+    const original = await this.tenant.db.invoice.findFirstOrThrow({
+      where: { id: originalInvoiceId, ...scope },
+      select: {
+        id: true,
+        amountDue: true,
+        creditedAmount: true,
+        installments: true,
+      },
+    });
+    const applied = Decimal.min(credit, original.amountDue);
+    if (!totalRectification && !applied.equals(credit))
+      throw new ConflictException(
+        "Rectification exceeds the unpaid receivable; refund handling requires review",
+      );
+    if (applied.greaterThan(0)) {
+      const allocations = planReceivableCredit(
+        original.installments,
+        original.amountDue,
+        applied,
+      );
+      for (const item of allocations)
+        await this.tenant.db.invoiceInstallment.update({
+          where: { id: item.id },
+          data: { creditedAmount: { increment: item.amount } },
+        });
+      const remainingDue = original.amountDue.minus(applied);
+      await this.tenant.db.invoice.update({
+        where: { id: original.id },
+        data: {
+          creditedAmount: { increment: applied },
+          amountDue: remainingDue,
+          ...(remainingDue.isZero() && !totalRectification
+            ? { status: InvoiceStatus.SETTLED }
+            : {}),
+        },
+      });
+    }
+    await this.audit.record(
+      "invoice.receivable_credited",
+      "invoice",
+      original.id,
+      {
+        rectificationInvoiceId,
+        appliedAmount: applied.toFixed(2),
+        unappliedAmount: credit.minus(applied).toFixed(2),
+      },
+    );
   }
 
   private async build(input: CreateInvoiceDto) {
