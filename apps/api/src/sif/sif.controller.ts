@@ -58,6 +58,20 @@ export class SifController {
     return this.sif.testSubmissions(recordId);
   }
 
+  @Get(":recordId/test-submissions/:submissionId/evidence")
+  @RequirePermissions("sif_record.read")
+  async exportTestSubmissionEvidence(
+    @Param("recordId", ParseUUIDPipe) recordId: string,
+    @Param("submissionId", ParseUUIDPipe) submissionId: string,
+  ) {
+    const file = await this.sif.exportTestSubmissionEvidence(recordId, submissionId);
+    return new StreamableFile(file.content, {
+      type: "application/json; charset=utf-8",
+      disposition: `attachment; filename="${file.filename}"`,
+      length: file.content.length,
+    });
+  }
+
   @Get()
   @RequirePermissions("sif_record.read")
   list(@Query() query: ListSifRecordsDto) {

@@ -1043,25 +1043,34 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                       (entry) => entry.recordId === record.id,
                     )?.submissions[0];
                     return (
-                      <small key={`aeat-${record.id}`} role="status">
-                        AEAT pruebas ·{" "}
-                        {record.recordType === "REGISTRATION"
-                          ? "alta"
-                          : record.recordType === "SUBSANATION"
-                            ? "subsanación"
-                            : "anulación"}
-                        :{" "}
-                        {submission
-                          ? aeatTestStatusLabel(submission.status)
-                          : "sin envío"}
-                        {submission?.csv ? ` · CSV ${submission.csv}` : ""}
-                        {submission?.errorDescription
-                          ? ` · ${submission.errorDescription}`
-                          : ""}
-                        {submission?.lastError
-                          ? ` · ${submission.lastError}`
-                          : ""}
-                      </small>
+                      <div key={`aeat-${record.id}`}>
+                        <small role="status">
+                          AEAT pruebas ·{" "}
+                          {record.recordType === "REGISTRATION"
+                            ? "alta"
+                            : record.recordType === "SUBSANATION"
+                              ? "subsanación"
+                              : "anulación"}
+                          :{" "}
+                          {submission
+                            ? aeatTestStatusLabel(submission.status)
+                            : "sin envío"}
+                          {submission?.csv ? ` · CSV ${submission.csv}` : ""}
+                          {submission?.errorDescription
+                            ? ` · ${submission.errorDescription}`
+                            : ""}
+                          {submission?.lastError
+                            ? ` · ${submission.lastError}`
+                            : ""}
+                        </small>
+                        {submission && (
+                          <a
+                            href={`/api/sif/records/${record.id}/test-submissions/${submission.id}/evidence`}
+                          >
+                            Descargar evidencia AEAT pruebas
+                          </a>
+                        )}
+                      </div>
                     );
                   })}
                 {trace.data.sifRecords.some(

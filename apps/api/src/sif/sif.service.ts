@@ -798,6 +798,50 @@ export class SifService {
     });
   }
 
+  /** Sensitive, tenant-scoped evidence for an AEAT test exchange. */
+  async exportTestSubmissionEvidence(recordId: string, submissionId: string) {
+    const submission = await this.tenant.db.sifAeatSubmission.findFirst({
+      where: { id: submissionId, recordId, ...this.scope() },
+      include: { record: { select: {
+        chainPosition: true, issuerTaxId: true, invoiceNumber: true,
+        invoiceIssueDate: true, recordHash: true,
+      } } },
+    });
+    if (!submission) throw new NotFoundException("AEAT test submission not found");
+    const responseXml = submission.responseXml;
+    const reconciliationXml = submission.reconciliationXml;
+    const sha256 = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
+    const evidence = {
+      schemaVersion: 1,
+      environment: "AEAT_TEST",
+      submissionId: submission.id,
+      recordId,
+      chainPosition: submission.record.chainPosition.toString(),
+      invoiceIdentity: {
+        issuerTaxId: submission.record.issuerTaxId,
+        invoiceNumber: submission.record.invoiceNumber,
+        issueDate: formatSifIssueDate(submission.record.invoiceIssueDate),
+      },
+      recordHash: submission.record.recordHash,
+      requestSha256: submission.requestSha256,
+      status: submission.status,
+      httpStatus: submission.httpStatus,
+      globalStatus: submission.globalStatus,
+      recordStatus: submission.recordStatus,
+      csv: submission.csv,
+      errorCode: submission.errorCode,
+      errorDescription: submission.errorDescription,
+      lastAttemptAt: submission.lastAttemptAt,
+      completedAt: submission.completedAt,
+      responseSha256: responseXml ? sha256(responseXml) : null,
+      responseXml,
+      reconciliationSha256: reconciliationXml ? sha256(reconciliationXml) : null,
+      reconciliationXml,
+    };
+    const content = Buffer.from(JSON.stringify(evidence, null, 2) + "\n", "utf8");
+    return { filename: `aeat-test-${submission.id}-evidence.json`, content };
+  }
+
   private async enqueueAeatTest(recordId: string, xml: string) {
     await this.tenant.db.sifAeatSubmission.create({
       data: {

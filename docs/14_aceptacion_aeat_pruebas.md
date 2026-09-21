@@ -1,5 +1,31 @@
 # Aceptación de remisión AEAT en staging — 18/09/2026
 
+## Evidencia exportable y cobertura pendiente
+
+La API ofrece `GET /sif/records/{recordId}/test-submissions/{submissionId}/evidence`
+con permiso `sif_record.read`. Descarga un JSON acotado a la empresa con la respuesta
+SOAP original conservada en el outbox, su SHA-256, el CSV recibido, el estado, la
+identidad de factura, la huella SIF y el SHA-256 del XML enviado. Si hubo consulta
+de conciliación, incluye también su respuesta y hash. El archivo contiene datos
+fiscales: debe guardarse en un repositorio de evidencias con acceso restringido,
+fuera de Git. Un campo SOAP nulo indica que esa respuesta no está archivada en
+la base de datos; el endpoint no la reconstruye.
+
+Para cada ensayo nuevo: descargar el XML congelado y la evidencia, comprobar los
+hashes de ambos archivos, verificar que identidad, estado y CSV de la respuesta
+SOAP coinciden con el JSON, y registrar la consulta independiente del CSV en la
+sede AEAT con fecha y resultado. Una respuesta SOAP auténtica archivada permite
+auditar lo recibido por la aplicación; **no equivale** a una consulta independiente
+en la sede. Los ensayos históricos descritos abajo siguen pendientes de este
+cotejo mientras no se exporten sus respuestas y se consulten sus CSV.
+
+Cobertura observada en pruebas: F1 ordinaria, F1 con fecha de operación, R1 y R4
+por diferencias, subsanación de aviso horario y anulación de alta rechazada.
+Quedan por diseñar y validar con reglas fiscales y AEAT pruebas las demás causas
+rectificativas, sustitución, otras claves de factura, desgloses y destinatarios
+especiales. Cada caso requiere XML validado con XSD, resultado SOAP archivado y
+comprobación fiscal del motivo; no se debe inferir cobertura de un F1 aceptado.
+
 La integración VERI*FACTU de PastaGansa recibió una respuesta **Aceptado** para un
 registro de alta F1 en el servicio de **pruebas** de la AEAT. La interfaz mostró el
 registro SIF en posición 3, la cadena local verificada con tres registros y el CSV

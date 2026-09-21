@@ -115,6 +115,35 @@ describe("SifService AEAT test overview", () => {
   });
 });
 
+describe("SifService AEAT evidence export", () => {
+  it("exports the stored SOAP response with its digest and scopes the lookup", async () => {
+    const organizationId = "11111111-1111-4111-8111-111111111111";
+    const companyId = "22222222-2222-4222-8222-222222222222";
+    const findFirst = jest.fn().mockResolvedValue({
+      id: "44444444-4444-4444-8444-444444444444", status: SubmissionStatus.ACCEPTED,
+      requestSha256: "a".repeat(64), responseXml: "<soap>accepted</soap>",
+      reconciliationXml: null, csv: "CSV-1", record: {
+        chainPosition: 3n, issuerTaxId: "B12345674", invoiceNumber: "F2026-0003",
+        invoiceIssueDate: new Date("2026-09-18T00:00:00.000Z"), recordHash: "b".repeat(64),
+      },
+    });
+    const service = new SifService({
+      required: { organizationId, companyId },
+      db: { sifAeatSubmission: { findFirst } },
+    } as never, {} as never);
+    const file = await service.exportTestSubmissionEvidence(
+      "33333333-3333-4333-8333-333333333333", "44444444-4444-4444-8444-444444444444",
+    );
+    const evidence = JSON.parse(file.content.toString("utf8"));
+    expect(evidence).toMatchObject({ environment: "AEAT_TEST", chainPosition: "3", csv: "CSV-1" });
+    expect(evidence.responseSha256).toBe(createHash("sha256").update(evidence.responseXml).digest("hex"));
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: {
+      id: "44444444-4444-4444-8444-444444444444",
+      recordId: "33333333-3333-4333-8333-333333333333", organizationId, companyId,
+    } }));
+  });
+});
+
 describe("SifService XML export", () => {
   const findFirst = jest.fn();
   const service = new SifService(

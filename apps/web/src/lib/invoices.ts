@@ -213,6 +213,7 @@ export interface InvoiceTrace {
   aeatTestSubmissions: Array<{
     recordId: string;
     submissions: Array<{
+      id: string;
       status:
         | "PENDING"
         | "SENDING"
