@@ -478,35 +478,37 @@ function SuggestionPanel({
           </p>
         </div>
       )}
-      <div className="suggestion-list">
-        {suggestions?.map((suggestion) => (
-          <article key={suggestion.journalLineId}>
-            <strong>{suggestion.score}%</strong>
-            <div>
-              <span>Asiento #{suggestion.entry.entryNumber}</span>
-              <small>
-                {formatInvoiceDate(suggestion.entry.entryDate)} ·{" "}
-                {suggestion.entry.description}
-              </small>
-              <b>
-                {formatMoney(
-                  Number(suggestion.debit) > 0
-                    ? suggestion.debit
-                    : suggestion.credit,
-                  transaction?.currency ?? "EUR",
-                )}
-              </b>
-            </div>
-            <button
-              className="primary-button compact"
-              disabled={pending}
-              onClick={() => onReconcile(suggestion.journalLineId)}
-            >
-              {pending ? "Conciliando…" : "Conciliar"}
-            </button>
-          </article>
-        ))}
-      </div>
+      {transaction?.status === "UNMATCHED" && (
+        <div className="suggestion-list">
+          {suggestions?.map((suggestion) => (
+            <article key={suggestion.journalLineId}>
+              <strong>{suggestion.score}%</strong>
+              <div>
+                <span>Asiento #{suggestion.entry.entryNumber}</span>
+                <small>
+                  {formatInvoiceDate(suggestion.entry.entryDate)} ·{" "}
+                  {suggestion.entry.description}
+                </small>
+                <b>
+                  {formatMoney(
+                    Number(suggestion.debit) > 0
+                      ? suggestion.debit
+                      : suggestion.credit,
+                    transaction?.currency ?? "EUR",
+                  )}
+                </b>
+              </div>
+              <button
+                className="primary-button compact"
+                disabled={pending}
+                onClick={() => onReconcile(suggestion.journalLineId)}
+              >
+                {pending ? "Conciliando…" : "Conciliar"}
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
