@@ -397,14 +397,15 @@ export class PurchasesService {
         where: { purchaseInvoiceId: purchase.id, ...scope },
         select: { amount: true },
       });
-    if (!installments.length && purchase.total.greaterThan(0))
+    const payable = purchase.total.minus(purchase.withholdingAmount);
+    if (!installments.length && payable.greaterThan(0))
       await this.tenant.db.purchaseInvoiceInstallment.create({
         data: {
           ...scope,
           purchaseInvoiceId: purchase.id,
           position: 1,
           dueDate: purchase.dueDate ?? purchase.issueDate,
-          amount: purchase.total,
+          amount: payable,
         },
       });
     else if (
@@ -413,7 +414,7 @@ export class PurchasesService {
           (sum, installment) => sum.plus(installment.amount),
           new Decimal(0),
         )
-        .equals(purchase.total)
+        .equals(payable)
     )
       throw new ConflictException(
         "Payment schedule total must equal the purchase invoice total",
@@ -460,7 +461,7 @@ export class PurchasesService {
         requiredApprovals,
         approvalCount,
         status: PurchaseInvoiceStatus.APPROVED,
-        amountDue: purchase.total,
+        amountDue: purchase.total.minus(purchase.withholdingAmount),
         approvedAt: new Date(),
       },
     });
@@ -533,6 +534,14 @@ export class PurchasesService {
         total: new Decimal(0),
       },
     );
+    const withholdingRate = new Decimal(input.withholdingRate ?? 0);
+    const withholdingBase = totals.subtotal.minus(totals.discountTotal);
+    const withholdingAmount = withholdingBase.mul(withholdingRate).div(100).toDecimalPlaces(2);
+    if (withholdingAmount.greaterThanOrEqualTo(totals.total))
+      throw new BadRequestException("Withholding must be less than the invoice total");
+    if (withholdingRate.greaterThan(0) &&
+        !/^[0-9XYZ][0-9A-Z]{8}$/i.test(supplier.taxId ?? ""))
+      throw new BadRequestException("Professional IRPF withholding requires a supplier with a Spanish personal NIF or NIE");
     return {
       document: {
         supplierId: supplier.id,
@@ -547,6 +556,8 @@ export class PurchasesService {
         currency: input.currency ?? "EUR",
         notes: input.notes?.trim() || null,
         ...totals,
+        withholdingRate,
+        withholdingAmount,
       },
       lines,
     };

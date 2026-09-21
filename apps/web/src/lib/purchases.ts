@@ -9,6 +9,7 @@ export const purchaseInputSchema = z.object({
   dueDate: z.union([z.iso.date(), z.literal("")]).optional(),
   currency: z.literal("EUR"),
   notes: z.string().trim().max(5_000).optional(),
+  withholdingRate: z.number().min(0).max(100).multipleOf(0.01).optional(),
   lines: z
     .array(
       z.object({
@@ -44,6 +45,8 @@ export interface Purchase {
   taxTotal: string;
   deductibleTaxTotal: string;
   total: string;
+  withholdingRate: string;
+  withholdingAmount: string;
   amountPaid: string;
   amountDue: string;
   notes: string | null;
@@ -72,6 +75,24 @@ export interface Purchase {
 export interface PurchasePage {
   data: Purchase[];
   nextCursor: string | null;
+}
+
+export interface PurchaseWithholdingSummary {
+  year: number;
+  basis: "paidAt";
+  quarters: Array<{ quarter: number; payments: number; base: string; withheld: string }>;
+  annualBySupplier: Array<{ supplierTaxId: string; supplierLegalName: string; payments: number; base: string; withheld: string }>;
+  payments: Array<{
+    paymentId: string;
+    paidAt: string;
+    supplierTaxId: string;
+    supplierLegalName: string;
+    supplierInvoiceNumber: string;
+    rate: string;
+    base: string;
+    withheld: string;
+    quarter: number;
+  }>;
 }
 
 export type SupplierPayment = Payment;

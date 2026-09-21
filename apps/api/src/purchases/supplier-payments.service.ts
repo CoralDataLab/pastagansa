@@ -14,6 +14,7 @@ import { AccountingService } from "../accounting/accounting.service";
 import { AuditService } from "../audit/audit.service";
 import { TenantContextService } from "../tenancy/tenant-context.service";
 import { RecordSupplierPaymentDto } from "./dto/record-supplier-payment.dto";
+import { allocateProfessionalWithholding } from "./professional-withholding";
 import {
   PurchasePaymentScheduleQueryDto,
   SetPurchasePaymentScheduleDto,
@@ -26,6 +27,60 @@ export class SupplierPaymentsService {
     private readonly audit: AuditService,
     private readonly accounting: AccountingService,
   ) {}
+
+  async withholdingSummary(year: number) {
+    if (!Number.isInteger(year) || year < 2000 || year > 2100)
+      throw new BadRequestException("A valid fiscal year is required");
+    const payments = await this.tenant.db.supplierPayment.findMany({
+      where: {
+        ...this.scope(),
+        paidAt: { gte: new Date(`${year}-01-01T00:00:00.000Z`), lt: new Date(`${year + 1}-01-01T00:00:00.000Z`) },
+        withholdingAmount: { gt: 0 },
+      },
+      include: { purchaseInvoice: { select: {
+        supplierTaxId: true, supplierLegalName: true, supplierInvoiceNumber: true,
+        withholdingRate: true,
+      } } },
+      orderBy: { paidAt: "asc" },
+    });
+    const entries = payments.map((payment) => ({
+      paymentId: payment.id,
+      paidAt: payment.paidAt,
+      supplierTaxId: payment.purchaseInvoice.supplierTaxId,
+      supplierLegalName: payment.purchaseInvoice.supplierLegalName,
+      supplierInvoiceNumber: payment.purchaseInvoice.supplierInvoiceNumber,
+      rate: payment.purchaseInvoice.withholdingRate,
+      base: payment.withholdingBase,
+      withheld: payment.withholdingAmount,
+      quarter: Math.floor(payment.paidAt.getUTCMonth() / 3) + 1,
+    }));
+    const quarters = [1, 2, 3, 4].map((quarter) => {
+      const rows = entries.filter((entry) => entry.quarter === quarter);
+      return {
+        quarter,
+        payments: rows.length,
+        base: rows.reduce((sum, row) => sum.plus(row.base), new Decimal(0)).toFixed(2),
+        withheld: rows.reduce((sum, row) => sum.plus(row.withheld), new Decimal(0)).toFixed(2),
+      };
+    });
+    const supplierIds = [...new Set(entries.map((entry) => entry.supplierTaxId))];
+    return {
+      year,
+      basis: "paidAt",
+      quarters,
+      annualBySupplier: supplierIds.map((supplierTaxId) => {
+        const rows = entries.filter((entry) => entry.supplierTaxId === supplierTaxId);
+        return {
+          supplierTaxId,
+          supplierLegalName: rows[0].supplierLegalName,
+          payments: rows.length,
+          base: rows.reduce((sum, row) => sum.plus(row.base), new Decimal(0)).toFixed(2),
+          withheld: rows.reduce((sum, row) => sum.plus(row.withheld), new Decimal(0)).toFixed(2),
+        };
+      }),
+      payments: entries,
+    };
+  }
 
   async getSchedule(
     purchaseInvoiceId: string,
@@ -70,9 +125,9 @@ export class SupplierPaymentsService {
       (sum, amount) => sum.plus(amount),
       new Decimal(0),
     );
-    if (!scheduled.equals(purchase.total))
+    if (!scheduled.equals(purchase.total.minus(purchase.withholdingAmount)))
       throw new BadRequestException(
-        "Payment schedule total must equal the purchase invoice total",
+        "Payment schedule total must equal the net supplier payable",
       );
     await this.tenant.db.purchaseInvoiceInstallment.deleteMany({
       where: { purchaseInvoiceId, ...scope },
@@ -144,6 +199,23 @@ export class SupplierPaymentsService {
       throw new BadRequestException(
         "Payment amount cannot exceed the purchase invoice amount due",
       );
+    const previousPayments = await this.tenant.db.supplierPayment.findMany({
+      where: { purchaseInvoiceId, ...scope },
+      select: { withholdingAmount: true, withholdingBase: true },
+    });
+    const retained = previousPayments.reduce((sum, item) => sum.plus(item.withholdingAmount), new Decimal(0));
+    const retainedBase = previousPayments.reduce((sum, item) => sum.plus(item.withholdingBase), new Decimal(0));
+    const netTotal = purchase.total.minus(purchase.withholdingAmount);
+    const grossBase = purchase.subtotal.minus(purchase.discountTotal);
+    const { withholdingAmount, withholdingBase } = allocateProfessionalWithholding({
+      netPayment: amount,
+      netDue: purchase.amountDue,
+      netTotal,
+      grossBase,
+      totalWithholding: purchase.withholdingAmount,
+      baseAlreadyReported: retainedBase,
+      withholdingAlreadyReported: retained,
+    });
     const installments =
       await this.tenant.db.purchaseInvoiceInstallment.findMany({
         where: { purchaseInvoiceId, ...scope },
@@ -160,6 +232,8 @@ export class SupplierPaymentsService {
           purchaseInvoiceId,
           idempotencyKey,
           amount,
+          withholdingAmount,
+          withholdingBase,
           currency: purchase.currency,
           paidAt: new Date(input.paidAt),
           method: input.method,

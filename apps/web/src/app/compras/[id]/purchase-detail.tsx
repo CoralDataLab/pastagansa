@@ -227,6 +227,12 @@ export function PurchaseDetail({ id }: { id: string }) {
             Total{" "}
             <strong>{formatMoney(document.total, document.currency)}</strong>
           </span>
+          {Number(document.withholdingAmount) > 0 && (
+            <>
+              <span>IRPF retenido <strong>{formatMoney(document.withholdingAmount, document.currency)}</strong></span>
+              <span>Neto al proveedor <strong>{formatMoney(String(Number(document.total) - Number(document.withholdingAmount)), document.currency)}</strong></span>
+            </>
+          )}
         </div>
         {document.notes && (
           <p className="invoice-notes">

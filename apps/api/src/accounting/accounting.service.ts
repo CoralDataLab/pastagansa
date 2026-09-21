@@ -679,11 +679,14 @@ export class AccountingService {
       lines: [
         posting(
           accounts.SUPPLIER_PAYABLE,
-          payment.amount,
+          payment.amount.plus(payment.withholdingAmount),
           false,
           payment.purchaseInvoice.supplierId,
         ),
         posting(accounts.BANK, payment.amount, true),
+        ...(payment.withholdingAmount.greaterThan(0)
+          ? [posting(accounts.WITHHOLDING_PAYABLE, payment.withholdingAmount, true)]
+          : []),
       ],
     });
   }
@@ -898,6 +901,7 @@ const CUSTOMER_PAYMENT_RULE_ROLES = [
 const SUPPLIER_PAYMENT_RULE_ROLES = [
   AccountingRole.SUPPLIER_PAYABLE,
   AccountingRole.BANK,
+  AccountingRole.WITHHOLDING_PAYABLE,
 ] as const;
 
 const RULE_ROLES: Partial<
@@ -925,6 +929,7 @@ const ACCOUNT_CLASS_BY_ROLE: Record<AccountingRole, AccountClass> = {
   [AccountingRole.OUTPUT_VAT]: AccountClass.LIABILITY,
   [AccountingRole.INPUT_VAT]: AccountClass.ASSET,
   [AccountingRole.BANK]: AccountClass.ASSET,
+  [AccountingRole.WITHHOLDING_PAYABLE]: AccountClass.LIABILITY,
 };
 
 function assertRuleCombination(
@@ -986,6 +991,13 @@ const DEFAULT_ACCOUNTS = [
     accountClass: AccountClass.ASSET,
     systemRole: AccountingRole.BANK,
     isReconcilable: true,
+  },
+  {
+    code: "475100",
+    name: "Hacienda Pública, retenciones practicadas",
+    accountClass: AccountClass.LIABILITY,
+    systemRole: AccountingRole.WITHHOLDING_PAYABLE,
+    isReconcilable: false,
   },
 ] as const;
 

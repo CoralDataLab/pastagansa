@@ -8,6 +8,7 @@ import { join } from "node:path";
 import request = require("supertest");
 import type { Test as SupertestTest } from "supertest";
 import { AppModule } from "../src/app.module";
+import { IdentityService } from "../src/identity/identity.service";
 
 describe("platform integrity", () => {
   let app: INestApplication;
@@ -917,7 +918,7 @@ describe("platform integrity", () => {
     const defaultAccountingRules = await authed(accountA.accessToken, tenantA)
       .get("/v1/accounting/rules")
       .expect(200);
-    expect(defaultAccountingRules.body).toHaveLength(10);
+    expect(defaultAccountingRules.body).toHaveLength(11);
     expect(defaultAccountingRules.body).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1800,7 +1801,7 @@ describe("platform integrity", () => {
     const accounts = await authed(accountA.accessToken, tenantA)
       .get("/v1/accounting/accounts")
       .expect(200);
-    expect(accounts.body).toHaveLength(8);
+    expect(accounts.body).toHaveLength(9);
     const bankAccount = accounts.body.find(
       ({ code }: { code: string }) => code === "572000",
     );
@@ -2418,6 +2419,81 @@ describe("platform integrity", () => {
         await db.auditEvent.count({ where: { entityId: contactA.body.id } }),
       ).toBeGreaterThan(0);
     });
+  });
+
+  it("keeps a professional invoice gross while retaining IRPF on partial supplier payments", async () => {
+    const email = "withholding@example.com";
+    const account = await app.get(IdentityService).register({
+      email,
+      password: "correct horse battery staple",
+      organizationName: "Withholding Org",
+      legalName: "Withholding SL",
+      taxId: "B12345674",
+    });
+    const tenant = await tenantFor(email);
+    const supplier = await authed(account.accessToken, tenant)
+      .post("/v1/contacts")
+      .send({ legalName: "Professional Supplier", taxId: "12345678Z", isCustomer: false, isSupplier: true })
+      .expect(201);
+    const rules = await authed(account.accessToken, tenant)
+      .get("/v1/tax-rules?effectiveOn=2026-09-18")
+      .expect(200);
+    const general = rules.body.find(({ code }: { code: string }) => code === "ES_VAT_GENERAL_21");
+    const sequence = await authed(account.accessToken, tenant)
+      .post("/v1/document-sequences")
+      .send({ documentType: "PURCHASE_INVOICE", series: "REC2026", padding: 5 })
+      .expect(201);
+    const draft = await authed(account.accessToken, tenant)
+      .post("/v1/purchase-invoices")
+      .send({
+        supplierId: supplier.body.id, supplierInvoiceNumber: "PRO-2026-001",
+        issueDate: "2026-09-18", receivedDate: "2026-09-18", currency: "EUR",
+        withholdingRate: 15,
+        lines: [{ description: "Professional service", quantity: 1, unitPrice: 200,
+          taxRuleId: general.id, taxRate: 21, deductiblePct: 100 }],
+      })
+      .expect(201);
+    expect(draft.body).toMatchObject({ total: "242", taxTotal: "42", withholdingAmount: "30" });
+    const approved = await authed(account.accessToken, tenant)
+      .post(`/v1/purchase-invoices/${draft.body.id}/approve`)
+      .set("idempotency-key", "withheld-approval")
+      .send({ sequenceId: sequence.body.id })
+      .expect(200);
+    expect(approved.body).toMatchObject({ amountDue: "212", total: "242" });
+    expect(approved.body.installments[0].amount).toBe("212");
+    const purchaseEntries = await authed(account.accessToken, tenant)
+      .get("/v1/accounting/journal-entries?sourceType=PURCHASE_INVOICE")
+      .expect(200);
+    expect(accountingAmounts(purchaseEntries.body.data[0])).toEqual({
+      "400000": { debit: "0", credit: "242" },
+      "472000": { debit: "42", credit: "0" },
+      "600000": { debit: "200", credit: "0" },
+    });
+    for (const [index, amount] of [100, 112].entries()) {
+      await authed(account.accessToken, tenant)
+        .post(`/v1/purchase-invoices/${draft.body.id}/payments`)
+        .set("idempotency-key", `withheld-payment-${index}`)
+        .send({ amount, paidAt: index === 0 ? "2026-09-30T12:00:00.000Z" : "2026-10-01T12:00:00.000Z", method: "BANK_TRANSFER" })
+        .expect(201);
+    }
+    const payments = await authed(account.accessToken, tenant)
+      .get(`/v1/purchase-invoices/${draft.body.id}/payments`)
+      .expect(200);
+    expect(payments.body.reduce((sum: number, item: { withholdingAmount: string }) => sum + Number(item.withholdingAmount), 0)).toBe(30);
+    const report = await authed(account.accessToken, tenant)
+      .get("/v1/purchase-invoices/withholdings?year=2026")
+      .expect(200);
+    expect(report.body.quarters[2].withheld).toBe("14.15");
+    expect(report.body.quarters[3].withheld).toBe("15.85");
+    expect(report.body.annualBySupplier[0]).toMatchObject({ base: "200.00", withheld: "30.00" });
+    const paymentEntries = await authed(account.accessToken, tenant)
+      .get("/v1/accounting/journal-entries?sourceType=SUPPLIER_PAYMENT")
+      .expect(200);
+    expect(paymentEntries.body.data).toHaveLength(2);
+    const posted = paymentEntries.body.data.map(accountingAmounts);
+    expect(posted.reduce((sum: number, entry: Record<string, { credit: string }>) => sum + Number(entry["475100"].credit), 0)).toBe(30);
+    const paid = await authed(account.accessToken, tenant).get(`/v1/purchase-invoices/${draft.body.id}`).expect(200);
+    expect(paid.body).toMatchObject({ total: "242", amountPaid: "212", amountDue: "0" });
   });
 
   async function register(

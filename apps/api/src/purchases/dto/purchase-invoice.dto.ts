@@ -58,6 +58,12 @@ export class CreatePurchaseInvoiceDto {
   @IsOptional() @IsDateString() dueDate?: string;
   @IsOptional() @IsCurrencyCode() currency?: string;
   @IsOptional() @IsString() @MaxLength(5000) notes?: string;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  withholdingRate?: number;
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(200)

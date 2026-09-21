@@ -54,6 +54,12 @@ export class PurchasesController {
     return this.purchases.list(query);
   }
 
+  @Get("withholdings")
+  @RequirePermissions("supplier_payment.read")
+  withholdings(@Query("year") year: string) {
+    return this.supplierPayments.withholdingSummary(Number(year));
+  }
+
   @Get(":id")
   @RequirePermissions("purchase_invoice.read")
   get(@Param("id", ParseUUIDPipe) id: string) {

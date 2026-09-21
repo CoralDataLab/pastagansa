@@ -12,6 +12,7 @@ import {
   type Purchase,
   type PurchaseInput,
   type PurchasePage,
+  type PurchaseWithholdingSummary,
 } from "@/lib/purchases";
 
 type StatusFilter = "" | Purchase["status"];
@@ -21,6 +22,11 @@ export function PurchasesView() {
   const [status, setStatus] = useState<StatusFilter>("");
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState("");
+  const [withholdingYear, setWithholdingYear] = useState(new Date().getFullYear());
+  const withholdings = useQuery({
+    queryKey: ["purchase-withholdings", withholdingYear],
+    queryFn: () => requestJson<PurchaseWithholdingSummary>(`/api/purchases/withholdings?year=${withholdingYear}`),
+  });
   const purchases = useQuery({
     queryKey: ["purchases", status],
     queryFn: () =>
@@ -160,6 +166,47 @@ export function PurchasesView() {
           </div>
         )}
       </section>
+      <section className="data-panel" aria-labelledby="purchase-withholdings-title">
+        <div className="data-toolbar invoice-toolbar">
+          <div>
+            <h2 id="purchase-withholdings-title">Retenciones a profesionales</h2>
+            <p>Importes por fecha de pago para preparar los modelos 111 y 190. Revisa las claves fiscales antes de presentarlos.</p>
+          </div>
+          <label className="filter-field">
+            <span>Ejercicio</span>
+            <input type="number" min="2000" max="2100" value={withholdingYear}
+              onChange={(event) => setWithholdingYear(Number(event.target.value))} />
+          </label>
+        </div>
+        {withholdings.isPending && <p>Cargando retenciones…</p>}
+        {withholdings.error && <p role="alert">No se pudieron cargar las retenciones: {withholdings.error.message}</p>}
+        {withholdings.data && (
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead><tr><th>Trimestre</th><th>Pagos</th><th>Base satisfecha</th><th>IRPF retenido</th></tr></thead>
+              <tbody>{withholdings.data.quarters.map((quarter) => (
+                <tr key={quarter.quarter}>
+                  <td>{quarter.quarter}º</td><td>{quarter.payments}</td>
+                  <td>{formatMoney(quarter.base, "EUR")}</td><td>{formatMoney(quarter.withheld, "EUR")}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            <h3>Resumen anual por proveedor</h3>
+            {withholdings.data.annualBySupplier.length === 0 ? <p>Sin retenciones registradas en este ejercicio.</p> : (
+              <table className="data-table">
+                <thead><tr><th>Proveedor</th><th>NIF</th><th>Pagos</th><th>Base satisfecha</th><th>IRPF retenido</th></tr></thead>
+                <tbody>{withholdings.data.annualBySupplier.map((supplier) => (
+                  <tr key={supplier.supplierTaxId}>
+                    <td>{supplier.supplierLegalName}</td><td>{supplier.supplierTaxId}</td>
+                    <td>{supplier.payments}</td><td>{formatMoney(supplier.base, "EUR")}</td>
+                    <td>{formatMoney(supplier.withheld, "EUR")}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </section>
       {creating && (
         <PurchaseDialog
           pending={createPurchase.isPending}
@@ -260,6 +307,7 @@ export function PurchaseDialog({
       dueDate: String(values.get("dueDate")),
       currency: "EUR",
       notes: String(values.get("notes") ?? "").trim() || undefined,
+      withholdingRate: Number(values.get("withholdingRate") ?? 0),
       lines: lines.map((line) => ({
         description: line.description.trim(),
         quantity: Number(line.quantity),
@@ -368,6 +416,18 @@ export function PurchaseDialog({
                 />
               </label>
             </div>
+            <label className="field">
+              <span>Retención IRPF profesional (%)</span>
+              <input
+                name="withholdingRate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                defaultValue={initial?.withholdingRate ?? "0"}
+              />
+              <small>Se calcula sobre la base antes de IVA. El total fiscal conserva el IVA; el saldo al proveedor se reduce.</small>
+            </label>
             <div className="invoice-lines-heading">
               <div>
                 <strong>Conceptos</strong>
