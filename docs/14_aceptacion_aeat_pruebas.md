@@ -30,8 +30,41 @@ La integración VERI*FACTU de PastaGansa recibió una respuesta **Aceptado** par
 registro de alta F1 en el servicio de **pruebas** de la AEAT. La interfaz mostró el
 registro SIF en posición 3, la cadena local verificada con tres registros y el CSV
 `A-DS7J3EGMD6UAJ8`. La evidencia es la captura de la interfaz aportada por la
-persona que ejecutó la prueba; no se ha contrastado el CSV directamente en la sede
-de la AEAT ni se ha archivado aquí la respuesta SOAP completa.
+persona que ejecutó la prueba. En aquel momento no se había consultado el registro
+directamente en el entorno de pruebas de la AEAT ni se había archivado aquí la
+respuesta SOAP completa.
+
+El 21/09/2026 se exportó localmente la evidencia conservada para esa remisión,
+sin copiar datos fiscales al repositorio. El XML descargado de la posición 3
+(`sif-3-registration.xml`) tiene SHA-256
+`f7fee8072c05544780bcb24d177c04d0d249bf5dff5fbb7e881023609fe5023b`,
+idéntico a `requestSha256` del JSON de evidencia. La respuesta SOAP extraída
+del JSON tiene SHA-256
+`4ab482353e8b2bf1526da5f8b0db641e6fc0ac5c4616589b71f96bfa8bbae789`,
+idéntico a `responseSha256`. El SOAP archivado indica HTTP 200, `EstadoEnvio` y
+`EstadoRegistro` **Correcto**, operación `Alta`, la identidad de `F2026-0003`
+y el CSV citado. Este cotejo confirma la coherencia entre los archivos
+descargados y la respuesta guardada por la aplicación; sigue pendiente la
+consulta independiente del registro en el entorno AEAT de pruebas en el momento
+de esta comprobación local.
+
+Posteriormente, el operador aportó una captura de la consulta de registros del
+entorno AEAT de pruebas: para `F2026-0003`, ejercicio 2026, mes 09, figura un
+registro F1 con fecha de expedición 18/09/2026, remisión 18/09/2026 a las
+08:56:33, cuota 2,10 €, importe 12,10 € y estado **Correcto**. La fecha y hora
+coinciden con `TimestampPresentacion` del SOAP archivado; identidad, tipo e
+importes coinciden con el XML congelado. El operador descargó además el CSV de
+esa consulta (`query.csv`, SHA-256
+`5e4a1f6b2090e36ed4e4abbafe435c79f1d019260f08c1bc10af6ac328f7e325`).
+Su fila de `F2026-0003` confirma el estado **Correcto**, el tipo F1, la base
+10,00 €, cuota 2,10 €, importe 12,10 €, emisor y fecha de expedición. La
+huella completa coincide exactamente con `recordHash` del JSON y con la huella
+del XML congelado. El CSV exportado muestra también un identificador de
+petición; no se compara aquí con el SOAP de remisión porque esa respuesta no lo
+incluye. Quedan cotejados de forma independiente identidad, contenido básico,
+huella y estado de esta alta en AEAT pruebas. El CSV de respuesta
+`A-DS7J3EGMD6UAJ8` solo se ve en el SOAP archivado; el CSV de exportación de
+la consulta no contiene una columna para ese código.
 
 La prueba se realizó en el staging aislado con un certificado de representante
 montado en la API. El código del cliente SOAP fija el endpoint de pruebas
