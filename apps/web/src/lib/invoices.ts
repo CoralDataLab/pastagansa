@@ -76,7 +76,7 @@ export interface Invoice {
 }
 
 export const rectificationInputSchema = z.object({
-  sifInvoiceType: z.enum(["R1", "R2", "R3", "R4"]),
+  sifInvoiceType: z.enum(["R1", "R4"]),
   reason: z.string().trim().min(5).max(1_000),
   issueDate: z.iso.date(),
   dueDate: z.union([z.iso.date(), z.literal("")]).optional(),

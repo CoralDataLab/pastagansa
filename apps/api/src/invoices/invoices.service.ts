@@ -194,6 +194,10 @@ export class InvoicesService {
       throw new BadRequestException(
         "R5 can only rectify a simplified invoice, which is not supported yet",
       );
+    if (isVatOnlyRectificationType(input.sifInvoiceType))
+      throw new ConflictException(
+        "R2/R3 rectification requires a VAT-only adjustment model and is not yet supported",
+      );
     if (
       requiresOriginalOperationDate(input.sifInvoiceType) &&
       !original.operationDate
@@ -678,6 +682,10 @@ export class InvoicesService {
       !invoice.rectificationImpact
     )
       throw new ConflictException("Rectification metadata is incomplete");
+    if (isVatOnlyRectificationType(invoice.sifInvoiceType))
+      throw new ConflictException(
+        "R2/R3 rectification requires a VAT-only adjustment model and is not yet supported",
+      );
     const scope = this.scope();
     const locked = await this.tenant.db.$queryRaw<Array<{ id: string }>>`
       SELECT "id" FROM "invoices"
@@ -1001,6 +1009,10 @@ function requiresOriginalOperationDate(type: SifInvoiceType) {
   return type === SifInvoiceType.R1 ||
     type === SifInvoiceType.R2 ||
     type === SifInvoiceType.R3;
+}
+
+function isVatOnlyRectificationType(type: SifInvoiceType) {
+  return type === SifInvoiceType.R2 || type === SifInvoiceType.R3;
 }
 
 function sumInvoiceLines(

@@ -775,7 +775,7 @@ registro e identificador de software, sin decidir automáticamente cómo iniciar
 cadena reglamentaria a partir de registros de prueba. La
 trazabilidad web muestra posición, algoritmo, versión y huella abreviada. Cada factura
 conserva una clasificación SIF inmutable: F1 para facturas completas y R1–R5 para
-rectificativas. La web permite crear un abono total eligiendo R1–R4 según el motivo
+rectificativas. La web permite crear un abono total eligiendo R1 o R4 según el motivo
 jurídico, muestra esa clasificación y permite emitirlo con una serie rectificativa;
 R5 se rechaza mientras no existan facturas simplificadas F2. La anulación se genera
 como un segundo registro append-only, con la huella AEAT específica, vinculado al alta
@@ -793,12 +793,15 @@ se bloquea para originales históricos sin ese dato, sin inferirlo. El exportado
 R2–R3, R5 y desgloses exentos, no sujetos o con
 recargo, inversión del sujeto pasivo y tipos IVA fuera de `0`, `4`, `10`, `21` hasta
 modelar sus claves y reglas AEAT, en vez de inventar campos fiscales.
-La creación y emisión de borradores R1–R3 exige ahora la fecha de operación conservada en
-la factura original, tal como indica la [FAQ AEAT de procedimientos de
-facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html).
-R2 (concurso) y R3 (crédito incobrable) siguen sin XML AEAT: su tratamiento
-fiscal no se reduce a cambiar `TipoFactura` y requiere modelar y validar la
-rectificación correspondiente antes de habilitar su remisión. El contraste
+La creación y emisión R1 exige la fecha de operación conservada en la factura
+original, tal como indica la [FAQ AEAT de procedimientos de
+facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html);
+la misma condición permanece codificada para R2/R3 cuando se implemente su modelo.
+R2 (concurso) y R3 (crédito incobrable) tienen bloqueadas la creación y emisión
+de rectificativas y siguen sin XML AEAT: su tratamiento fiscal requiere modelar y validar la
+rectificación correspondiente antes de habilitar su remisión. El mapa de
+invariantes, cambios y pruebas para ese trabajo está en
+[`16_rectificativas_r2_r3.md`](16_rectificativas_r2_r3.md). El contraste
 del 17/09/2026 confirmó los XSD locales, el elemento de entrada WSDL y los tres casos
 sintéticos; el 18/09/2026 una alta F1 ordinaria obtuvo respuesta **Aceptado**
 en el servicio AEAT de pruebas (véase `docs/14_aceptacion_aeat_pruebas.md`). También limita

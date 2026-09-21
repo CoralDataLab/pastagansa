@@ -414,16 +414,16 @@ function RectificationDialog({
             <label className="field full">
               <span>Motivo fiscal AEAT</span>
               <select name="sifInvoiceType" defaultValue="R4" required>
-                {(["R1", "R2", "R3", "R4"] as const).map((type) => (
+                {(["R1", "R4"] as const).map((type) => (
                   <option key={type} value={type} disabled={type !== "R4" && !invoice.operationDate}>
                     {type} · {sifInvoiceTypeLabel(type)}
                   </option>
                 ))}
               </select>
               {!invoice.operationDate && (
-                <small>R1, R2 y R3 requieren la fecha de operación conservada en la factura original.</small>
+                <small>R1 requiere la fecha de operación conservada en la factura original.</small>
               )}
-              <small>R2 y R3 requieren revisión fiscal del motivo. Su XML AEAT todavía no está soportado, por lo que no pueden emitirse en modo VERI*FACTU.</small>
+              <small>R2 y R3 están pendientes del ajuste de IVA y no se pueden crear todavía.</small>
             </label>
             <label className="field">
               <span>Fecha de rectificación</span>

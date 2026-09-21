@@ -2265,7 +2265,15 @@ describe("platform integrity", () => {
       .set("idempotency-key", "issue-r1-historical-a")
       .send({ sequenceId: sequence.body.id })
       .expect(200);
-    for (const sifInvoiceType of ["R1", "R2", "R3"]) {
+    const historicalR1Response = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${historicalDraft.body.id}/rectifications`)
+      .send({
+        sifInvoiceType: "R1", kind: "TOTAL", impact: "DECREASE",
+        reason: "Correction after delivery", issueDate: "2026-09-16",
+      })
+      .expect(409);
+    expect(JSON.stringify(historicalR1Response.body)).toContain("R1 requires the original invoice operation date");
+    for (const sifInvoiceType of ["R2", "R3"]) {
       const response = await authed(accountA.accessToken, tenantA)
         .post(`/v1/invoices/${historicalDraft.body.id}/rectifications`)
         .send({
@@ -2273,7 +2281,7 @@ describe("platform integrity", () => {
           reason: "Correction after delivery", issueDate: "2026-09-16",
         })
         .expect(409);
-      expect(JSON.stringify(response.body)).toContain(`${sifInvoiceType} requires the original invoice operation date`);
+      expect(JSON.stringify(response.body)).toContain("R2/R3 rectification requires a VAT-only adjustment model");
     }
     const historicalR4Draft = await authed(accountA.accessToken, tenantA)
       .post(`/v1/invoices/${historicalDraft.body.id}/rectifications`)
@@ -2285,11 +2293,12 @@ describe("platform integrity", () => {
     await admin.invoice.update({
       where: { id: historicalR4Draft.body.id }, data: { sifInvoiceType: "R2" },
     });
-    await authed(accountA.accessToken, tenantA)
+    const historicalR2Issue = await authed(accountA.accessToken, tenantA)
       .post(`/v1/invoices/${historicalR4Draft.body.id}/issue`)
       .set("idempotency-key", "issue-r2-historical-a")
       .send({ sequenceId: creditSequence.body.id })
       .expect(409);
+    expect(JSON.stringify(historicalR2Issue.body)).toContain("R2/R3 rectification requires a VAT-only adjustment model");
 
     const erroneousDraft = await authed(accountA.accessToken, tenantA)
       .post("/v1/invoices")
