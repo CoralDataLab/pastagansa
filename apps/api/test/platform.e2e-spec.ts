@@ -2277,11 +2277,11 @@ describe("platform integrity", () => {
       const response = await authed(accountA.accessToken, tenantA)
         .post(`/v1/invoices/${historicalDraft.body.id}/rectifications`)
         .send({
-          sifInvoiceType, kind: "TOTAL", impact: "DECREASE",
+          sifInvoiceType, kind: "DIFFERENCE", impact: "DECREASE",
           reason: "Correction after delivery", issueDate: "2026-09-16",
         })
         .expect(409);
-      expect(JSON.stringify(response.body)).toContain("R2/R3 rectification requires a VAT-only adjustment model");
+      expect(JSON.stringify(response.body)).toContain(`${sifInvoiceType} requires the original invoice operation date`);
     }
     const historicalR4Draft = await authed(accountA.accessToken, tenantA)
       .post(`/v1/invoices/${historicalDraft.body.id}/rectifications`)
@@ -2298,7 +2298,45 @@ describe("platform integrity", () => {
       .set("idempotency-key", "issue-r2-historical-a")
       .send({ sequenceId: creditSequence.body.id })
       .expect(409);
-    expect(JSON.stringify(historicalR2Issue.body)).toContain("R2/R3 rectification requires a VAT-only adjustment model");
+    expect(JSON.stringify(historicalR2Issue.body)).toContain("R2/R3 issuance remains blocked");
+
+    const vatOnlyOriginal = await authed(accountA.accessToken, tenantA)
+      .post("/v1/invoices")
+      .send(invoice(r4Customer.body.id))
+      .expect(201);
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${vatOnlyOriginal.body.id}/issue`)
+      .set("idempotency-key", "issue-vat-only-original-a")
+      .send({ sequenceId: sequence.body.id })
+      .expect(200);
+    const vatOnlyInput = {
+      sifInvoiceType: "R3", kind: "DIFFERENCE", impact: "DECREASE",
+      reason: "Unpaid customer debt under review", issueDate: "2026-09-16",
+    };
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${vatOnlyOriginal.body.id}/rectifications`)
+      .send({ ...vatOnlyInput, lines: [{ description: "Manual tax", quantity: 1, unitPrice: 21, taxRate: 21 }] })
+      .expect(400);
+    const vatOnlyDraft = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${vatOnlyOriginal.body.id}/rectifications`)
+      .send(vatOnlyInput)
+      .expect(201);
+    expect(vatOnlyDraft.body).toMatchObject({
+      status: "DRAFT", sifInvoiceType: "R3", rectificationKind: "DIFFERENCE",
+      rectificationImpact: "DECREASE", subtotal: "0", taxTotal: "21", total: "21",
+    });
+    expect(vatOnlyDraft.body.lines[0]).toMatchObject({ netAmount: "0", taxAmount: "21", totalAmount: "21" });
+    expect(vatOnlyDraft.body.lines[0].taxLines[0]).toMatchObject({ taxableBase: "0", taxAmount: "21" });
+    await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${vatOnlyOriginal.body.id}/rectifications`)
+      .send(vatOnlyInput)
+      .expect(409);
+    const blockedVatOnlyIssue = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${vatOnlyDraft.body.id}/issue`)
+      .set("idempotency-key", "issue-vat-only-draft-a")
+      .send({ sequenceId: creditSequence.body.id })
+      .expect(409);
+    expect(JSON.stringify(blockedVatOnlyIssue.body)).toContain("R2/R3 issuance remains blocked");
 
     const erroneousDraft = await authed(accountA.accessToken, tenantA)
       .post("/v1/invoices")

@@ -1,6 +1,6 @@
 # Diseño pendiente: rectificativas R2 y R3 por diferencias
 
-Estado: **diseño; la creación y emisión R2/R3 están bloqueadas hasta implementar el ajuste**.
+Estado: **cálculo de borrador R2/R3 disponible en la API para un caso restringido; emisión y remisión bloqueadas**.
 
 ## Regla fiscal que condiciona el modelo
 
@@ -21,7 +21,7 @@ La [guía de modificación de la base imponible de la AEAT](https://sede.agencia
 
 ## Primer alcance seguro
 
-1. Original F1 emitido en EUR, con fecha de operación conservada, IVA ordinario sujeto, sin recargo, exención, inversión de sujeto pasivo ni régimen especial. Una factura original por ajuste. La primera implementación puede limitarse a un tipo de IVA y sin pagos parciales; esos casos deben rechazarse expresamente hasta que exista reparto proporcional por tipo y vencimiento.
+1. Original F1 emitido en EUR, con fecha de operación conservada, IVA ordinario sujeto, sin recargo, exención, inversión de sujeto pasivo ni régimen especial. Una factura original por ajuste. El primer borrador exige una sola línea al 4, 10 o 21 %, ningún cobro y ninguna rectificativa previa. Rechaza expresamente varios tipos o pagos parciales hasta que exista reparto proporcional por tipo y vencimiento.
 2. Elegibilidad R2 o R3 declarada por el operador con evidencia de fechas y documentos. Guardar motivo legal, base/cuota originales, saldo impagado, cuota elegida, referencia a la factura original y confirmación de revisión fiscal en un snapshot auditable; distinguir evidencia pendiente de emisión autorizada. No prometer que las fechas o documentos registrados sustituyen la revisión fiscal.
 3. Antes de emitir, recalcular bajo bloqueo del original la cuota recuperable y las rectificativas ya emitidas. No permitir dos ajustes concurrentes que superen la cuota original impagada. La cuota debe ser estrictamente positiva en el modelo interno; el signo negativo se aplica al libro de IVA y al XML de diferencia.
 4. Emitir, contabilizar, actualizar saldo cobrable/vencimientos y congelar SIF/XML en una transacción. Si falla cualquier paso, no consumir número de factura ni dejar un asiento o saldo parcial.
@@ -36,4 +36,4 @@ La [guía de modificación de la base imponible de la AEAT](https://sede.agencia
 - R2 fuera de plazo, R3 sin prueba de reclamación o con exclusión legal: no emitir automáticamente; requerir revisión fiscal documentada. Fechas y exclusiones deben contrastarse con la norma vigente antes de activar el flujo.
 - PDF visual, XSD local, respuesta AEAT de pruebas y contabilización/cobro integral en PostgreSQL; comprobar que una remisión rechazada no se presenta como trámite fiscal completado.
 
-Hasta completar estos casos, R2/R3 quedan pendientes de XML AEAT y no se consideran soportados para operación real.
+El borrador se crea con `POST /v1/invoices/:id/rectifications`, `sifInvoiceType=R2` o `R3`, `kind=DIFFERENCE`, `impact=DECREASE` y sin `lines`: base de diferencia cero y cuota positiva interna derivada de la línea original. El libro de IVA y el XML aplicarán el signo negativo cuando se habilite la emisión. La UI no ofrece todavía crear estos borradores y oculta su acción de emisión. Hasta completar los demás casos, R2/R3 quedan pendientes de XML AEAT y no se consideran soportados para operación real.

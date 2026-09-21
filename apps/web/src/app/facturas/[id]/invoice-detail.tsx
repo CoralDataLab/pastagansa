@@ -99,6 +99,8 @@ export function InvoiceDetail({ id }: { id: string }) {
     );
 
   const document = invoice.data;
+  const vatOnlyDraft = document.status === "DRAFT" &&
+    (document.sifInvoiceType === "R2" || document.sifInvoiceType === "R3");
   return (
     <AppShell active="facturas">
       <section className="detail-heading">
@@ -121,14 +123,16 @@ export function InvoiceDetail({ id }: { id: string }) {
                   Editar borrador
                 </button>
               )}
-              <button
-                className="primary-button compact"
-                onClick={() => setIssuing(true)}
-              >
-                {document.documentType === "CREDIT_NOTE"
-                  ? "Emitir rectificativa"
-                  : "Emitir factura"}
-              </button>
+              {!vatOnlyDraft && (
+                <button
+                  className="primary-button compact"
+                  onClick={() => setIssuing(true)}
+                >
+                  {document.documentType === "CREDIT_NOTE"
+                    ? "Emitir rectificativa"
+                    : "Emitir factura"}
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -171,6 +175,12 @@ export function InvoiceDetail({ id }: { id: string }) {
             <strong>{sifInvoiceTypeLabel(document.sifInvoiceType)}</strong>
           </article>
         </section>
+      )}
+      {vatOnlyDraft && (
+        <div className="notice" role="status">
+          Esta rectificativa solo puede revisarse como borrador. La emisión R2/R3
+          sigue pendiente de validación fiscal y contable.
+        </div>
       )}
       {document.sourceQuote && (
         <div className="notice" role="status">
@@ -254,9 +264,9 @@ export function InvoiceDetail({ id }: { id: string }) {
                   <td>
                     <strong>{line.description}</strong>
                   </td>
-                  <td>{formatQuantity(line.quantity)}</td>
+                  <td>{vatOnlyDraft ? "—" : formatQuantity(line.quantity)}</td>
                   <td className="money-cell">
-                    {formatMoney(line.unitPrice, document.currency)}
+                    {vatOnlyDraft ? "—" : formatMoney(line.unitPrice, document.currency)}
                   </td>
                   <td>{Number(line.taxRate)} %</td>
                   <td className="money-cell">
@@ -423,7 +433,7 @@ function RectificationDialog({
               {!invoice.operationDate && (
                 <small>R1 requiere la fecha de operación conservada en la factura original.</small>
               )}
-              <small>R2 y R3 están pendientes del ajuste de IVA y no se pueden crear todavía.</small>
+              <small>R2 y R3 aún no se pueden emitir y no están disponibles en este formulario.</small>
             </label>
             <label className="field">
               <span>Fecha de rectificación</span>

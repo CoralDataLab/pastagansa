@@ -796,9 +796,11 @@ modelar sus claves y reglas AEAT, en vez de inventar campos fiscales.
 La creación y emisión R1 exige la fecha de operación conservada en la factura
 original, tal como indica la [FAQ AEAT de procedimientos de
 facturación](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html);
-la misma condición permanece codificada para R2/R3 cuando se implemente su modelo.
-R2 (concurso) y R3 (crédito incobrable) tienen bloqueadas la creación y emisión
-de rectificativas y siguen sin XML AEAT: su tratamiento fiscal requiere modelar y validar la
+la misma condición se aplica a los borradores R2/R3.
+R2 (concurso) y R3 (crédito incobrable) permiten solo un borrador calculado desde
+una factura F1 EUR completamente impagada, con una línea de IVA ordinario y sin
+rectificativas previas. La emisión permanece bloqueada y no existe XML AEAT:
+su tratamiento fiscal completo requiere modelar y validar la
 rectificación correspondiente antes de habilitar su remisión. El mapa de
 invariantes, cambios y pruebas para ese trabajo está en
 [`16_rectificativas_r2_r3.md`](16_rectificativas_r2_r3.md). El contraste

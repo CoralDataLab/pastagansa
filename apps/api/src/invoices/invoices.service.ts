@@ -194,16 +194,22 @@ export class InvoicesService {
       throw new BadRequestException(
         "R5 can only rectify a simplified invoice, which is not supported yet",
       );
-    if (isVatOnlyRectificationType(input.sifInvoiceType))
-      throw new ConflictException(
-        "R2/R3 rectification requires a VAT-only adjustment model and is not yet supported",
-      );
+    const vatOnly = isVatOnlyRectificationType(input.sifInvoiceType);
     if (
       requiresOriginalOperationDate(input.sifInvoiceType) &&
       !original.operationDate
     )
       throw new ConflictException(
         `${input.sifInvoiceType} requires the original invoice operation date recorded before issuance; historical invoices without that date cannot be inferred`,
+      );
+    if (
+      vatOnly &&
+      (input.kind !== RectificationKind.DIFFERENCE ||
+        input.impact !== RectificationImpact.DECREASE ||
+        input.lines)
+    )
+      throw new BadRequestException(
+        "R2/R3 drafts require DIFFERENCE, DECREASE and no manual lines",
       );
     if (
       input.kind === RectificationKind.TOTAL &&
@@ -216,15 +222,36 @@ export class InvoicesService {
       throw new BadRequestException(
         "A total rectification copies the original lines; lines must be omitted",
       );
-    if (input.kind !== RectificationKind.TOTAL && !input.lines?.length)
+    if (
+      !vatOnly &&
+      input.kind !== RectificationKind.TOTAL &&
+      !input.lines?.length
+    )
       throw new BadRequestException(
         "Partial and difference rectifications require at least one line",
       );
 
+    let vatOnlyLine: BuiltInvoiceLine | null = null;
+    if (vatOnly) {
+      const prior = await this.tenant.db.invoice.findFirst({
+        where: {
+          ...scope,
+          originalInvoiceId,
+          documentType: DocumentType.CREDIT_NOTE,
+        },
+        select: { id: true },
+      });
+      if (prior)
+        throw new ConflictException(
+          "R2/R3 draft requires an original invoice without earlier rectifications",
+        );
+      vatOnlyLine = buildVatOnlyRectificationLine(original);
+    }
+
     const rules = input.lines
       ? await this.tax.resolveRules(input.lines, input.issueDate)
       : [];
-    const lines: BuiltInvoiceLine[] = input.lines
+    const lines: BuiltInvoiceLine[] = vatOnlyLine ? [vatOnlyLine] : input.lines
       ? input.lines.map((line, index) => {
           const calculation = calculateInvoiceLine(
             { ...line, taxRate: Number(rules[index].rate ?? 0) },
@@ -302,6 +329,13 @@ export class InvoicesService {
           kind: input.kind,
           impact: input.impact,
           sifInvoiceType: input.sifInvoiceType,
+          ...(vatOnly
+            ? {
+                calculation: "VAT_ONLY",
+                originalTaxLineId: original.lines[0].taxLines[0].id,
+                originalTaxAmount: original.taxTotal.toFixed(2),
+              }
+            : {}),
         },
       );
       return this.get(rectification.id);
@@ -684,7 +718,7 @@ export class InvoicesService {
       throw new ConflictException("Rectification metadata is incomplete");
     if (isVatOnlyRectificationType(invoice.sifInvoiceType))
       throw new ConflictException(
-        "R2/R3 rectification requires a VAT-only adjustment model and is not yet supported",
+        "R2/R3 issuance remains blocked pending tax, accounting, payment, PDF and SIF validation",
       );
     const scope = this.scope();
     const locked = await this.tenant.db.$queryRaw<Array<{ id: string }>>`
@@ -993,6 +1027,89 @@ function copyTaxLine(line: {
     exempt: line.exempt,
     exemptionReason: line.exemptionReason,
     reverseCharge: line.reverseCharge,
+  };
+}
+
+export function buildVatOnlyRectificationLine(
+  original: {
+    sifInvoiceType: SifInvoiceType;
+    currency: string;
+    customerTaxId: string | null;
+    fullNumber: string | null;
+    amountPaid: Decimal;
+    amountDue: Decimal;
+    total: Decimal;
+    taxTotal: Decimal;
+    lines: Array<{
+      netAmount: Decimal;
+      taxAmount: Decimal;
+      totalAmount: Decimal;
+      taxRate: Decimal;
+      taxLines: Array<Parameters<typeof copyTaxLine>[0]>;
+    }>;
+  },
+): BuiltInvoiceLine {
+  if (
+    original.sifInvoiceType !== SifInvoiceType.F1 ||
+    original.currency !== "EUR" ||
+    !original.customerTaxId ||
+    !original.fullNumber
+  )
+    throw new ConflictException(
+      "R2/R3 draft requires a complete EUR F1 invoice with a customer tax identifier",
+    );
+  if (
+    !original.amountPaid.isZero() ||
+    !original.amountDue.equals(original.total)
+  )
+    throw new ConflictException(
+      "R2/R3 draft does not yet support paid or partially paid invoices",
+    );
+  if (original.lines.length !== 1 || original.lines[0].taxLines.length !== 1)
+    throw new ConflictException(
+      "R2/R3 draft currently requires exactly one ordinary VAT line",
+    );
+  const line = original.lines[0];
+  const tax = line.taxLines[0];
+  if (
+    !tax.subject ||
+    tax.exempt ||
+    tax.reverseCharge ||
+    tax.exemptionReason ||
+    !tax.surchargeAmount.isZero() ||
+    (tax.surchargeRate && !tax.surchargeRate.isZero()) ||
+    !tax.taxRate ||
+    !["4", "10", "21"].includes(tax.taxRate.toString()) ||
+    !tax.taxableBase.greaterThan(0) ||
+    !tax.taxAmount.greaterThan(0) ||
+    !tax.taxableBase.equals(line.netAmount) ||
+    !line.taxRate.equals(tax.taxRate) ||
+    !tax.taxAmount.equals(line.taxAmount) ||
+    !tax.taxAmount.equals(original.taxTotal) ||
+    !line.totalAmount.equals(line.netAmount.plus(line.taxAmount)) ||
+    !original.total.equals(line.totalAmount)
+  )
+    throw new ConflictException(
+      "R2/R3 draft requires a consistent ordinary VAT breakdown",
+    );
+  const zero = new Decimal(0);
+  const amount = tax.taxAmount;
+  return {
+    gross: zero,
+    discount: zero,
+    persisted: {
+      position: 1,
+      catalogItemId: undefined,
+      description: `Ajuste de cuota IVA por impago de ${original.fullNumber}`,
+      quantity: new Decimal(1),
+      unitPrice: zero,
+      discountPct: zero,
+      taxRate: tax.taxRate,
+      netAmount: zero,
+      taxAmount: amount,
+      totalAmount: amount,
+    },
+    tax: { ...copyTaxLine(tax), taxableBase: zero, taxAmount: amount },
   };
 }
 
