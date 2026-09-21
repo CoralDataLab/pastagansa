@@ -2433,6 +2433,10 @@ describe("platform integrity", () => {
       cancellationReason: "The underlying operation never existed",
     });
     expect(cancelled.body.cancelledAt).toBeTruthy();
+    await expect(admin.invoice.update({
+      where: { id: erroneousDraft.body.id },
+      data: { cancellationReason: "Changed after cancellation" },
+    })).rejects.toThrow(/cancellation metadata requires a one-way invoice cancellation/);
     const cancellationRetry = await authed(accountA.accessToken, tenantA)
       .post(`/v1/invoices/${erroneousDraft.body.id}/cancel-issued-in-error`)
       .send({
