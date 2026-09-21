@@ -851,6 +851,18 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
       setNotice("Se ha añadido un alta de subsanación a la cadena SIF.");
     },
   });
+  const recoverRejectedRegistration = useMutation({
+    mutationFn: (resolutionNote: string) =>
+      requestJson(`/api/sif/records/${invoice.id}/rejected-registration-recovery`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ invoiceDataConfirmed: true, resolutionNote }),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["invoice-trace", invoice.id] });
+      setNotice("Se ha añadido y encolado una nueva alta de subsanación. Revisa su respuesta AEAT.");
+    },
+  });
   const registrationSubmission = trace.data?.aeatTestSubmissions.find(
     (entry) => entry.recordId === trace.data?.sifRecord?.id,
   )?.submissions[0];
@@ -865,6 +877,9 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
     registrationSubmission.errorDescription?.includes(
       "FechaHoraHusoGenRegistro",
     );
+  const rejectedRegistration =
+    registrationSubmission?.status === "REJECTED" &&
+    registrationSubmission.recordStatus === "Incorrecto";
   return (
     <section
       className="trace-panel"
@@ -1137,6 +1152,33 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                           : "Subsanar aviso de fecha/hora"}
                       </button>
                     )}
+                  {invoice.sifMode === "VERIFACTU" &&
+                    rejectedRegistration &&
+                    !trace.data.sifRecords.some((record) =>
+                      record.recordType === "SUBSANATION" || record.recordType === "CANCELLATION",
+                    ) && (
+                      <button
+                        className="secondary-button compact"
+                        disabled={recoverRejectedRegistration.isPending}
+                        onClick={() => {
+                          const note = window.prompt(
+                            "Solo si la factura emitida y sus datos son correctos sin cambios y la causa externa del rechazo ya se resolvió. Describe la comprobación o resolución (mínimo 20 caracteres):",
+                          );
+                          if (!note) return;
+                          if (note.trim().length < 20 || note.trim().length > 1000) {
+                            window.alert("La explicación debe tener entre 20 y 1000 caracteres.");
+                            return;
+                          }
+                          if (!window.confirm(
+                            "Se enviará a AEAT pruebas una nueva alta con Subsanacion=S y RechazoPrevio=X. La factura y el registro rechazado permanecerán intactos. ¿Confirmas que los datos de la factura siguen siendo correctos?",
+                          )) return;
+                          recoverRejectedRegistration.mutate(note.trim());
+                        }}
+                        type="button"
+                      >
+                        {recoverRejectedRegistration.isPending ? "Recuperando…" : "Recuperar alta rechazada sin cambiar factura"}
+                      </button>
+                    )}
                   {invoice.documentType === "CREDIT_NOTE" &&
                     !trace.data.sifRecords.some(
                       (record) => record.recordType === "CANCELLATION",
@@ -1169,6 +1211,9 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                   <p className="form-error">
                     {subsanateTimestamp.error.message}
                   </p>
+                )}
+                {recoverRejectedRegistration.error && (
+                  <p className="form-error">{recoverRejectedRegistration.error.message}</p>
                 )}
                 {invoice.documentType === "CREDIT_NOTE" &&
                   !trace.data.sifRecords.some(

@@ -34,7 +34,7 @@ type Overview = {
     invoiceId: string;
     invoiceNumber: string;
     followUps: Array<{ recordType: RecordType; chainPosition: string; status: SubmissionStatus | null }>;
-    reviewKind: "FOLLOW_UP_RECORDED" | "TIMESTAMP_SUBSANATION_CANDIDATE" | "GLOBAL_REJECTION_REVIEW" | "MANUAL_REVIEW";
+    reviewKind: "FOLLOW_UP_RECORDED" | "TIMESTAMP_SUBSANATION_CANDIDATE" | "REJECTED_REGISTRATION_REVIEW" | "GLOBAL_REJECTION_REVIEW" | "MANUAL_REVIEW";
   }>;
 };
 
@@ -122,6 +122,8 @@ export function SifAeatOverview({ companyId }: { companyId: string }) {
                           ? item.followUps.map((followUp) => `${recordTypeLabel(followUp.recordType)} · posición ${followUp.chainPosition} · ${followUpLabel(followUp.status)}`).join("; ")
                           : item.reviewKind === "TIMESTAMP_SUBSANATION_CANDIDATE"
                             ? "Posible subsanación de fecha/hora: comprobar en la factura"
+                            : item.reviewKind === "REJECTED_REGISTRATION_REVIEW"
+                              ? "Revisar factura y causa del rechazo; recuperación disponible si los datos son correctos y la causa externa se resolvió"
                             : item.reviewKind === "GLOBAL_REJECTION_REVIEW"
                               ? "Revisión manual: sin respuesta definitiva del registro"
                               : "Revisión manual del caso"}

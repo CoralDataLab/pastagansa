@@ -93,6 +93,24 @@ describe("AEAT SIF XML", () => {
     expectValidAeatXml(xml);
   });
 
+  it("validates an alta after a definitive rejection with RechazoPrevio=X", () => {
+    const xml = renderSifAeatXml({
+      header,
+      record: {
+        kind: "REGISTRATION", subsanacion: "S", rechazoPrevio: "X",
+        issuerTaxId: "B12345674", invoiceNumber: "F2026-0001",
+        issueDate: "16-09-2026", issuerLegalName: header.issuerLegalName,
+        invoiceType: "F1", customer: { legalName: "Client", taxId: "B76543210" },
+        description: "Services", taxLines: [{ taxableBase: "100.00", taxRate: "21.00", taxAmount: "21.00", reverseCharge: false }],
+        taxTotal: "21.00", total: "121.00",
+        previousRecord: { issuerTaxId: "B12345674", invoiceNumber: "F2026-0001", issueDate: "16-09-2026", hash: "A".repeat(64) },
+        software, generatedAt: "2026-09-16T12:01:00+02:00", recordHash: "B".repeat(64),
+      },
+    });
+    expect(xml).toMatch(/<sf:Subsanacion>S<\/sf:Subsanacion>\s*<sf:RechazoPrevio>X<\/sf:RechazoPrevio>/);
+    expectValidAeatXml(xml);
+  });
+
   it("marks cancellation of a confirmed rejected alta as having no prior AEAT registration", () => {
     const xml = renderSifAeatXml({
       header,

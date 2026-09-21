@@ -100,7 +100,7 @@ describe("SifService AEAT test overview", () => {
       attention: [{ status: "UNKNOWN", chainPosition: "9", invoiceNumber: "F2026-0005" }],
       review: [
         { reviewKind: "FOLLOW_UP_RECORDED", followUps: [{ chainPosition: "4", status: "ACCEPTED" }] },
-        { reviewKind: "MANUAL_REVIEW", errorCode: "4112", invoiceNumber: "F2026-0001" },
+        { reviewKind: "REJECTED_REGISTRATION_REVIEW", errorCode: "4112", invoiceNumber: "F2026-0001" },
         { reviewKind: "TIMESTAMP_SUBSANATION_CANDIDATE", invoiceNumber: "F2026-0007" },
         { reviewKind: "GLOBAL_REJECTION_REVIEW", invoiceNumber: "F2026-0008" },
       ],
@@ -604,6 +604,78 @@ describe("SifService AEAT recovery", () => {
     expect(data.payload.aeatXml).toContain("<sf:Subsanacion>S</sf:Subsanacion>");
     expect(data.payload.aeatXml).not.toContain("<sf:RechazoPrevio>");
     expect(enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("appends one rejected-registration recovery with RechazoPrevio=X and an audit note", async () => {
+    const create = jest.fn().mockImplementation(({ data }) => Promise.resolve({ ...data, id: "55555555-5555-4555-8555-555555555555" }));
+    const enqueue = jest.fn();
+    const audit = jest.fn();
+    const findFirst = jest.fn()
+      .mockResolvedValueOnce(null).mockResolvedValueOnce(source)
+      .mockResolvedValueOnce(null).mockResolvedValueOnce(source)
+      .mockResolvedValueOnce({ ...source, recordType: SifRecordType.SUBSANATION });
+    const service = new SifService({
+      required: context,
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst, create },
+        sifAeatSubmission: {
+          findFirst: jest.fn().mockResolvedValue({ status: "REJECTED", recordStatus: "Incorrecto" }),
+          create: enqueue,
+        },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          ...((source as Record<string, unknown>).invoice as Record<string, unknown>),
+          id: invoiceId, status: "ISSUED", sifMode: "VERIFACTU", aeatEnvironment: "TEST",
+          issuerLegalName: "Acme S.L.", issuerTaxId: "B12345674",
+          sifInvoiceType: "F1", company: { timezone: "Europe/Madrid" },
+        }) },
+      },
+    } as never, { record: audit } as never, { enabled: true } as never);
+    const input = {
+      invoiceDataConfirmed: true,
+      resolutionNote: "Censo comprobado; datos originales correctos.",
+    };
+
+    await service.recoverRejectedRegistration(invoiceId, input);
+    const data = create.mock.calls[0][0].data;
+    expect(data.recordType).toBe(SifRecordType.SUBSANATION);
+    expect(data.chainPosition).toBe(2n);
+    expect(data.payload.correctionKind).toBe("REJECTED_UNCHANGED");
+    expect(data.payload.resolutionNote).toBe(input.resolutionNote);
+    expect(data.payload.subsanationOf).toEqual({ recordId: source.id, recordHash: source.recordHash });
+    expect(data.payload.aeatXml).toMatch(/<sf:Subsanacion>S<\/sf:Subsanacion>\s*<sf:RechazoPrevio>X<\/sf:RechazoPrevio>/);
+    expect(data.payload.aeatXml).toContain(`<sf:Huella>${data.recordHash}</sf:Huella>`);
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith("sif_record.subsanated", "sif_record", expect.any(String), expect.objectContaining({
+      kind: "REJECTED_UNCHANGED", resolutionNote: input.resolutionNote,
+    }));
+
+    await service.recoverRejectedRegistration(invoiceId, input);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not recover a rejection without a definitive line response or operator confirmation", async () => {
+    const create = jest.fn();
+    const submission = { status: "REJECTED", recordStatus: null };
+    const service = new SifService({
+      required: context,
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(source), create },
+        sifAeatSubmission: { findFirst: jest.fn().mockResolvedValue(submission) },
+      },
+    } as never, {} as never, { enabled: true } as never);
+
+    await expect(service.recoverRejectedRegistration(invoiceId, {
+      invoiceDataConfirmed: false,
+      resolutionNote: "Censo comprobado; datos originales correctos.",
+    })).rejects.toThrow("Confirm unchanged invoice data");
+    await expect(service.recoverRejectedRegistration(invoiceId, {
+      invoiceDataConfirmed: true,
+      resolutionNote: "Censo comprobado; datos originales correctos.",
+    })).rejects.toThrow("definitive AEAT line-level rejection");
+    expect(create).not.toHaveBeenCalled();
   });
 });
 

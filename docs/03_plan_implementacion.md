@@ -846,6 +846,16 @@ La captura posterior al despliegue mostró los dos resultados históricos con
 sus seguimientos aceptados (posiciones 2→4 y 1→5), mantuvo los recuentos
 6/1/1 y cero pendientes. SSH confirmó el checkout `6fc6171`; el acta precisa
 los límites de esta comprobación.
+La recuperación de un alta rechazada con respuesta definitiva de línea admite
+ahora un caso acotado: los datos de la factura emitida siguen siendo correctos
+sin cambios y la causa externa del rechazo se ha resuelto. El operador debe
+confirmarlo y dejar una nota; el sistema genera un alta nueva con
+`Subsanacion=S` y `RechazoPrevio=X`, conserva el registro rechazado y la factura,
+encadena la nueva huella y encola el XML congelado a AEAT pruebas. El XML supera
+el XSD local; queda pendiente aceptación real en AEAT pruebas y no se ofrece
+esta vía para corregir datos de la factura ni para rechazos globales sin
+respuesta definitiva de línea. Referencia de la codificación: [FAQ de
+desarrolladores AEAT](https://sede.agenciatributaria.gob.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/FAQs-Desarrolladores.pdf).
 Pendientes subsanación general de errores y rechazos, firma/eventos NO
 VERI*FACTU, soporte de toda la casuística fiscal y revisión de conformidad para
 producción.

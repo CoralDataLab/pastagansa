@@ -28,6 +28,7 @@ import {
 import { verifySifChain } from "./sif-chain";
 import { AeatTestClient } from "./aeat-test.client";
 import { captureSifSoftwareSnapshot } from "./sif-software-profile";
+import { RecoverRejectedRegistrationDto } from "./dto/recover-rejected-registration.dto";
 import {
   renderSifAeatXml,
   type SifXmlPreviousRecord,
@@ -219,6 +220,10 @@ export class SifService {
               ? "FOLLOW_UP_RECORDED"
               : timestampCandidate
                 ? "TIMESTAMP_SUBSANATION_CANDIDATE"
+                : item.record.recordType === SifRecordType.REGISTRATION &&
+                    item.status === SifAeatSubmissionStatus.REJECTED &&
+                    item.recordStatus === "Incorrecto"
+                  ? "REJECTED_REGISTRATION_REVIEW"
                 : "MANUAL_REVIEW",
         };
       }),
@@ -674,6 +679,23 @@ export class SifService {
 
   /** Appends a new alta for a timestamp warning without changing the accepted record. */
   async createTimestampSubsanation(invoiceId: string) {
+    return this.createRegistrationSubsanation(invoiceId, "TIMESTAMP_WARNING");
+  }
+
+  /** Re-submits unchanged invoice data after an externally resolved AEAT rejection. */
+  async recoverRejectedRegistration(invoiceId: string, input: RecoverRejectedRegistrationDto) {
+    if (input.invoiceDataConfirmed !== true ||
+        typeof input.resolutionNote !== "string" ||
+        input.resolutionNote.trim().length < 20)
+      throw new ConflictException("Confirm unchanged invoice data and describe how the rejection was resolved");
+    return this.createRegistrationSubsanation(invoiceId, "REJECTED_UNCHANGED", input.resolutionNote.trim());
+  }
+
+  private async createRegistrationSubsanation(
+    invoiceId: string,
+    kind: "TIMESTAMP_WARNING" | "REJECTED_UNCHANGED",
+    resolutionNote?: string,
+  ) {
     const scope = this.scope();
     await this.tenant.db.$executeRaw`
       SELECT pg_advisory_xact_lock(hashtextextended(${scope.companyId}, 0))
@@ -690,11 +712,17 @@ export class SifService {
     const submission = await this.tenant.db.sifAeatSubmission.findFirst({
       where: { recordId: source.id, ...scope },
     });
-    if (submission?.status !== SifAeatSubmissionStatus.ACCEPTED_WITH_ERRORS ||
-        submission.recordStatus !== "AceptadoConErrores" ||
-        !submission.errorDescription?.includes("FechaHoraHusoGenRegistro"))
+    const eligible = kind === "TIMESTAMP_WARNING"
+      ? submission?.status === SifAeatSubmissionStatus.ACCEPTED_WITH_ERRORS &&
+        submission.recordStatus === "AceptadoConErrores" &&
+        submission.errorDescription?.includes("FechaHoraHusoGenRegistro")
+      : submission?.status === SifAeatSubmissionStatus.REJECTED &&
+        submission.recordStatus === "Incorrecto";
+    if (!eligible)
       throw new ConflictException(
-        "This subsanation is available only for a confirmed AEAT generation-time warning",
+        kind === "TIMESTAMP_WARNING"
+          ? "This subsanation is available only for a confirmed AEAT generation-time warning"
+          : "Recovery requires a definitive AEAT line-level rejection",
       );
     if (!storedAeatXml(source.payload))
       throw new ConflictException("The original immutable AEAT XML is unavailable");
@@ -746,6 +774,7 @@ export class SifService {
         software: readSoftwareSnapshot(source.softwareSnapshot),
         recordHash,
         subsanacion: "S",
+        ...(kind === "REJECTED_UNCHANGED" ? { rechazoPrevio: "X" as const } : {}),
       }),
     });
     const record = await this.tenant.db.sifRecord.create({
@@ -768,6 +797,8 @@ export class SifService {
         payload: {
           hashInput,
           subsanationOf: { recordId: source.id, recordHash: source.recordHash },
+          correctionKind: kind,
+          ...(resolutionNote ? { resolutionNote } : {}),
           previousRecord,
           aeatXml,
         },
@@ -777,7 +808,8 @@ export class SifService {
     await this.enqueueAeatTest(record.id, aeatXml);
     await this.audit.record("sif_record.subsanated", "sif_record", record.id, {
       invoiceId, sourceRecordId: source.id,
-      chainPosition: record.chainPosition.toString(), recordHash,
+      chainPosition: record.chainPosition.toString(), recordHash, kind,
+      ...(resolutionNote ? { resolutionNote } : {}),
     });
     return presentSifRecord(record);
   }

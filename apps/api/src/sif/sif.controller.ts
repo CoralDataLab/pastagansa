@@ -1,7 +1,8 @@
-import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, StreamableFile } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, StreamableFile } from "@nestjs/common";
 import { RequirePermissions } from "../authorization/permissions.decorator";
 import { TenantProtected } from "../tenancy/tenant.decorator";
 import { ListSifRecordsDto } from "./dto/list-sif-records.dto";
+import { RecoverRejectedRegistrationDto } from "./dto/recover-rejected-registration.dto";
 import { SifService } from "./sif.service";
 
 @Controller("sif/records")
@@ -21,6 +22,16 @@ export class SifController {
   @RequirePermissions("invoice.issue")
   timestampSubsanation(@Param("invoiceId", ParseUUIDPipe) invoiceId: string) {
     return this.sif.createTimestampSubsanation(invoiceId);
+  }
+
+  @Post(":invoiceId/rejected-registration-recovery")
+  @HttpCode(200)
+  @RequirePermissions("invoice.issue")
+  rejectedRegistrationRecovery(
+    @Param("invoiceId", ParseUUIDPipe) invoiceId: string,
+    @Body() body: RecoverRejectedRegistrationDto,
+  ) {
+    return this.sif.recoverRejectedRegistration(invoiceId, body);
   }
 
   @Get("transition-audit")
