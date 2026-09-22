@@ -13,7 +13,7 @@ import { SifNoSigningService } from "../src/sif/sif-no-signing.service";
 import { TenantContextService } from "../src/tenancy/tenant-context.service";
 import { createSifTestSigner } from "./support/sif-test-signer";
 
-jest.setTimeout(120_000);
+jest.setTimeout(180_000);
 
 describe("invoice issuance concurrency", () => {
   let app: INestApplication;
@@ -196,9 +196,15 @@ describe("invoice issuance concurrency", () => {
         { maxWait: 60_000, timeout: 60_000 },
       );
 
-    const issued = await Promise.all(
-      drafts.slice(0, 100).map((id, index) => issue(id, `bulk-${index}`)),
-    );
+    const issued: Array<Awaited<ReturnType<typeof issue>>> = [];
+    // CI's Prisma pool has three connections. Keep real contention without
+    // leaving dozens of transactions waiting for a pool slot.
+    for (let start = 0; start < 100; start += 3) {
+      const batch = drafts.slice(start, Math.min(start + 3, 100));
+      issued.push(...await Promise.all(
+        batch.map((id, offset) => issue(id, `bulk-${start + offset}`)),
+      ));
+    }
     const numbers = issued
       .map(({ number }) => Number(number))
       .sort((left, right) => left - right);
