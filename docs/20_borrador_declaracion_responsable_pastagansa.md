@@ -6,7 +6,7 @@
 
 **1.b) Código que identifica este sistema informático:** PG. El titular lo ha confirmado como código definitivo y exclusivo de PastaGansa.
 
-**1.c) Identificador completo de la versión declarada:** [VERSIÓN SIF EXACTA]. Staging muestra hoy `0.1.0`, que no basta para distinguir el código que se liberará. Consignar además [SHA COMPLETO DEL COMMIT], [DIGEST API] y [DIGEST WEB] en el expediente de versión. La versión declarada debe coincidir con la que generan los registros SIF de la instalación final.
+**1.c) Identificador completo de la versión declarada:** [IDENTIFICADOR COMPLETO DE LA EDICIÓN QUE SE PONDRÁ A DISPOSICIÓN DE LOS USUARIOS]. El valor de versión de staging no determina este apartado. Conservar [SHA COMPLETO DEL COMMIT], [DIGEST API] y [DIGEST WEB] en el expediente interno para trazar los artefactos de esa edición; estos datos no sustituyen el identificador completo exigido aquí.
 
 **1.d) Componentes y funcionalidades del sistema:** aplicación web para navegador, API de facturación y base de datos PostgreSQL, desplegadas en contenedores en [PLATAFORMA Y HARDWARE DE LA INSTALACIÓN]. Permite gestionar empresas independientes, contactos y facturas; asigna numeración, genera PDF y QR, crea registros de facturación encadenados y XML, consulta y exporta registros. En modalidad VERI*FACTU remite los registros a la AEAT; en modalidad NO VERI*FACTU incorpora firma de registros y eventos. Completar la descripción de componentes externos y límites de la edición que se libere.
 
