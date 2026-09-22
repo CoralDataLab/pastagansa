@@ -272,6 +272,7 @@ model Organization {
   taxLedgerEntries      TaxLedgerEntry[]
   taxLedgerAmounts      TaxLedgerAmount[]
   sifRecords            SifRecord[]
+  sifEvents             SifEventRecord[]
   sifAeatSubmissions    SifAeatSubmission[]
   purchaseInvoices      PurchaseInvoice[]
   purchaseInvoiceLines  PurchaseInvoiceLine[]
@@ -333,6 +334,7 @@ model Company {
   taxLedgerEntries      TaxLedgerEntry[]
   taxLedgerAmounts      TaxLedgerAmount[]
   sifRecords            SifRecord[]
+  sifEvents             SifEventRecord[]
   sifAeatSubmissions    SifAeatSubmission[]
   purchaseInvoices      PurchaseInvoice[]
   purchaseInvoiceLines  PurchaseInvoiceLine[]
@@ -605,6 +607,33 @@ model SifRecord {
   @@unique([id, organizationId, companyId])
   @@index([companyId, generatedAt, id])
   @@map("sif_records")
+}
+
+model SifEventRecord {
+  id                   String          @id @default(uuid()) @db.Uuid
+  organizationId       String          @map("organization_id") @db.Uuid
+  companyId            String          @map("company_id") @db.Uuid
+  eventType            String          @map("event_type") @db.Char(2)
+  chainPosition        BigInt          @map("chain_position")
+  generatedAt          DateTime        @map("generated_at") @db.Timestamptz(6)
+  previousEventId      String?         @map("previous_event_id") @db.Uuid
+  previousEventHash    String?         @map("previous_event_hash") @db.Char(64)
+  eventHash            String          @map("event_hash") @db.Char(64)
+  hashInput            Json            @map("hash_input")
+  signedXml            String          @map("signed_xml") @db.Text
+  signedXmlSha256      String          @map("signed_xml_sha256") @db.Char(64)
+  softwareSnapshot     Json            @map("software_snapshot")
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization         Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company              Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  previousEvent        SifEventRecord? @relation("SifEventChain", fields: [previousEventId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  nextEvents           SifEventRecord[] @relation("SifEventChain")
+
+  @@unique([companyId, chainPosition])
+  @@unique([previousEventId])
+  @@unique([id, organizationId, companyId])
+  @@index([companyId, generatedAt, id])
+  @@map("sif_event_records")
 }
 
 model SifAeatSubmission {

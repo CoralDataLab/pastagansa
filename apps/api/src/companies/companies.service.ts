@@ -19,6 +19,7 @@ import {
   normalizedLogoMediaType,
 } from "./company-logo";
 import { SifDeclarationPdfService } from "../sif/sif-declaration-pdf.service";
+import { SifNoEventService } from "../sif/sif-no-event.service";
 
 export type UploadedCompanyLogo = {
   buffer: Buffer;
@@ -33,6 +34,7 @@ export class CompaniesService {
     private readonly audit: AuditService,
     private readonly sifDeclaration: SifDeclarationPdfService,
     private readonly config: ConfigService,
+    private readonly noEvents: SifNoEventService,
   ) {}
 
   async current() {
@@ -94,6 +96,8 @@ export class CompaniesService {
       throw new ConflictException("NO VERI*FACTU test mode requires a signing certificate bound to this company");
     if (input.sifMode === SifMode.NO_VERIFACTU && company.country !== "ES")
       throw new ConflictException("El QR fiscal AEAT solo está disponible para empresas españolas");
+    if (company.sifMode === SifMode.NO_VERIFACTU && targetMode !== SifMode.NO_VERIFACTU)
+      await this.noEvents.appendBasic(company, "02");
     const { documentProfile, ...companyInput } = input;
     const companyData = Object.fromEntries(
       Object.entries(companyInput).filter(([, value]) => value !== undefined),
@@ -106,6 +110,8 @@ export class CompaniesService {
         where: { id: company.id },
         data: companyData,
       });
+    if (company.sifMode !== SifMode.NO_VERIFACTU && targetMode === SifMode.NO_VERIFACTU)
+      await this.noEvents.appendBasic(await this.current(), "01");
     if (profileData && Object.keys(profileData).length) {
       const scope = this.scope();
       await this.tenant.db.companyDocumentProfile.upsert({
