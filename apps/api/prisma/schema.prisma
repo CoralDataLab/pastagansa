@@ -669,6 +669,9 @@ model SifAeatSubmission {
   lastAttemptAt      DateTime?               @map("last_attempt_at") @db.Timestamptz(6)
   completedAt        DateTime?               @map("completed_at") @db.Timestamptz(6)
   requestSha256      String                  @map("request_sha256") @db.Char(64)
+  incident           Boolean                 @default(false)
+  lastAttemptedXml String?                   @map("last_attempted_xml") @db.Text
+  lastAttemptedSha256 String?                @map("last_attempted_sha256") @db.Char(64)
   httpStatus         Int?                    @map("http_status")
   globalStatus       String?                 @map("global_status") @db.VarChar(30)
   recordStatus       String?                 @map("record_status") @db.VarChar(30)

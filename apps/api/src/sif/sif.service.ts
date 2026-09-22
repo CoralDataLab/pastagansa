@@ -6,6 +6,7 @@ import {
   Optional,
 } from "@nestjs/common";
 import {
+  AeatEnvironment,
   DocumentType,
   InvoiceStatus,
   Prisma,
@@ -199,7 +200,7 @@ export class SifService {
     };
   }
 
-  /** Read-only, tenant-scoped view of the AEAT test outbox. */
+  /** Read-only, tenant-scoped view of AEAT submissions in either environment. */
   async testSubmissionOverview() {
     const scope = this.scope();
     const [groups, attention, review] = await Promise.all([
@@ -224,7 +225,7 @@ export class SifService {
           lastAttemptAt: true, lastError: true,
           record: { select: {
             chainPosition: true,
-            invoice: { select: { id: true, fullNumber: true } },
+            invoice: { select: { id: true, fullNumber: true, aeatEnvironment: true } },
           } },
         },
       }),
@@ -244,7 +245,7 @@ export class SifService {
           record: { select: {
             id: true, recordType: true, chainPosition: true,
             invoice: { select: {
-              id: true, fullNumber: true,
+              id: true, fullNumber: true, aeatEnvironment: true,
               sifRecords: {
                 where: { recordType: { in: [SifRecordType.SUBSANATION, SifRecordType.CANCELLATION] } },
                 orderBy: { chainPosition: "asc" },
@@ -275,6 +276,7 @@ export class SifService {
         chainPosition: item.record.chainPosition.toString(),
         invoiceId: item.record.invoice.id,
         invoiceNumber: item.record.invoice.fullNumber ?? "Sin número",
+        environment: item.record.invoice.aeatEnvironment,
       })),
       review: review.map((item) => {
         const followUps = item.record.recordType === SifRecordType.REGISTRATION
@@ -304,6 +306,7 @@ export class SifService {
           chainPosition: item.record.chainPosition.toString(),
           invoiceId: item.record.invoice.id,
           invoiceNumber: item.record.invoice.fullNumber ?? "Sin número",
+          environment: item.record.invoice.aeatEnvironment,
           followUps,
           reviewKind: item.status === SifAeatSubmissionStatus.REJECTED &&
               item.recordStatus !== "Incorrecto"
@@ -320,6 +323,24 @@ export class SifService {
         };
       }),
     };
+  }
+
+  /** Visible alert while a technical remittance incident has unsent records. */
+  async remittanceIncident() {
+    const scope = this.scope();
+    const pending = { status: { in: [
+      SifAeatSubmissionStatus.PENDING, SifAeatSubmissionStatus.SENDING,
+      SifAeatSubmissionStatus.RETRY, SifAeatSubmissionStatus.UNKNOWN,
+      SifAeatSubmissionStatus.FAILED,
+    ] } };
+    const [incidentCount, unsentCount] = await Promise.all([
+      this.tenant.db.sifAeatSubmission.count({ where: {
+        ...scope, ...pending, OR: [{ incident: true }, { status: SifAeatSubmissionStatus.FAILED }],
+      } }),
+      this.tenant.db.sifAeatSubmission.count({ where: { ...scope, ...pending } }),
+    ]);
+    return { companyId: scope.companyId, active: incidentCount > 0,
+      unsentCount: incidentCount > 0 ? unsentCount : 0 };
   }
 
   /**
@@ -521,7 +542,7 @@ export class SifService {
       );
     if (invoice.sifMode === SifMode.NO_VERIFACTU &&
         !this.noSigning?.matches(scope.companyId, invoice.issuerTaxId))
-      throw new ConflictException("NO VERI*FACTU test issuance requires a signing certificate bound to this company");
+      throw new ConflictException("NO VERI*FACTU issuance requires a signing certificate bound to this company");
 
     const softwareSnapshot = captureSifSoftwareSnapshot(invoice.company);
     if (invoice.sifMode === SifMode.NO_VERIFACTU && !softwareSnapshot.configured)
@@ -588,7 +609,7 @@ export class SifService {
       aeatXml = await this.noSigning!.sign(aeatXml);
     }
     if ((invoice.sifMode === SifMode.VERIFACTU || invoice.sifInvoiceType === "R2" || invoice.sifInvoiceType === "R3") && !aeatXml)
-      throw new ConflictException(xmlSnapshotUnavailable ?? "VERI*FACTU test issuance requires exportable XML");
+      throw new ConflictException(xmlSnapshotUnavailable ?? "VERI*FACTU issuance requires exportable XML");
     const payload: Prisma.InputJsonObject = {
       hashInput,
       firstRecord: previous === null,
@@ -617,7 +638,7 @@ export class SifService {
       },
     });
     if (invoice.sifMode === SifMode.VERIFACTU)
-      await this.enqueueAeatTest(record.id, aeatXml!);
+      await this.enqueueAeatSubmission(record.id, aeatXml!, invoice.aeatEnvironment);
     await this.audit.record("sif_record.registered", "sif_record", record.id, {
       invoiceId: invoice.id,
       chainPosition: record.chainPosition.toString(),
@@ -775,7 +796,7 @@ export class SifService {
       },
     });
     if (invoice.sifMode === SifMode.VERIFACTU)
-      await this.enqueueAeatTest(record.id, aeatXml!);
+      await this.enqueueAeatSubmission(record.id, aeatXml!, invoice.aeatEnvironment);
     await this.audit.record("sif_record.cancelled", "sif_record", record.id, {
       invoiceId: registration.invoiceId,
       registrationId: registration.id,
@@ -915,7 +936,7 @@ export class SifService {
         softwareSnapshot: source.softwareSnapshot ?? undefined,
       },
     });
-    await this.enqueueAeatTest(record.id, aeatXml);
+    await this.enqueueAeatSubmission(record.id, aeatXml, invoice.aeatEnvironment);
     await this.audit.record("sif_record.subsanated", "sif_record", record.id, {
       invoiceId, sourceRecordId: source.id,
       chainPosition: record.chainPosition.toString(), recordHash, kind,
@@ -940,22 +961,23 @@ export class SifService {
     });
   }
 
-  /** Sensitive, tenant-scoped evidence for an AEAT test exchange. */
+  /** Sensitive, tenant-scoped evidence for an AEAT exchange. */
   async exportTestSubmissionEvidence(recordId: string, submissionId: string) {
     const submission = await this.tenant.db.sifAeatSubmission.findFirst({
       where: { id: submissionId, recordId, ...this.scope() },
       include: { record: { select: {
         chainPosition: true, issuerTaxId: true, invoiceNumber: true,
         invoiceIssueDate: true, recordHash: true,
+        invoice: { select: { aeatEnvironment: true } },
       } } },
     });
-    if (!submission) throw new NotFoundException("AEAT test submission not found");
+    if (!submission) throw new NotFoundException("AEAT submission not found");
     const responseXml = submission.responseXml;
     const reconciliationXml = submission.reconciliationXml;
     const sha256 = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
     const evidence = {
       schemaVersion: 1,
-      environment: "AEAT_TEST",
+      environment: `AEAT_${submission.record.invoice.aeatEnvironment}`,
       submissionId: submission.id,
       recordId,
       chainPosition: submission.record.chainPosition.toString(),
@@ -966,6 +988,9 @@ export class SifService {
       },
       recordHash: submission.record.recordHash,
       requestSha256: submission.requestSha256,
+      incident: submission.incident,
+      lastAttemptedSha256: submission.lastAttemptedSha256,
+      lastAttemptedXml: submission.lastAttemptedXml,
       status: submission.status,
       httpStatus: submission.httpStatus,
       globalStatus: submission.globalStatus,
@@ -981,15 +1006,27 @@ export class SifService {
       reconciliationXml,
     };
     const content = Buffer.from(JSON.stringify(evidence, null, 2) + "\n", "utf8");
-    return { filename: `aeat-test-${submission.id}-evidence.json`, content };
+    return { filename: `aeat-${submission.record.invoice.aeatEnvironment.toLowerCase()}-${submission.id}-evidence.json`, content };
   }
 
-  private async enqueueAeatTest(recordId: string, xml: string) {
+  private async enqueueAeatSubmission(recordId: string, xml: string, environment: AeatEnvironment) {
+    const scope = this.scope();
+    const unresolvedIncident = await this.tenant.db.sifAeatSubmission.findFirst({
+      where: { ...scope, record: { invoice: { aeatEnvironment: environment } }, OR: [
+        { incident: true, status: { in: [
+          SifAeatSubmissionStatus.PENDING, SifAeatSubmissionStatus.SENDING,
+          SifAeatSubmissionStatus.RETRY, SifAeatSubmissionStatus.UNKNOWN,
+        ] } },
+        { status: SifAeatSubmissionStatus.FAILED },
+      ] },
+      select: { id: true },
+    });
     await this.tenant.db.sifAeatSubmission.create({
       data: {
-        ...this.scope(),
+        ...scope,
         recordId,
         requestSha256: createHash("sha256").update(xml).digest("hex"),
+        incident: !!unresolvedIncident,
       },
     });
   }

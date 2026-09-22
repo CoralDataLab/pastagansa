@@ -9,6 +9,7 @@ import { AeatTestClient, AeatProductionClient, AeatTransportClient,
 import { parseAeatTestSoapResponse } from "./aeat-test-soap";
 import { queryConfirmsDuplicate } from "./aeat-test-query";
 import { sifProductionReleaseMatches } from "./sif-production-gate";
+import { withSifRemittanceIncident } from "./sif-xml";
 
 const LEASE_MS = 120_000;
 const RETRY_CAP_SECONDS = 3_600;
@@ -79,6 +80,7 @@ export class AeatWorkerCore implements OnModuleInit, OnModuleDestroy {
         availableAt: new Date(Date.now() + 60_000),
         completedAt: null,
         lastError: "Worker lease expired; delivery may have reached AEAT. Frozen XML will be retried.",
+        incident: true,
       },
     });
     const claim = await this.admin.$transaction(async (db) => {
@@ -175,8 +177,30 @@ export class AeatWorkerCore implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
+      // A later record can be queued before the first delivery failure is known.
+      // It was still held behind that incident if its predecessor completed later.
+      let incident = submission.incident;
+      if (!incident && submission.record.previousRecordId) {
+        const predecessor = await this.admin.sifAeatSubmission.findFirst({
+          where: { companyId: submission.companyId,
+            recordId: submission.record.previousRecordId },
+          select: { incident: true, completedAt: true },
+        });
+        incident = !!predecessor?.incident && !!predecessor.completedAt &&
+          predecessor.completedAt.getTime() >= submission.createdAt.getTime();
+      }
+      const deliveryXml = incident ? withSifRemittanceIncident(xml) : xml;
+      const prepared = await this.admin.sifAeatSubmission.updateMany({
+        where: { id, status: SifAeatSubmissionStatus.SENDING, lockedAt },
+        data: {
+          ...(incident ? { incident: true } : {}),
+          lastAttemptedXml: deliveryXml,
+          lastAttemptedSha256: createHash("sha256").update(deliveryXml).digest("hex"),
+        },
+      });
+      if (prepared.count !== 1) throw new Error("AEAT submission lease expired before transport");
       transportAttempted = true;
-      const response = await this.client.send(xml);
+      const response = await this.client.send(deliveryXml);
       responseXml = response.responseXml;
       httpStatus = response.httpStatus;
       if (httpStatus === 503 || httpStatus === 429) {
@@ -294,6 +318,7 @@ export class AeatWorkerCore implements OnModuleInit, OnModuleDestroy {
         errorCode: null,
         errorDescription: null,
         lastError: reason.slice(0, 1500),
+        incident: true,
       },
     });
   }
@@ -316,6 +341,7 @@ export class AeatWorkerCore implements OnModuleInit, OnModuleDestroy {
         errorCode: null,
         errorDescription: null,
         lastError: reason.slice(0, 1500),
+        incident: true,
       },
     });
   }

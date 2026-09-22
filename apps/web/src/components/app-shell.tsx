@@ -57,6 +57,16 @@ export function AppShell({
     staleTime: 0,
     refetchOnMount: "always",
   });
+  const incident = useQuery({
+    queryKey: ["sif-remittance-incident", session.data?.membership.company.id],
+    enabled: !!session.data?.membership.role.permissions.includes("invoice.read"),
+    queryFn: async (): Promise<{ companyId: string; active: boolean; unsentCount: number }> => {
+      const response = await fetch("/api/sif/records/submissions/incident", { cache: "no-store" });
+      if (!response.ok) throw new Error("No se pudieron comprobar las remisiones AEAT.");
+      return response.json();
+    },
+    refetchInterval: 15_000,
+  });
 
   useEffect(() => {
     if (session.error instanceof UnauthorizedError) router.replace("/acceso");
@@ -214,6 +224,11 @@ export function AppShell({
             </button>
           </form>
         </header>
+        {incident.data?.active && incident.data.companyId === company.id && (
+          <p className="notice" role="alert">
+            Incidencia de remisión AEAT: {incident.data.unsentCount} {incident.data.unsentCount === 1 ? "registro pendiente" : "registros pendientes"}. El sistema seguirá reintentando; revisa el estado en <Link href="/configuracion">Configuración</Link>.
+          </p>
+        )}
         {children}
         <footer className="workspace-footer">
           {session.data.user.email} · {company.baseCurrency}

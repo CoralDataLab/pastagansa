@@ -4,7 +4,7 @@ import { SessionError, tenantApiRequest } from "@/lib/server-session";
 
 export async function GET() {
   try {
-    const response = await tenantApiRequest("/v1/sif/records/submissions/overview");
+    const response = await tenantApiRequest("/v1/sif/records/submissions/incident");
     const body = await response.json().catch(() => undefined);
     if (!response.ok)
       return NextResponse.json({ error: normalizeApiError(body) }, { status: response.status });
@@ -12,6 +12,6 @@ export async function GET() {
   } catch (error) {
     if (error instanceof SessionError)
       return NextResponse.json({ error: error.message }, { status: error.status });
-    return NextResponse.json({ error: "No podemos conectar con el servicio." }, { status: 503 });
+    return NextResponse.json({ error: "No podemos comprobar los envíos AEAT." }, { status: 503 });
   }
 }

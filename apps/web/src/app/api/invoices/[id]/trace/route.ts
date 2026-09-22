@@ -35,10 +35,10 @@ export async function GET(
     );
     if (!sifVerification.ok) return apiError(sifVerification);
     const sifRecords = (await sif.json()) as Array<{ id: string }>;
-    const aeatTestSubmissions = await Promise.all(
+    const aeatSubmissions = await Promise.all(
       sifRecords.map(async (record) => {
         const response = await tenantApiRequest(
-          `/v1/sif/records/${record.id}/test-submissions`,
+          `/v1/sif/records/${record.id}/submissions`,
         );
         if (!response.ok)
           throw new SessionError(
@@ -56,7 +56,7 @@ export async function GET(
         taxPage.data.find((entry) => !!entry.cancellationOfId) ?? null,
       sifRecord: sifRecords[0] ?? null,
       sifRecords,
-      aeatTestSubmissions,
+      aeatSubmissions,
       sifVerification: await sifVerification.json(),
     });
   } catch (error) {

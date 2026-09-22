@@ -14,7 +14,7 @@ export async function GET(
     return NextResponse.json({ error: "Remisión AEAT no válida." }, { status: 400 });
   try {
     const response = await tenantApiRequest(
-      `/v1/sif/records/${id.data}/test-submissions/${submissionId.data}/evidence`,
+      `/v1/sif/records/${id.data}/submissions/${submissionId.data}/evidence`,
     );
     if (!response.ok)
       return NextResponse.json(
@@ -25,7 +25,7 @@ export async function GET(
       headers: {
         "content-type": "application/json; charset=utf-8",
         "content-disposition": response.headers.get("content-disposition") ??
-          `attachment; filename="aeat-test-${submissionId.data}-evidence.json"`,
+          `attachment; filename="aeat-${submissionId.data}-evidence.json"`,
         "cache-control": "private, no-store",
       },
     });

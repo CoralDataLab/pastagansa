@@ -20,6 +20,7 @@ type Overview = {
     chainPosition: string;
     invoiceId: string;
     invoiceNumber: string;
+    environment: "TEST" | "PRODUCTION";
   }>;
   review: Array<{
     id: string;
@@ -33,6 +34,7 @@ type Overview = {
     chainPosition: string;
     invoiceId: string;
     invoiceNumber: string;
+    environment: "TEST" | "PRODUCTION";
     followUps: Array<{ recordType: RecordType; chainPosition: string; status: SubmissionStatus | null; resolutionNote: string | null }>;
     reviewKind: "FOLLOW_UP_RECORDED" | "TIMESTAMP_SUBSANATION_CANDIDATE" | "REJECTED_REGISTRATION_REVIEW" | "GLOBAL_REJECTION_REVIEW" | "MANUAL_REVIEW";
   }>;
@@ -55,11 +57,13 @@ function followUpLabel(status: SubmissionStatus | null) {
   return "en curso";
 }
 
-export function SifAeatOverview({ companyId }: { companyId: string }) {
+export function SifAeatOverview({ companyId, environment }: {
+  companyId: string; environment: "TEST" | "PRODUCTION";
+}) {
   const overview = useQuery({
     queryKey: ["sif-aeat-overview", companyId],
     queryFn: async (): Promise<Overview> => {
-      const response = await fetch("/api/sif/records/test-submissions/overview", { cache: "no-store" });
+      const response = await fetch("/api/sif/records/submissions/overview", { cache: "no-store" });
       const body = await response.json().catch(() => undefined) as
         (Overview & { error?: string }) | undefined;
       if (!response.ok) throw new Error(body?.error ?? "No se pudieron cargar los envíos AEAT.");
@@ -72,8 +76,8 @@ export function SifAeatOverview({ companyId }: { companyId: string }) {
 
   return (
     <section className="company-settings-card" aria-labelledby="sif-aeat-overview-title">
-      <h2 id="sif-aeat-overview-title">Remisiones AEAT Pruebas</h2>
-      <p>Estado de los envíos de esta empresa. Esta vista no modifica registros SIF ni reenvía datos.</p>
+      <h2 id="sif-aeat-overview-title">Remisiones AEAT</h2>
+      <p>Entorno configurado: {environment === "PRODUCTION" ? "producción" : "pruebas"}. Cada fila indica el entorno fijado al emitir la factura. Esta vista no modifica registros SIF ni reenvía datos.</p>
       {overview.isPending ? (
         <p aria-live="polite">Cargando remisiones AEAT…</p>
       ) : overview.error ? (
@@ -89,11 +93,12 @@ export function SifAeatOverview({ companyId }: { companyId: string }) {
             <div className="table-scroll">
               <table className="data-table">
                 <caption>Envíos que requieren seguimiento: {overview.data.attention.length} de {overview.data.counts.UNKNOWN + overview.data.counts.FAILED + overview.data.counts.RETRY} más recientes</caption>
-                <thead><tr><th scope="col">Factura</th><th scope="col">Posición SIF</th><th scope="col">Estado</th><th scope="col">Intentos</th><th scope="col">Próximo intento</th><th scope="col">Detalle</th></tr></thead>
+                <thead><tr><th scope="col">Factura</th><th scope="col">Entorno</th><th scope="col">Posición SIF</th><th scope="col">Estado</th><th scope="col">Intentos</th><th scope="col">Próximo intento</th><th scope="col">Detalle</th></tr></thead>
                 <tbody>
                   {overview.data.attention.map((item) => (
                     <tr key={item.id}>
                       <td><Link href={`/facturas/${item.invoiceId}`}>{item.invoiceNumber}</Link></td>
+                      <td>{item.environment === "PRODUCTION" ? "Producción" : "Pruebas"}</td>
                       <td>{item.chainPosition}</td>
                       <td>{item.status === "UNKNOWN" ? "Incierto" : item.status === "FAILED" ? "Fallido" : "Reintento"}</td>
                       <td>{item.attempts}</td>
@@ -109,11 +114,12 @@ export function SifAeatOverview({ companyId }: { companyId: string }) {
             <div className="table-scroll">
               <table className="data-table">
                 <caption>Resultados con incidencias: {overview.data.review.length} de {overview.data.counts.ACCEPTED_WITH_ERRORS + overview.data.counts.REJECTED} más recientes. Incluye casos históricos con seguimiento.</caption>
-                <thead><tr><th scope="col">Factura</th><th scope="col">Registro SIF</th><th scope="col">Respuesta AEAT</th><th scope="col">Incidencia</th><th scope="col">Seguimiento</th></tr></thead>
+                <thead><tr><th scope="col">Factura</th><th scope="col">Entorno</th><th scope="col">Registro SIF</th><th scope="col">Respuesta AEAT</th><th scope="col">Incidencia</th><th scope="col">Seguimiento</th></tr></thead>
                 <tbody>
                   {overview.data.review.map((item) => (
                     <tr key={item.id}>
                       <td><Link href={`/facturas/${item.invoiceId}#trazabilidad`}>{item.invoiceNumber}</Link></td>
+                      <td>{item.environment === "PRODUCTION" ? "Producción" : "Pruebas"}</td>
                       <td>{recordTypeLabel(item.recordType)} · posición {item.chainPosition}</td>
                       <td>{outcomeLabel(item.status)}{item.csv ? ` · CSV ${item.csv}` : ""}</td>
                       <td>{item.errorCode ? `Código ${item.errorCode} · ` : ""}{item.errorDescription ?? item.lastError ?? item.recordStatus ?? "Sin detalle"}</td>

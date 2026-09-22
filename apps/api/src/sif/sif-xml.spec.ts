@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { renderSifAeatXml } from "./sif-xml";
+import { renderSifAeatXml, withSifRemittanceIncident } from "./sif-xml";
 
 const schema = join(__dirname, "xsd", "SuministroLR.xsd");
 function expectValidAeatXml(xml: string) {
@@ -51,6 +51,11 @@ describe("AEAT SIF XML", () => {
     expect(xml).toContain("<sf:DescripcionOperacion>Services &amp; support</sf:DescripcionOperacion>");
     expect(xml).toContain("<sf:TipoHuella>01</sf:TipoHuella>");
     expectValidAeatXml(xml);
+    const marked = withSifRemittanceIncident(xml);
+    expect(marked).toContain("<sf:RemisionVoluntaria><sf:Incidencia>S</sf:Incidencia></sf:RemisionVoluntaria>");
+    expect(marked).toContain("<sf:NombreRazon>Client &lt;one&gt;</sf:NombreRazon>");
+    expect(withSifRemittanceIncident(marked)).toBe(marked);
+    expectValidAeatXml(marked);
   });
 
   it("renders cancellation identity and the previous chain record", () => {

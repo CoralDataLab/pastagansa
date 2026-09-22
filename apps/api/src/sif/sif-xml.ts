@@ -91,6 +91,20 @@ export function renderSifAeatXml(input: {
   ].join("\n");
 }
 
+/** Adds the remittance incident marker without changing the frozen billing record. */
+export function withSifRemittanceIncident(xml: string): string {
+  if (xml.includes("<sf:RemisionVoluntaria>")) {
+    if (!xml.includes("<sf:Incidencia>S</sf:Incidencia>"))
+      throw new Error("AEAT remittance incident marker conflicts with frozen XML");
+    return xml;
+  }
+  const closing = "  </sfLR:Cabecera>";
+  if (xml.split(closing).length !== 2 || !xml.includes("<sfLR:RegFactuSistemaFacturacion"))
+    throw new Error("AEAT incident marker requires a frozen SIF batch XML");
+  return xml.replace(closing,
+    "    <sf:RemisionVoluntaria><sf:Incidencia>S</sf:Incidencia></sf:RemisionVoluntaria>\n" + closing);
+}
+
 function registration(record: SifXmlRegistration) {
   return [
     "    <sf:RegistroAlta>",

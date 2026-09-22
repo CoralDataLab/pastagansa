@@ -38,6 +38,7 @@ export interface Invoice {
     | "RECTIFIED";
   documentType: "INVOICE" | "CREDIT_NOTE";
   sifMode: "DISABLED" | "NO_VERIFACTU" | "VERIFACTU";
+  aeatEnvironment: "TEST" | "PRODUCTION";
   sifInvoiceType: "F1" | "R1" | "R2" | "R3" | "R4" | "R5";
   rectificationKind: "TOTAL" | "PARTIAL" | "DIFFERENCE" | null;
   rectificationImpact: "DECREASE" | "INCREASE" | null;
@@ -236,7 +237,7 @@ export interface InvoiceTrace {
     hashAlgorithm: string;
     specificationVersion: string;
   }>;
-  aeatTestSubmissions: Array<{
+  aeatSubmissions: Array<{
     recordId: string;
     submissions: Array<{
       id: string;

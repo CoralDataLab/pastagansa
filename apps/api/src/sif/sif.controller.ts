@@ -48,6 +48,18 @@ export class SifController {
     return this.sif.testSubmissionOverview();
   }
 
+  @Get("submissions/overview")
+  @RequirePermissions("sif_record.read")
+  submissionOverview() {
+    return this.sif.testSubmissionOverview();
+  }
+
+  @Get("submissions/incident")
+  @RequirePermissions("invoice.read")
+  remittanceIncident() {
+    return this.sif.remittanceIncident();
+  }
+
   @Get("verification")
   @LongTenantTransaction()
   @RequirePermissions("sif_record.read")
@@ -84,6 +96,12 @@ export class SifController {
     return this.sif.testSubmissions(recordId);
   }
 
+  @Get(":recordId/submissions")
+  @RequirePermissions("sif_record.read")
+  submissions(@Param("recordId", ParseUUIDPipe) recordId: string) {
+    return this.sif.testSubmissions(recordId);
+  }
+
   @Get(":recordId/test-submissions/:submissionId/evidence")
   @RequirePermissions("sif_record.read")
   async exportTestSubmissionEvidence(
@@ -96,6 +114,15 @@ export class SifController {
       disposition: `attachment; filename="${file.filename}"`,
       length: file.content.length,
     });
+  }
+
+  @Get(":recordId/submissions/:submissionId/evidence")
+  @RequirePermissions("sif_record.read")
+  async exportSubmissionEvidence(
+    @Param("recordId", ParseUUIDPipe) recordId: string,
+    @Param("submissionId", ParseUUIDPipe) submissionId: string,
+  ) {
+    return this.exportTestSubmissionEvidence(recordId, submissionId);
   }
 
   @Get()

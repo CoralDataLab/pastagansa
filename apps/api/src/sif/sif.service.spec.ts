@@ -2,7 +2,10 @@ import { RectificationImpact, SifAeatSubmissionStatus as SubmissionStatus, SifMo
 import { Decimal } from "@prisma/client/runtime/library";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { ConfigService } from "@nestjs/config";
 import { SifService } from "./sif.service";
 
 const noSigning = { matches: () => true, sign: async (xml: string) => xml };
@@ -95,7 +98,8 @@ describe("SifService AEAT test overview", () => {
         availableAt: new Date("2026-09-18T12:00:00.000Z"),
         lastAttemptAt: new Date("2026-09-18T11:58:00.000Z"),
         lastError: "Timeout", responseXml: "private SOAP response",
-        record: { chainPosition: 9n, invoice: { id: "invoice", fullNumber: "F2026-0005" } },
+        record: { chainPosition: 9n, invoice: { id: "invoice", fullNumber: "F2026-0005",
+          aeatEnvironment: "PRODUCTION" } },
       }])
       .mockResolvedValueOnce([
         {
@@ -104,7 +108,7 @@ describe("SifService AEAT test overview", () => {
           errorDescription: "FechaHoraHusoGenRegistro fuera de margen", csv: "CSV-1",
           record: {
             id: "record-2", recordType: SifRecordType.REGISTRATION, chainPosition: 2n,
-            invoice: { id: "invoice-2", fullNumber: "F2026-0002", sifRecords: [{
+            invoice: { id: "invoice-2", fullNumber: "F2026-0002", aeatEnvironment: "TEST", sifRecords: [{
               recordType: SifRecordType.SUBSANATION, chainPosition: 4n,
               payload: { subsanationOf: { recordId: "record-2" }, resolutionNote: "Causa externa resuelta y datos verificados" },
               aeatSubmissions: [{ status: SubmissionStatus.ACCEPTED }],
@@ -155,9 +159,9 @@ describe("SifService AEAT test overview", () => {
     expect(result).toMatchObject({
       companyId,
       counts: { ACCEPTED: 6, UNKNOWN: 1, FAILED: 0, RETRY: 0 },
-      attention: [{ status: "UNKNOWN", chainPosition: "9", invoiceNumber: "F2026-0005" }],
+      attention: [{ status: "UNKNOWN", chainPosition: "9", invoiceNumber: "F2026-0005", environment: "PRODUCTION" }],
       review: [
-        { reviewKind: "FOLLOW_UP_RECORDED", followUps: [{ chainPosition: "4", status: "ACCEPTED", resolutionNote: "Causa externa resuelta y datos verificados" }] },
+        { reviewKind: "FOLLOW_UP_RECORDED", environment: "TEST", followUps: [{ chainPosition: "4", status: "ACCEPTED", resolutionNote: "Causa externa resuelta y datos verificados" }] },
         { reviewKind: "FOLLOW_UP_RECORDED", errorCode: "4112", invoiceNumber: "F2026-0001", followUps: [
           { chainPosition: "6", recordType: "CANCELLATION", status: "ACCEPTED" },
         ] },
@@ -176,15 +180,18 @@ describe("SifService AEAT test overview", () => {
 });
 
 describe("SifService AEAT evidence export", () => {
-  it("exports the stored SOAP response with its digest and scopes the lookup", async () => {
+  it.each(["TEST", "PRODUCTION"] as const)("exports %s evidence with its real environment and scoped digest", async (environment) => {
     const organizationId = "11111111-1111-4111-8111-111111111111";
     const companyId = "22222222-2222-4222-8222-222222222222";
     const findFirst = jest.fn().mockResolvedValue({
       id: "44444444-4444-4444-8444-444444444444", status: SubmissionStatus.ACCEPTED,
       requestSha256: "a".repeat(64), responseXml: "<soap>accepted</soap>",
+      incident: true, lastAttemptedXml: "<xml>incident</xml>",
+      lastAttemptedSha256: createHash("sha256").update("<xml>incident</xml>").digest("hex"),
       reconciliationXml: null, csv: "CSV-1", record: {
         chainPosition: 3n, issuerTaxId: "B12345674", invoiceNumber: "F2026-0003",
         invoiceIssueDate: new Date("2026-09-18T00:00:00.000Z"), recordHash: "b".repeat(64),
+        invoice: { aeatEnvironment: environment },
       },
     });
     const service = new SifService({
@@ -195,12 +202,35 @@ describe("SifService AEAT evidence export", () => {
       "33333333-3333-4333-8333-333333333333", "44444444-4444-4444-8444-444444444444",
     );
     const evidence = JSON.parse(file.content.toString("utf8"));
-    expect(evidence).toMatchObject({ environment: "AEAT_TEST", chainPosition: "3", csv: "CSV-1" });
+    expect(evidence).toMatchObject({ environment: `AEAT_${environment}`, chainPosition: "3", csv: "CSV-1" });
+    expect(file.filename).toBe(`aeat-${environment.toLowerCase()}-44444444-4444-4444-8444-444444444444-evidence.json`);
     expect(evidence.responseSha256).toBe(createHash("sha256").update(evidence.responseXml).digest("hex"));
+    expect(evidence).toMatchObject({
+      incident: true, lastAttemptedXml: "<xml>incident</xml>",
+      lastAttemptedSha256: createHash("sha256").update("<xml>incident</xml>").digest("hex"),
+    });
     expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: {
       id: "44444444-4444-4444-8444-444444444444",
       recordId: "33333333-3333-4333-8333-333333333333", organizationId, companyId,
     } }));
+  });
+});
+
+describe("SifService AEAT remittance incident", () => {
+  it.each([
+    [0, 2, false, 0],
+    [1, 3, true, 3],
+  ])("reports %i active incidents among %i unsent records", async (incidents, unsent, active, count) => {
+    const companyId = "22222222-2222-4222-8222-222222222222";
+    const submissionCount = jest.fn().mockResolvedValueOnce(incidents).mockResolvedValueOnce(unsent);
+    const service = new SifService({
+      required: { organizationId: "11111111-1111-4111-8111-111111111111", companyId },
+      db: { sifAeatSubmission: { count: submissionCount } },
+    } as never, {} as never);
+    expect(await service.remittanceIncident()).toEqual({ companyId, active, unsentCount: count });
+    expect(submissionCount).toHaveBeenCalledTimes(2);
+    for (const [query] of submissionCount.mock.calls)
+      expect(query.where).toMatchObject({ companyId });
   });
 });
 
@@ -396,7 +426,7 @@ describe("SifService registration profile", () => {
   });
 
   it.each([SifMode.NO_VERIFACTU, SifMode.VERIFACTU])
-  ("freezes the %s registration and queues only test VERI*FACTU", async (mode) => {
+  ("freezes the %s test registration and queues VERI*FACTU", async (mode) => {
     const create = jest.fn().mockImplementation(({ data }) =>
       Promise.resolve({ ...data, id: "44444444-4444-4444-8444-444444444444", chainPosition: 1n }),
     );
@@ -409,7 +439,7 @@ describe("SifService registration profile", () => {
       db: {
         $executeRaw: jest.fn(),
         sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
-        sifAeatSubmission: { create: submissionCreate },
+        sifAeatSubmission: { findFirst: jest.fn().mockResolvedValue(null), create: submissionCreate },
         invoice: { findFirst: jest.fn().mockResolvedValue({
           id: "33333333-3333-4333-8333-333333333333",
           status: "ISSUED", fullNumber: "F2026-0009", sifMode: mode,
@@ -447,9 +477,74 @@ describe("SifService registration profile", () => {
         companyId: "22222222-2222-4222-8222-222222222222",
         recordId: "44444444-4444-4444-8444-444444444444",
         requestSha256: createHash("sha256").update(data.payload.aeatXml).digest("hex"),
+        incident: false,
       } });
     } else {
       expect(submissionCreate).not.toHaveBeenCalled();
+    }
+  });
+
+  it("freezes a production VERI*FACTU registration and queues it only with the company release", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "sif-issuer-release-"));
+    const path = join(directory, "declaration.pdf");
+    const declaration = Buffer.from("reviewed declaration");
+    try {
+      writeFileSync(path, declaration);
+      const companyId = "22222222-2222-4222-8222-222222222222";
+      const config = new ConfigService({
+        SIF_PRODUCTION_RELEASE_ENABLED: "true",
+        SIF_PRODUCTION_RELEASE_COMPANY_ID: companyId,
+        SIF_PRODUCTION_DECLARATION_PATH: path,
+        SIF_PRODUCTION_DECLARATION_SHA256: createHash("sha256").update(declaration).digest("hex"),
+      });
+      const create = jest.fn().mockImplementation(({ data }) => Promise.resolve({
+        ...data, id: "44444444-4444-4444-8444-444444444444", chainPosition: 1n,
+      }));
+      const submissionCreate = jest.fn().mockResolvedValue({});
+      const priorSubmission = jest.fn().mockResolvedValue({ id: "unresolved-incident" });
+      const service = new SifService({
+        required: { organizationId: "11111111-1111-4111-8111-111111111111", companyId },
+        db: {
+          $executeRaw: jest.fn(),
+          sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
+          sifAeatSubmission: { findFirst: priorSubmission, create: submissionCreate },
+          invoice: { findFirst: jest.fn().mockResolvedValue({
+            id: "33333333-3333-4333-8333-333333333333", status: "ISSUED",
+            fullNumber: "F2026-0009", sifMode: SifMode.VERIFACTU,
+            aeatEnvironment: "PRODUCTION", documentType: "INVOICE", rectificationImpact: null,
+            issuerLegalName: "Coral Data Lab", issuerTaxId: "B12345674",
+            customerLegalName: "Client S.L.", customerTaxId: "B76543210",
+            sifInvoiceType: "F1", notes: null,
+            issueDate: new Date("2026-09-16T00:00:00.000Z"),
+            taxTotal: new Decimal("21.00"), total: new Decimal("121.00"),
+            lines: [{ description: "Consulting" }],
+            taxLines: [{ taxableBase: new Decimal("100.00"), taxRate: new Decimal("21"),
+              taxAmount: new Decimal("21.00"), subject: true, exempt: false,
+              reverseCharge: false, surchargeRate: null, surchargeAmount: new Decimal("0") }],
+            company: { timezone: "Europe/Madrid", sifSoftwareProducerName: "Coral Data Lab",
+              sifSoftwareProducerTaxId: "B12345674", sifSoftwareName: "PastaGansa",
+              sifSoftwareId: "PG", sifSoftwareVersion: "0.1.0", sifInstallationNumber: "production-1" },
+          }) },
+        },
+      } as never, { record: jest.fn() } as never, undefined, undefined, undefined,
+      { enabled: true, companyId, issuerTaxId: "B12345674" } as never, config);
+
+      await service.createRegistration("33333333-3333-4333-8333-333333333333");
+      const xml = create.mock.calls[0][0].data.payload.aeatXml as string;
+      expect(xml).toContain("<sf:RegistroAlta>");
+      expect(priorSubmission).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          companyId, record: { invoice: { aeatEnvironment: "PRODUCTION" } },
+        }),
+      }));
+      expect(submissionCreate).toHaveBeenCalledWith({ data: {
+        organizationId: "11111111-1111-4111-8111-111111111111", companyId,
+        recordId: "44444444-4444-4444-8444-444444444444",
+        requestSha256: createHash("sha256").update(xml).digest("hex"),
+        incident: true,
+      } });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 

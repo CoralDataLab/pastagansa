@@ -892,7 +892,7 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
       setNotice("Se ha añadido y encolado una nueva alta de subsanación. Revisa su respuesta AEAT.");
     },
   });
-  const registrationSubmission = trace.data?.aeatTestSubmissions.find(
+  const registrationSubmission = trace.data?.aeatSubmissions.find(
     (entry) => entry.recordId === trace.data?.sifRecord?.id,
   )?.submissions[0];
   const definitiveAeatResponse =
@@ -1083,13 +1083,13 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                 </small>
                 {invoice.sifMode === "VERIFACTU" &&
                   trace.data.sifRecords.map((record) => {
-                    const submission = trace.data.aeatTestSubmissions.find(
+                    const submission = trace.data.aeatSubmissions.find(
                       (entry) => entry.recordId === record.id,
                     )?.submissions[0];
                     return (
                       <div key={`aeat-${record.id}`}>
                         <small role="status">
-                          AEAT pruebas ·{" "}
+                          AEAT {invoice.aeatEnvironment === "PRODUCTION" ? "producción" : "pruebas"} ·{" "}
                           {record.recordType === "REGISTRATION"
                             ? "alta"
                             : record.recordType === "SUBSANATION"
@@ -1097,7 +1097,7 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                               : "anulación"}
                           :{" "}
                           {submission
-                            ? aeatTestStatusLabel(submission.status)
+                            ? aeatSubmissionStatusLabel(submission.status)
                             : "sin envío"}
                           {submission?.csv ? ` · CSV ${submission.csv}` : ""}
                           {submission?.errorDescription
@@ -1109,9 +1109,9 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                         </small>
                         {submission && (
                           <a
-                            href={`/api/sif/records/${record.id}/test-submissions/${submission.id}/evidence`}
+                            href={`/api/sif/records/${record.id}/submissions/${submission.id}/evidence`}
                           >
-                            Descargar evidencia AEAT pruebas
+                            Descargar evidencia AEAT {invoice.aeatEnvironment === "PRODUCTION" ? "producción" : "pruebas"}
                           </a>
                         )}
                       </div>
@@ -1169,7 +1169,7 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                         onClick={() => {
                           if (
                             window.confirm(
-                              "Se enviará a AEAT pruebas una nueva alta de subsanación con la hora actual. El alta anterior y la factura permanecerán intactas. ¿Continuar?",
+                              `Se enviará a AEAT ${invoice.aeatEnvironment === "PRODUCTION" ? "producción" : "pruebas"} una nueva alta de subsanación con la hora actual. El alta anterior y la factura permanecerán intactas. ¿Continuar?`,
                             )
                           )
                             subsanateTimestamp.mutate();
@@ -1199,7 +1199,7 @@ function TracePanel({ invoice }: { invoice: Invoice }) {
                             return;
                           }
                           if (!window.confirm(
-                            "Se enviará a AEAT pruebas una nueva alta con Subsanacion=S y RechazoPrevio=X. La factura y el registro rechazado permanecerán intactos. ¿Confirmas que los datos de la factura siguen siendo correctos?",
+                            `Se enviará a AEAT ${invoice.aeatEnvironment === "PRODUCTION" ? "producción" : "pruebas"} una nueva alta con Subsanacion=S y RechazoPrevio=X. La factura y el registro rechazado permanecerán intactos. ¿Confirmas que los datos de la factura siguen siendo correctos?`,
                           )) return;
                           recoverRejectedRegistration.mutate(note.trim());
                         }}
@@ -1272,7 +1272,7 @@ function shortHash(value: string) {
   return `${value.slice(0, 12)}…${value.slice(-8)}`;
 }
 
-function aeatTestStatusLabel(status: string) {
+function aeatSubmissionStatusLabel(status: string) {
   switch (status) {
     case "PENDING":
       return "pendiente";
