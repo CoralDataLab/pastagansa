@@ -16,11 +16,11 @@
 
 **1.g) Firmas de los registros en uso NO VERI*FACTU:** implementación prevista mediante XAdES Enveloped Signature con política EPES y certificado cualificado vinculado al emisor o representante autorizado. La validación de la firma, de los eventos y de la instalación final sigue pendiente según la matriz N-01–N-03; no suscribir esta redacción como conformidad hasta cerrar esas filas.
 
-**1.h) Entidad productora:** CORALDATALAB, S.L. Cotejar la razón social registral.
+**1.h) Entidad productora:** CORALDATALAB, S.L. Denominación cotejada en la escritura y certificación registral aportadas; confirmar que sigue vigente al suscribir.
 
-**1.i) NIF español de la entidad productora:** B93975670. Cotejar con documentación societaria.
+**1.i) NIF español de la entidad productora:** B93975670. Cotejado en la certificación registral aportada.
 
-**1.j) Dirección postal completa de contacto del productor:** [DOMICILIO COMUNICADO POR EL TITULAR; TRANSCRIBIR EN EL DOCUMENTO FINAL PRIVADO TRAS COTEJO].
+**1.j) Dirección postal completa de contacto del productor:** [DOMICILIO SOCIAL COTEJADO EN ESTATUTOS Y CERTIFICACIÓN REGISTRAL; INCORPORADO SOLO EN EL BORRADOR PRIVADO]. Confirmar que no haya traslado antes de suscribir.
 
 **1.k) Manifestación de conformidad del productor:** [PENDIENTE: incorporar la afirmación expresa de cumplimiento del art. 29.2.j de la Ley 58/2003, RD 1007/2023, Orden HAC/1177/2024 y especificaciones AEAT aplicables, **solo después** de cerrar la revisión de la versión 1.c]. Este borrador no formula esa manifestación.
 
@@ -28,7 +28,7 @@
 
 ## Anexo de preparación, fuera del texto obligatorio
 
-- Corroborar identidad y facultades de representación del firmante.
+- La escritura y la certificación registral aportadas acreditan el nombramiento y aceptación del administrador único en 2026. Confirmar que el cargo sigue vigente al suscribir.
 - Archivar matriz de requisitos, pruebas, commit, imágenes, versión SIF, configuración y SHA-256 del PDF que finalmente se suscriba, sin claves privadas ni contraseñas.
 - Facilitar la declaración final dentro del producto para esa versión y conservar las declaraciones de versiones anteriores. El PDF que hoy descarga la aplicación se identifica expresamente como **borrador** y no cumple todavía esta función.
 - La firma de este documento solo procederá cuando la [matriz GOV-01 y los demás bloqueos aplicables](17_manual_evidencias_conformidad_sif.md) estén cerrados. La aceptación de un registro por AEAT pruebas no equivale a certificación del sistema.
