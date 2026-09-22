@@ -2,6 +2,7 @@ import { X509Certificate } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import * as forge from "node-forge";
+import { renderSifBasicEventXml } from "./sif-event-xml";
 import { AEAT_SIF_INFO_NAMESPACE, AEAT_SIF_LR_NAMESPACE, renderSifAeatXml } from "./sif-xml";
 import { signSifRecordXml, verifySifRecordSignature } from "./sif-xades";
 
@@ -90,4 +91,35 @@ describe("AEAT NO VERI*FACTU XAdES-EPES", () => {
       expect(validation.status).toBe(0);
     },
   );
+
+  it("places a signed event inside Evento and validates its XML against AEAT", async () => {
+    const event = renderSifBasicEventXml({
+      eventType: "01", producerName: "Test Producer", producerTaxId: "B12345674",
+      softwareName: "PastaGansa", softwareId: "PG", softwareVersion: "0.1.0",
+      installationNumber: "test-1", issuerName: "Test Issuer", issuerTaxId: "B12345674",
+      generatedAt: "2026-09-22T09:00:00+02:00",
+    });
+    const signed = await signSifRecordXml(event.xml, identity);
+    expect(signed).toContain(`<ev:HuellaEvento>${event.hash}</ev:HuellaEvento>`);
+    expect(signed).toMatch(/<ev:Evento>[\s\S]*<[^>]*Signature/);
+    expect(await verifySifRecordSignature(signed)).toBe(true);
+    expect(await verifySifRecordSignature(signed.replace("<ev:TipoEvento>01</ev:TipoEvento>",
+      "<ev:TipoEvento>02</ev:TipoEvento>"))).toBe(false);
+    const validation = spawnSync("xmllint", ["--noout", "--schema", join(__dirname, "xsd", "EventosSIF.xsd"), "-"],
+      { input: signed, encoding: "utf8" });
+    expect(validation.status).toBe(0);
+
+    const stop = renderSifBasicEventXml({
+      eventType: "02", producerName: "Test Producer", producerTaxId: "B12345674",
+      softwareName: "PastaGansa", softwareId: "PG", softwareVersion: "0.1.0",
+      installationNumber: "test-1", issuerName: "Test Issuer", issuerTaxId: "B12345674",
+      generatedAt: "2026-09-22T10:00:00+02:00",
+      previous: { eventType: "01", generatedAt: "2026-09-22T09:00:00+02:00", hash: event.hash },
+    });
+    const signedStop = await signSifRecordXml(stop.xml, identity);
+    expect(signedStop).toContain(`<ev:HuellaEvento>${event.hash}</ev:HuellaEvento>`);
+    expect(await verifySifRecordSignature(signedStop)).toBe(true);
+    expect(spawnSync("xmllint", ["--noout", "--schema", join(__dirname, "xsd", "EventosSIF.xsd"), "-"],
+      { input: signedStop, encoding: "utf8" }).status).toBe(0);
+  });
 });

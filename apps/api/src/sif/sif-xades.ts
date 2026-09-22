@@ -11,6 +11,8 @@ const POLICY_URL = "https://sede.administracion.gob.es/politica_de_firma_anexo_1
 const POLICY_DIGEST = "G7roucf600+f03r/o0bAOQ6WAs0=";
 const XMLDSIG_NAMESPACE = "http://www.w3.org/2000/09/xmldsig#";
 const XADES_NAMESPACE = "http://uri.etsi.org/01903/v1.3.2#";
+export const AEAT_SIF_EVENT_NAMESPACE =
+  "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd";
 
 xadesjs.setNodeDependencies({ DOMImplementation, DOMParser, XMLSerializer, xpath });
 xadesjs.Application.setEngine("NodeJS", webcrypto as Crypto);
@@ -41,8 +43,11 @@ export function validateSifSigningIdentity(identity: SifSigningIdentity): void {
 export async function signSifRecordXml(xml: string, identity: SifSigningIdentity): Promise<string> {
   const { privateKey, certificate } = openIdentity(identity);
   const document = xadesjs.Parse(xml);
-  const records = ["RegistroAlta", "RegistroAnulacion", "RegistroEvento"]
-    .flatMap((name) => Array.from(document.getElementsByTagNameNS(AEAT_SIF_INFO_NAMESPACE, name)));
+  const records = [
+    ...["RegistroAlta", "RegistroAnulacion"]
+      .flatMap((name) => Array.from(document.getElementsByTagNameNS(AEAT_SIF_INFO_NAMESPACE, name))),
+    ...Array.from(document.getElementsByTagNameNS(AEAT_SIF_EVENT_NAMESPACE, "RegistroEvento")),
+  ];
   if (records.length !== 1) throw new Error("Exactly one AEAT record node is required for signing");
   const record = records[0];
   if (record.getElementsByTagNameNS(XMLDSIG_NAMESPACE, "Signature").length)
@@ -76,9 +81,18 @@ export async function signSifRecordXml(xml: string, identity: SifSigningIdentity
     },
   });
   const standalone = signed.toString();
-  if (!await verifySifRecordSignature(standalone))
-    throw new Error("Standalone AEAT record failed local signature verification");
   const signedDocument = xadesjs.Parse(standalone);
+  if (record.localName === "RegistroEvento") {
+    const event = signedDocument.documentElement.getElementsByTagNameNS(AEAT_SIF_EVENT_NAMESPACE, "Evento")[0];
+    const eventSignature = signedDocument.documentElement.getElementsByTagNameNS(XMLDSIG_NAMESPACE, "Signature")[0];
+    if (!event || !eventSignature) throw new Error("AEAT event signature location is unavailable");
+    event.appendChild(eventSignature);
+  }
+  const locatedStandalone = new XMLSerializer().serializeToString(
+    signedDocument as unknown as Parameters<XMLSerializer["serializeToString"]>[0],
+  );
+  if (!await verifySifRecordSignature(locatedStandalone))
+    throw new Error("Standalone AEAT record failed local signature verification");
   record.parentNode?.replaceChild(signedDocument.documentElement, record);
   const output = new XMLSerializer().serializeToString(
     document as unknown as Parameters<XMLSerializer["serializeToString"]>[0],
@@ -94,20 +108,39 @@ export async function verifySifRecordSignature(xml: string): Promise<boolean> {
   const signatures = document.getElementsByTagNameNS(XMLDSIG_NAMESPACE, "Signature");
   if (signatures.length !== 1) return false;
   const signature = signatures[0];
-  const record = signature.parentNode;
-  if (!record || record.nodeType !== 1 ||
-      !["RegistroAlta", "RegistroAnulacion", "RegistroEvento"].includes((record as Element).localName) ||
-      (record as Element).namespaceURI !== AEAT_SIF_INFO_NAMESPACE)
+  const parent = signature.parentNode as Element | null;
+  const isEvent = parent?.localName === "Evento" && parent.namespaceURI === AEAT_SIF_EVENT_NAMESPACE;
+  const record = isEvent
+    ? parent.parentNode as Element | null : parent;
+  if (!record || record.nodeType !== 1 || !(
+    (["RegistroAlta", "RegistroAnulacion"].includes(record.localName) && record.namespaceURI === AEAT_SIF_INFO_NAMESPACE) ||
+    (record.localName === "RegistroEvento" && record.namespaceURI === AEAT_SIF_EVENT_NAMESPACE)
+  ))
     return false;
+  if (record.localName === "RegistroEvento" && !isEvent) return false;
   const policy = signature.getElementsByTagNameNS(XADES_NAMESPACE, "SignaturePolicyIdentifier")[0];
   if (!policy ||
       policy.getElementsByTagNameNS(XADES_NAMESPACE, "Identifier")[0]?.textContent !== POLICY_ID ||
       policy.getElementsByTagNameNS(XMLDSIG_NAMESPACE, "DigestValue")[0]?.textContent !== POLICY_DIGEST ||
       policy.getElementsByTagNameNS(XADES_NAMESPACE, "SPURI")[0]?.textContent !== POLICY_URL)
     return false;
-  const verifier = new XmlSignedXml(record as Element);
+  // xmldsigjs' enveloped transform removes only direct Signature children.
+  // AEAT places an event Signature inside Evento while signing RegistroEvento.
+  // Normalize a clone solely for local verification; the returned XML retains
+  // AEAT's required nested location and the signed data is otherwise identical.
+  let verificationRecord = record;
+  let verificationSignature = signature;
+  if (isEvent) {
+    const clone = xadesjs.Parse(new XMLSerializer().serializeToString(
+      record as unknown as Parameters<XMLSerializer["serializeToString"]>[0],
+    ));
+    verificationRecord = clone.documentElement;
+    verificationSignature = clone.documentElement.getElementsByTagNameNS(XMLDSIG_NAMESPACE, "Signature")[0];
+    verificationRecord.appendChild(verificationSignature);
+  }
+  const verifier = new XmlSignedXml(verificationRecord);
   try {
-    verifier.LoadXml(signature);
+    verifier.LoadXml(verificationSignature);
     return await verifier.Verify();
   } catch {
     return false;
