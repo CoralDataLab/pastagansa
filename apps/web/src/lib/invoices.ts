@@ -45,6 +45,7 @@ export interface Invoice {
   rectificationReason: string | null;
   vatRecoveryReview?: {
     legalBasis: string;
+    customerBusinessConfirmed?: boolean;
     legalEventDate: string;
     legalEventReference: string;
     claimEvidenceReference?: string;
@@ -104,6 +105,7 @@ export type RectificationInput = z.infer<typeof rectificationInputSchema>;
 export const vatRecoveryReviewSchema = z.object({
   fiscalReviewConfirmed: z.literal(true),
   exclusionsReviewed: z.literal(true),
+  customerBusinessConfirmed: z.literal(true).optional(),
   legalEventDate: z.iso.date(),
   legalEventReference: z.string().trim().min(5).max(500),
   claimEvidenceReference: z.string().trim().min(5).max(500).optional(),

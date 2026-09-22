@@ -21,6 +21,10 @@ export class VatRecoveryReviewDto {
   @MinLength(5)
   @MaxLength(500)
   claimEvidenceReference?: string;
+
+  @IsOptional()
+  @Equals(true)
+  customerBusinessConfirmed?: true;
 }
 
 export class IssueInvoiceDto {

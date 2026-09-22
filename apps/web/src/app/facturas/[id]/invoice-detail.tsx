@@ -1655,7 +1655,8 @@ function IssueDialog({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
-    if (vatOnly && (!values.has("fiscalReviewConfirmed") || !values.has("exclusionsReviewed"))) {
+    if (vatOnly && (!values.has("fiscalReviewConfirmed") || !values.has("exclusionsReviewed") ||
+      (invoice.sifInvoiceType === "R3" && !values.has("customerBusinessConfirmed")))) {
       event.currentTarget.reportValidity();
       return;
     }
@@ -1667,7 +1668,10 @@ function IssueDialog({
         exclusionsReviewed: true,
         legalEventDate: String(values.get("legalEventDate") ?? ""),
         legalEventReference: String(values.get("legalEventReference") ?? "").trim(),
-        ...(invoice.sifInvoiceType === "R3" ? { claimEvidenceReference: String(values.get("claimEvidenceReference") ?? "").trim() } : {}),
+        ...(invoice.sifInvoiceType === "R3" ? {
+          claimEvidenceReference: String(values.get("claimEvidenceReference") ?? "").trim(),
+          customerBusinessConfirmed: true as const,
+        } : {}),
       } : undefined,
     });
   }
@@ -1754,10 +1758,13 @@ function IssueDialog({
                   <input name="legalEventReference" minLength={5} maxLength={500} required />
                 </label>
                 {invoice.sifInvoiceType === "R3" && (
-                  <label className="field full">
-                    <span>Referencia de la reclamación de cobro</span>
-                    <input name="claimEvidenceReference" minLength={5} maxLength={500} required />
-                  </label>
+                  <>
+                    <label className="field full">
+                      <span>Referencia de la reclamación de cobro</span>
+                      <input name="claimEvidenceReference" minLength={5} maxLength={500} required />
+                    </label>
+                    <label className="field full"><input name="customerBusinessConfirmed" type="checkbox" required /> He comprobado que el destinatario actuó como empresa o profesional en esta operación.</label>
+                  </>
                 )}
                 <label className="field full"><input name="fiscalReviewConfirmed" type="checkbox" required /> He revisado la elegibilidad fiscal, los plazos y la cuota recuperable.</label>
                 <label className="field full"><input name="exclusionsReviewed" type="checkbox" required /> He comprobado las exclusiones legales aplicables.</label>

@@ -2384,7 +2384,7 @@ describe("platform integrity", () => {
       .send({ sequenceId: creditSequence.body.id })
       .expect(409);
     expect(JSON.stringify(blockedVatOnlyIssue.body)).toContain("R2/R3 issuance requires a documented fiscal review");
-    const issuedVatOnly = await authed(accountA.accessToken, tenantA)
+    const blockedUnconfirmedR3Issue = await authed(accountA.accessToken, tenantA)
       .post(`/v1/invoices/${vatOnlyDraft.body.id}/issue`)
       .set("idempotency-key", "issue-vat-only-draft-a")
       .send({ sequenceId: creditSequence.body.id, vatRecoveryReview: {
@@ -2394,11 +2394,25 @@ describe("platform integrity", () => {
         legalEventReference: "Fiscal review file R3-2026-01",
         claimEvidenceReference: "Certified payment demand R3-2026-01",
       } })
+      .expect(409);
+    expect(JSON.stringify(blockedUnconfirmedR3Issue.body)).toContain("customer acted as a business or professional");
+    const issuedVatOnly = await authed(accountA.accessToken, tenantA)
+      .post(`/v1/invoices/${vatOnlyDraft.body.id}/issue`)
+      .set("idempotency-key", "issue-vat-only-draft-a")
+      .send({ sequenceId: creditSequence.body.id, vatRecoveryReview: {
+        fiscalReviewConfirmed: true,
+        exclusionsReviewed: true,
+        legalEventDate: "2026-09-10",
+        legalEventReference: "Fiscal review file R3-2026-01",
+        claimEvidenceReference: "Certified payment demand R3-2026-01",
+        customerBusinessConfirmed: true,
+      } })
       .expect(200);
     expect(issuedVatOnly.body).toMatchObject({
       status: "ISSUED", sifInvoiceType: "R3",
       vatRecoveryReview: {
         legalBasis: "LIVA_80_4", originalTaxAmount: "21.00",
+        customerBusinessConfirmed: true,
         recoveredTaxAmount: "21.00", customerDeliveryStatus: "NOT_RECORDED",
         baseModificationCommunicationStatus: "NOT_RECORDED",
       },
@@ -2506,6 +2520,7 @@ describe("platform integrity", () => {
         legalEventDate: "2026-09-10",
         legalEventReference: "Fiscal review file R3-2026-02",
         claimEvidenceReference: "Certified payment demand R3-2026-02",
+        customerBusinessConfirmed: true,
       } })
       .expect(409);
     expect(JSON.stringify(staleRecoveryIssue.body)).toContain("does not yet support paid or partially paid invoices");

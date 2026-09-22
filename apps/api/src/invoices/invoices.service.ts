@@ -814,6 +814,8 @@ export class InvoicesService {
     if (vatOnly) {
       if (!review!.fiscalReviewConfirmed || !review!.exclusionsReviewed)
         throw new ConflictException("R2/R3 requires confirmed fiscal and exclusion review");
+      if (invoice.sifInvoiceType === SifInvoiceType.R3 && review!.customerBusinessConfirmed !== true)
+        throw new ConflictException("R3 currently requires confirmation that the customer acted as a business or professional");
       const company = await this.tenant.db.company.findFirstOrThrow({
         where: { id: scope.companyId, organizationId: scope.organizationId },
         select: { sifMode: true },
@@ -865,6 +867,7 @@ export class InvoicesService {
         legalBasis: invoice.sifInvoiceType === SifInvoiceType.R2 ? "LIVA_80_3" : "LIVA_80_4",
         fiscalReviewConfirmed: true,
         exclusionsReviewed: true,
+        ...(invoice.sifInvoiceType === SifInvoiceType.R3 ? { customerBusinessConfirmed: true } : {}),
         reviewedByUserId: this.tenant.required.userId,
         reviewedAt: new Date().toISOString(),
         legalEventDate: review!.legalEventDate,
