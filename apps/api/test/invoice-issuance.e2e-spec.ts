@@ -9,12 +9,15 @@ import { randomUUID } from "node:crypto";
 import request = require("supertest");
 import { AppModule } from "../src/app.module";
 import { InvoicesService } from "../src/invoices/invoices.service";
+import { SifNoSigningService } from "../src/sif/sif-no-signing.service";
 import { TenantContextService } from "../src/tenancy/tenant-context.service";
+import { createSifTestSigner } from "./support/sif-test-signer";
 
 jest.setTimeout(120_000);
 
 describe("invoice issuance concurrency", () => {
   let app: INestApplication;
+  const testSigner = createSifTestSigner("B12345674");
   const prisma = new PrismaClient();
   const admin = new PrismaClient({
     datasources: { db: { url: process.env.DIRECT_DATABASE_URL } },
@@ -38,7 +41,7 @@ describe("invoice issuance concurrency", () => {
     );
     const module = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    }).overrideProvider(SifNoSigningService).useValue(testSigner.signer).compile();
     app = module.createNestApplication();
     app.setGlobalPrefix("v1");
     app.useGlobalPipes(
@@ -53,6 +56,7 @@ describe("invoice issuance concurrency", () => {
 
   afterAll(async () => {
     if (app) await app.close();
+    testSigner.restore();
     await prisma.$disconnect();
     await admin.$disconnect();
   });
@@ -76,6 +80,7 @@ describe("invoice issuance concurrency", () => {
       companyId: membership.companyId!,
       userId: membership.userId,
     };
+    testSigner.bind(app, tenant.companyId);
     await tenantRequest(account.body.accessToken, tenant)
       .patch("/v1/companies/current")
       .send({
@@ -93,6 +98,7 @@ describe("invoice issuance concurrency", () => {
       .post("/v1/contacts")
       .send({
         legalName: "Concurrency Customer",
+        taxId: "B76543210",
         isCustomer: true,
         isSupplier: false,
       })
@@ -114,6 +120,7 @@ describe("invoice issuance concurrency", () => {
           issuerLegalName: "Issuance Company",
           issuerTaxId: "B12345674",
           customerLegalName: "Concurrency Customer",
+          customerTaxId: "B76543210",
           issueDate: new Date("2026-09-08"),
           currency: "EUR",
           subtotal: "100",

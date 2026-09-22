@@ -9,9 +9,12 @@ import request = require("supertest");
 import type { Test as SupertestTest } from "supertest";
 import { AppModule } from "../src/app.module";
 import { IdentityService } from "../src/identity/identity.service";
+import { SifNoSigningService } from "../src/sif/sif-no-signing.service";
+import { createSifTestSigner } from "./support/sif-test-signer";
 
 describe("platform integrity", () => {
   let app: INestApplication;
+  const testSigner = createSifTestSigner("B12345674");
   const prisma = new PrismaClient();
   const admin = new PrismaClient({
     datasources: { db: { url: process.env.DIRECT_DATABASE_URL } },
@@ -35,7 +38,7 @@ describe("platform integrity", () => {
     );
     const module = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    }).overrideProvider(SifNoSigningService).useValue(testSigner.signer).compile();
     app = module.createNestApplication();
     app.setGlobalPrefix("v1");
     app.useGlobalPipes(
@@ -50,6 +53,7 @@ describe("platform integrity", () => {
 
   afterAll(async () => {
     if (app) await app.close();
+    testSigner.restore();
     await prisma.$disconnect();
     await admin.$disconnect();
   });
@@ -254,6 +258,7 @@ describe("platform integrity", () => {
     );
     const tenantA = await tenantFor("owner-a@example.com");
     const tenantB = await tenantFor("owner-b@example.com");
+    testSigner.bind(app, tenantA.companyId);
 
     const identityContext = await request(app.getHttpServer())
       .get("/v1/identity/context")
@@ -300,6 +305,7 @@ describe("platform integrity", () => {
       .post("/v1/contacts")
       .send({
         legalName: "Customer A",
+        taxId: "B76543210",
         email: "billing-a@example.com",
         isCustomer: true,
         isSupplier: false,
@@ -645,8 +651,8 @@ describe("platform integrity", () => {
           softwareId: "PG",
           softwareIdValid: true,
           records: 1,
-          frozenXmlRecords: 0,
-          unavailableXmlRecords: 1,
+          frozenXmlRecords: 1,
+          unavailableXmlRecords: 0,
           legacyXmlRecords: 0,
           firstPosition: "1",
           lastPosition: "1",
