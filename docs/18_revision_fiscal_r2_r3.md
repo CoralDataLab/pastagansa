@@ -11,6 +11,12 @@ Estado a 22/09/2026: **pendiente de revisión fiscal documentada por el titular*
 
 Revisar la redacción vigente y las circunstancias del caso en la fecha de emisión. Para el cálculo de días exactos usar la [calculadora de plazos de AEAT](https://www2.agenciatributaria.gob.es/wlpl/AVAC-CALC/CalculadoraMBIServlet), conservando el resultado con la ficha. La propia calculadora indica que no contempla el régimen especial del criterio de caja.
 
+### Datos declarados por el titular para la revisión de 2026
+
+- La sociedad no aplica el régimen especial del criterio de caja.
+- El titular indica que el volumen de operaciones de 2025 no superó el umbral del art. 80.Cuatro de 6.010.121,04 €. Se debe cotejar con la contabilidad antes de usarlo en un caso real.
+- Para futuros casos R3 que cumplan el umbral y el resto de requisitos, el titular prefiere la opción de **seis meses**. Es un plazo mínimo de espera, no una autorización automática para emitir. En operaciones a plazo se debe comprobar el vencimiento impagado. El volumen de operaciones del año anterior se revisará de nuevo al preparar cada rectificativa; el dato declarado para 2025 no se extrapola a años posteriores. No hay todavía facturas reales R3 cuya elegibilidad pueda aprobarse.
+
 ## Dictamen sobre el alcance implementado
 
 | Punto | Resultado de la revisión del código | Pendiente para aceptar un caso real |
