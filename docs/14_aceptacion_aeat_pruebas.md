@@ -1,4 +1,56 @@
-# Aceptación de remisión AEAT en staging — 18/09/2026
+# Aceptación de remisión AEAT en staging — actualizado 22/09/2026
+
+## Evidencia del candidato `b2ba554` — 22/09/2026
+
+El operador comunicó el SHA desplegado
+`b2ba554ef60a2a7e2e5ef1a3f1ed629cdfa5557a` y mostró API y web sanas. La
+captura de **CI #170** muestra éxito para ese commit; el trabajo `verify` de
+`.github/workflows/ci.yml` ejecuta pruebas unitarias, `test:integration` y
+`test:e2e`. La captura de **Staging acceptance #21**, lanzada para el mismo
+commit, muestra el trabajo `critical-flows` correcto y 3 pruebas de navegador
+aprobadas. El operador indicó `https://ledger.coraldatalab.com` como
+`staging_url`; la captura no muestra ese parámetro, por lo que el destino consta
+como declaración del operador. Los documentos de aceptación previos identifican
+ese dominio como staging. Las capturas y los JSON fiscales deben conservarse
+fuera de Git en el archivo restringido. No se había aportado evidencia de una
+nueva alta F1 remitida a AEAT pruebas después de desplegar este candidato.
+
+La factura ficticia de staging `F2026-0005` tenía un alta en posición 9
+rechazada con código 1239. La consulta censal identificó el NIF, pero devolvió
+un nombre legal distinto del nombre enviado en esa alta. No se utilizó la
+recuperación sin cambiar factura: el operador confirmó que no hubo operación
+comercial y anuló la factura por error en staging. La aplicación conservó el
+alta, registró reversión contable en el asiento #16 y apunte de anulación de
+IVA (base −145,00 €, cuota −30,45 €). La cadena SIF apareció verificada con 14
+registros. La anulación, posición 14, obtuvo estado **ACCEPTED** y CSV
+`A-SZLNTJMXSG4V8R` en AEAT pruebas a las 12:19:50 UTC. El XML descargado
+tiene SHA-256
+`b2ac94f68e72658c4b1374ed07a637b6e93afe4cbea62305c930e0e64ba331f1`,
+igual a `requestSha256`; la respuesta SOAP extraída del JSON tiene SHA-256
+`d2dec18a8b47859d4a2cccf2dc4c9770ab8376aac46f1430d2cd6dea19e55482`,
+igual a `responseSha256`. La consulta independiente de AEAT pruebas mostró
+`F2026-0005` **Anulado**, remisión a las 14:19:50 CEST,
+`SinRegistroPrevio=S` y huella
+`E718574A5AB3238E0AE1D008A9AB985CC09E05D5509A84D1E27ABD5EDD1EAE7C`,
+idéntica a la huella propia del XML de anulación. El panel posterior mostró 11
+envíos aceptados, 1 aceptado con errores, 2 rechazos históricos y 0 en cola,
+inciertos o fallidos; los tres resultados con incidencia tenían seguimiento
+aceptado.
+
+La rectificativa ficticia `R2026-0003` es una **R2 histórica**, remitida antes
+del despliegue de `b2ba554`. Su alta en posición 13 fue **ACCEPTED** con CSV
+`A-MRTV9UNJRKQYVA` a las 06:11:28 UTC. El XML descargado tiene SHA-256
+`5d2a5b2fd21ef88b071ed55ce30a5f2e4bb7c2e61135ba2eeac46d9edb968aeb`,
+igual a `requestSha256`; la respuesta SOAP tiene SHA-256
+`d0960f8cc528a5dc13f42cd425ad2809b266e8cc67f8ac7d85bbe23643a418e9`,
+igual a `responseSha256`. La consulta independiente de AEAT pruebas mostró
+estado **Correcto**, remisión a las 08:11:28 CEST y huella
+`7F082CD67AEFF9D126C99D6D7721523442AB2E0F735103A9BACDF68EA10533F4`,
+idéntica a `recordHash`; esta huella figura como anterior en el XML de anulación
+de la posición 14. La interfaz mostró base 0,00 € y cuota −21,00 €. Esta
+aceptación técnica no cierra la revisión fiscal de R2 ni acredita su ejecución
+en el candidato actual. R3 y los demás casos pendientes requieren sus propios
+ensayos y evidencias.
 
 ## Recuperación de alta rechazada sin cambio de factura — pendiente
 
@@ -6,8 +58,9 @@ El commit `bbb0bd8` añade una acción para un alta con rechazo definitivo de l�
 cuando los datos de la factura emitida siguen siendo correctos y la causa externa
 del rechazo ya se resolvió. Genera una nueva alta con `Subsanacion=S` y
 `RechazoPrevio=X`; el XML pasa el XSD local y las pruebas de servicio, pero **no
-hay todavía una respuesta AEAT de pruebas para este recorrido**. Tampoco se ha
-confirmado aquí que ese commit esté desplegado en staging.
+hay todavía una respuesta AEAT de pruebas para este recorrido**. El cambio está
+incluido en `b2ba554`, desplegado en staging según el operador; la anulación de
+`F2026-0005` documentada arriba no ejercita esta recuperación.
 
 Las capturas aportadas el 21/09/2026 muestran 6 envíos aceptados, 1 aceptado con
 errores y 1 rechazado, sin envíos pendientes. Los dos resultados con incidencia
@@ -36,8 +89,9 @@ auditar lo recibido por la aplicación; **no equivale** a una consulta independi
 en la sede. Los ensayos históricos descritos abajo siguen pendientes de este
 cotejo mientras no se exporten sus respuestas y se consulten sus CSV.
 
-Cobertura observada en pruebas: F1 ordinaria, F1 con fecha de operación, R1 y R4
-por diferencias, subsanación de aviso horario y anulación de alta rechazada.
+Cobertura técnica observada en pruebas: F1 ordinaria, F1 con fecha de operación,
+R1 y R4 por diferencias, R2 histórica pendiente de revisión fiscal, subsanación
+de aviso horario y anulación de alta rechazada.
 Quedan por diseñar y validar con reglas fiscales y AEAT pruebas las demás causas
 rectificativas, sustitución, otras claves de factura, desgloses y destinatarios
 especiales. Cada caso requiere XML validado con XSD, resultado SOAP archivado y
