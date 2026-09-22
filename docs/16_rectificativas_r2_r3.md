@@ -2,6 +2,8 @@
 
 Estado: **emisión disponible bajo revisión fiscal explícita y alcance limitado**. La creación del borrador, la emisión, el asiento, el libro de IVA, el saldo cobrable, el PDF y el XML SIF están enlazados. La remisión de prueba a AEAT depende del modo VERI*FACTU de pruebas configurado y su respuesta debe revisarse. La entrega de la rectificativa al cliente y la comunicación específica de modificación de base imponible a la AEAT siguen siendo trámites separados y no se registran en este flujo.
 
+La [ficha de revisión fiscal R2/R3](18_revision_fiscal_r2_r3.md) enumera las comprobaciones legales por caso y los límites que impiden dar por aprobada la emisión real solo con los ensayos técnicos.
+
 ## Regla fiscal que condiciona el modelo
 
 La [FAQ de procedimientos de facturación de la AEAT](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/procedimientos-facturacion.html) clasifica R2 como concurso (art. 80.Tres LIVA) y R3 como crédito incobrable (art. 80.Cuatro LIVA). Exige la fecha de operación original y admite rectificación `I` por diferencias o `S` por sustitución. Su ejemplo de diferencia por impago parte de base 1.000 €, cuota 210 € y expresa la rectificación con **base 0 €, cuota -210 € y total -210 €**. El primer alcance será solo `I` y un único original por rectificativa.
