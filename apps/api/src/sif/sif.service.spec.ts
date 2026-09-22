@@ -5,6 +5,8 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { SifService } from "./sif.service";
 
+const noSigning = { matches: () => true, sign: async (xml: string) => xml };
+
 describe("SifService transition audit", () => {
   it("flags an experimental legacy group without changing its records", async () => {
     const queryRaw = jest.fn().mockResolvedValue([{
@@ -30,6 +32,52 @@ describe("SifService transition audit", () => {
       }],
     });
     expect(queryRaw).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SifService AEAT certificate isolation", () => {
+  it("refuses to create a VERI*FACTU record for another company certificate", async () => {
+    const create = jest.fn();
+    const service = new SifService({
+      required: {
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+      },
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          status: "ISSUED", fullNumber: "F2026-0001", sifMode: SifMode.VERIFACTU,
+          aeatEnvironment: "TEST", issuerTaxId: "B12345674",
+        }) },
+      },
+    } as never, {} as never, {
+      enabled: true, companyId: "55555555-5555-4555-8555-555555555555", issuerTaxId: "B12345674",
+    } as never);
+    await expect(service.createRegistration("33333333-3333-4333-8333-333333333333"))
+      .rejects.toThrow("sender bound to this issuing company");
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("refuses unsigned NO VERI*FACTU test issuance", async () => {
+    const create = jest.fn();
+    const service = new SifService({
+      required: {
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+      },
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          status: "ISSUED", fullNumber: "F2026-0001", sifMode: SifMode.NO_VERIFACTU,
+          aeatEnvironment: "TEST", issuerTaxId: "B12345674",
+        }) },
+      },
+    } as never, {} as never);
+    await expect(service.createRegistration("33333333-3333-4333-8333-333333333333"))
+      .rejects.toThrow("signing certificate bound to this company");
+    expect(create).not.toHaveBeenCalled();
   });
 });
 
@@ -276,7 +324,7 @@ describe("SifService registration profile", () => {
           },
         }) },
       },
-    } as never, { record: jest.fn() } as never);
+    } as never, { record: jest.fn() } as never, undefined, noSigning as never);
 
     await service.createRegistration("33333333-3333-4333-8333-333333333333");
 
@@ -334,7 +382,7 @@ describe("SifService registration profile", () => {
           },
         }) },
       },
-    } as never, { record: jest.fn() } as never);
+    } as never, { record: jest.fn() } as never, undefined, noSigning as never);
 
     await service.createRegistration("33333333-3333-4333-8333-333333333333");
 
@@ -385,7 +433,7 @@ describe("SifService registration profile", () => {
           },
         }) },
       },
-    } as never, { record: jest.fn() } as never, { enabled: true } as never);
+    } as never, { record: jest.fn() } as never, { enabled: true, companyId: "22222222-2222-4222-8222-222222222222", issuerTaxId: "B12345674" } as never, noSigning as never);
 
     await service.createRegistration("33333333-3333-4333-8333-333333333333");
 
@@ -408,7 +456,7 @@ describe("SifService registration profile", () => {
   it.each([
     ["reverse charge", new Decimal("21"), true, "reverse-charge"],
     ["unsupported VAT rate", new Decimal("13"), false, "standard VAT rates"],
-  ])("keeps the SIF record but withholds invalid AEAT XML for %s", async (_case, taxRate, reverseCharge, reason) => {
+  ])("rejects a NO VERI*FACTU record with unsupported XML for %s", async (_case, taxRate, reverseCharge, reason) => {
     const create = jest.fn().mockImplementation(({ data }) =>
       Promise.resolve({ ...data, chainPosition: 1n }),
     );
@@ -443,13 +491,11 @@ describe("SifService registration profile", () => {
           },
         }) },
       },
-    } as never, { record: jest.fn() } as never);
+    } as never, { record: jest.fn() } as never, undefined, noSigning as never);
 
-    await service.createRegistration("33333333-3333-4333-8333-333333333333");
-
-    const data = create.mock.calls[0][0].data;
-    expect(data.payload.aeatXml).toBeUndefined();
-    expect(data.payload.xmlSnapshotUnavailable).toContain(reason);
+    await expect(service.createRegistration("33333333-3333-4333-8333-333333333333"))
+      .rejects.toThrow(reason);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("does not create a SIF record for a newly issued DISABLED invoice", async () => {
@@ -529,7 +575,7 @@ describe("SifService registration profile", () => {
         sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
         invoice: { findFirst: jest.fn().mockResolvedValue({
           status: "ISSUED", fullNumber: "F2026-0009", sifMode: SifMode.NO_VERIFACTU,
-          aeatEnvironment: "TEST",
+          aeatEnvironment: "TEST", issuerTaxId: "B12345674",
           company: {
             sifSoftwareProducerName: "Coral Data Lab", sifSoftwareProducerTaxId: "B12345674",
             sifSoftwareName: "Pastagansa", sifSoftwareId: "PASTAGANSA",
@@ -537,7 +583,7 @@ describe("SifService registration profile", () => {
           },
         }) },
       },
-    } as never, {} as never);
+    } as never, {} as never, undefined, noSigning as never);
 
     await expect(service.createRegistration("33333333-3333-4333-8333-333333333333")).rejects.toThrow(
       "two-character software ID",
@@ -569,11 +615,12 @@ describe("SifService cancellation snapshot", () => {
           .mockResolvedValueOnce(registration)
           .mockResolvedValueOnce(registration), create },
         invoice: { findFirst: jest.fn().mockResolvedValue({
-          status: "ISSUED", issuerLegalName: "Coral Data Lab",
+          status: "ISSUED", sifMode: SifMode.NO_VERIFACTU, aeatEnvironment: "TEST",
+          issuerLegalName: "Coral Data Lab",
           issuerTaxId: "B12345674", company: { timezone: "Europe/Madrid" },
         }) },
       },
-    } as never, { record: jest.fn() } as never);
+    } as never, { record: jest.fn() } as never, undefined, noSigning as never);
 
     await service.createCancellation("33333333-3333-4333-8333-333333333333");
 
@@ -617,7 +664,7 @@ describe("SifService AEAT recovery", () => {
           company: { timezone: "Europe/Madrid" },
         }) },
       },
-    } as never, { record: jest.fn() } as never, { enabled: true } as never);
+    } as never, { record: jest.fn() } as never, { enabled: true, companyId: "22222222-2222-4222-8222-222222222222", issuerTaxId: "B12345674" } as never);
 
     await service.createCancellation(invoiceId);
     const payload = create.mock.calls[0][0].data.payload;
@@ -634,10 +681,10 @@ describe("SifService AEAT recovery", () => {
         sifRecord: { findFirst: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(source), create },
         sifAeatSubmission: { findFirst: jest.fn().mockResolvedValue({ status: "REJECTED", recordStatus: null }) },
         invoice: { findFirst: jest.fn().mockResolvedValue({
-          status: "ISSUED", sifMode: "VERIFACTU", aeatEnvironment: "TEST",
+          status: "ISSUED", sifMode: "VERIFACTU", aeatEnvironment: "TEST", issuerTaxId: "B12345674",
         }) },
       },
-    } as never, {} as never, { enabled: true } as never);
+    } as never, {} as never, { enabled: true, companyId: "22222222-2222-4222-8222-222222222222", issuerTaxId: "B12345674" } as never);
     await expect(service.createCancellation(invoiceId)).rejects.toThrow("definitive AEAT response");
     expect(create).not.toHaveBeenCalled();
   });
@@ -666,7 +713,7 @@ describe("SifService AEAT recovery", () => {
           sifInvoiceType: "F1", company: { timezone: "Europe/Madrid" },
         }) },
       },
-    } as never, { record: jest.fn() } as never, { enabled: true } as never);
+    } as never, { record: jest.fn() } as never, { enabled: true, companyId: "22222222-2222-4222-8222-222222222222", issuerTaxId: "B12345674" } as never);
 
     await service.createTimestampSubsanation(invoiceId);
     const data = create.mock.calls[0][0].data;
@@ -702,7 +749,7 @@ describe("SifService AEAT recovery", () => {
           sifInvoiceType: "F1", company: { timezone: "Europe/Madrid" },
         }) },
       },
-    } as never, { record: audit } as never, { enabled: true } as never);
+    } as never, { record: audit } as never, { enabled: true, companyId: "22222222-2222-4222-8222-222222222222", issuerTaxId: "B12345674" } as never);
     const input = {
       invoiceDataConfirmed: true,
       resolutionNote: "Censo comprobado; datos originales correctos.",
@@ -737,7 +784,7 @@ describe("SifService AEAT recovery", () => {
         sifRecord: { findFirst: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(source), create },
         sifAeatSubmission: { findFirst: jest.fn().mockResolvedValue(submission) },
       },
-    } as never, {} as never, { enabled: true } as never);
+    } as never, {} as never, { enabled: true, companyId: "22222222-2222-4222-8222-222222222222", issuerTaxId: "B12345674" } as never);
 
     await expect(service.recoverRejectedRegistration(invoiceId, {
       invoiceDataConfirmed: false,

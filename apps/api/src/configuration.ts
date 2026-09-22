@@ -40,12 +40,28 @@ export function validateConfiguration(values: Record<string, unknown>) {
   if (values.AEAT_TEST_ENABLED && !["true", "false"].includes(String(values.AEAT_TEST_ENABLED)))
     throw new Error("AEAT_TEST_ENABLED must be true or false");
   if (String(values.AEAT_TEST_ENABLED) === "true") {
-    for (const name of ["AEAT_TEST_PFX_PATH", "AEAT_TEST_PFX_PASSPHRASE_FILE", "DIRECT_DATABASE_URL"])
+    for (const name of ["AEAT_TEST_PFX_PATH", "AEAT_TEST_PFX_PASSPHRASE_FILE", "AEAT_TEST_COMPANY_ID", "AEAT_TEST_ISSUER_TAX_ID", "DIRECT_DATABASE_URL"])
       if (typeof values[name] !== "string" || !values[name])
         throw new Error(`${name} is required when AEAT_TEST_ENABLED is true`);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(values.AEAT_TEST_COMPANY_ID)))
+      throw new Error("AEAT_TEST_COMPANY_ID must be a UUID");
     for (const name of ["AEAT_TEST_PFX_PATH", "AEAT_TEST_PFX_PASSPHRASE_FILE"])
       if (!String(values[name]).startsWith("/"))
         throw new Error(`${name} must be an absolute path`);
+  }
+  if (values.SIF_NO_SIGNING_ENABLED && !["true", "false"].includes(String(values.SIF_NO_SIGNING_ENABLED)))
+    throw new Error("SIF_NO_SIGNING_ENABLED must be true or false");
+  if (String(values.SIF_NO_SIGNING_ENABLED) === "true") {
+    for (const name of ["SIF_NO_PFX_PATH", "SIF_NO_PFX_PASSPHRASE_FILE", "SIF_NO_COMPANY_ID", "SIF_NO_ISSUER_TAX_ID", "SIF_NO_CERT_SHA256"])
+      if (typeof values[name] !== "string" || !values[name])
+        throw new Error(`${name} is required when SIF_NO_SIGNING_ENABLED is true`);
+    for (const name of ["SIF_NO_PFX_PATH", "SIF_NO_PFX_PASSPHRASE_FILE"])
+      if (!String(values[name]).startsWith("/"))
+        throw new Error(`${name} must be an absolute path`);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(values.SIF_NO_COMPANY_ID)))
+      throw new Error("SIF_NO_COMPANY_ID must be a UUID");
+    if (!/^[0-9a-f]{64}$/i.test(String(values.SIF_NO_CERT_SHA256)))
+      throw new Error("SIF_NO_CERT_SHA256 must contain 64 hexadecimal characters");
   }
   return values;
 }

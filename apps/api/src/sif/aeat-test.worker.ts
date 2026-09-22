@@ -147,6 +147,8 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
         ? payload.aeatXml : null;
       if (submission.record.invoice.aeatEnvironment !== "TEST" ||
           submission.record.invoice.sifMode !== "VERIFACTU" ||
+          submission.companyId !== this.client.companyId ||
+          submission.record.issuerTaxId !== this.client.issuerTaxId ||
           typeof xml !== "string" ||
           createHash("sha256").update(xml).digest("hex") !== submission.requestSha256)
         throw new Error("AEAT test submission does not match a frozen VERI*FACTU test record");

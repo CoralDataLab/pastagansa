@@ -78,7 +78,7 @@ read -r -s -p 'Contraseña del .p12: ' aeat_passphrase
 printf '\n'
 (umask 027; printf '%s' "$aeat_passphrase" > /srv/pastagansa-secrets/aeat/staging/client.passphrase)
 unset aeat_passphrase
-chmod 0640 /srv/pastagansa-secrets/aeat/staging/client.p12 \
+chmod 0640 /srv/pastagansa-secrets/aeat/staging/client-modern.p12 \
   /srv/pastagansa-secrets/aeat/staging/client.passphrase
 ```
 
@@ -86,12 +86,20 @@ Añadir al `.env.staging` privado (permisos `600`) solo rutas y el GID:
 
 ```dotenv
 AEAT_TEST_ENABLED=true
+AEAT_TEST_COMPANY_ID=<UUID de la empresa emisora>
+AEAT_TEST_ISSUER_TAX_ID=<NIF de la empresa emisora>
 AEAT_TEST_PFX_HOST_PATH=/srv/pastagansa-secrets/aeat/staging/client-modern.p12
 AEAT_TEST_PFX_PATH=/run/secrets/aeat-test.p12
 AEAT_TEST_PFX_PASSPHRASE_HOST_PATH=/srv/pastagansa-secrets/aeat/staging/client.passphrase
 AEAT_TEST_PFX_PASSPHRASE_FILE=/run/secrets/aeat-test-passphrase
 AEAT_TEST_SECRET_GID=1001
 ```
+
+El certificado de pruebas queda vinculado a una sola empresa y NIF. El servidor
+rechaza la activación, emisión y remisión si la empresa o el NIF no coinciden.
+Comprobar que el certificado representa a ese obligado antes de configurar las
+dos variables. Una versión anterior de `.env.staging` sin ellas debe completarse
+antes de desplegar esta revisión.
 
 Crear y verificar un backup antes del cambio. El archivo adicional de Compose
 monta ambos secretos en la API en modo de solo lectura y falla si falta alguno.

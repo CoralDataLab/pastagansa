@@ -20,15 +20,19 @@ export class AeatTestTransportError extends Error {
 @Injectable()
 export class AeatTestClient implements OnModuleDestroy {
   readonly enabled: boolean;
+  readonly companyId: string | null;
+  readonly issuerTaxId: string | null;
   private readonly agent?: Agent;
 
   constructor(config: ConfigService) {
     this.enabled = config.get<string>("AEAT_TEST_ENABLED") === "true";
+    this.companyId = this.enabled ? config.getOrThrow<string>("AEAT_TEST_COMPANY_ID") : null;
+    this.issuerTaxId = this.enabled ? config.getOrThrow<string>("AEAT_TEST_ISSUER_TAX_ID") : null;
     if (this.enabled) {
       const pfx = readFileSync(config.getOrThrow<string>("AEAT_TEST_PFX_PATH"));
       const passphrase = readFileSync(
         config.getOrThrow<string>("AEAT_TEST_PFX_PASSPHRASE_FILE"), "utf8",
-      );
+      ).replace(/\r?\n$/, "");
       if (!passphrase) throw new Error("AEAT test certificate passphrase file is empty");
       createSecureContext({ pfx, passphrase, minVersion: "TLSv1.2" });
       this.agent = new Agent({

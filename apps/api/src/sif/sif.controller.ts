@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Str
 import { RequirePermissions } from "../authorization/permissions.decorator";
 import { TenantProtected } from "../tenancy/tenant.decorator";
 import { ListSifRecordsDto } from "./dto/list-sif-records.dto";
+import { ExportSifPeriodDto } from "./dto/export-sif-period.dto";
 import { RecoverRejectedRegistrationDto } from "./dto/recover-rejected-registration.dto";
 import { SifService } from "./sif.service";
 
@@ -50,6 +51,17 @@ export class SifController {
   @RequirePermissions("sif_record.read")
   verification() {
     return this.sif.verifyChain();
+  }
+
+  @Get("period-export")
+  @RequirePermissions("sif_record.read")
+  async exportPeriod(@Query() query: ExportSifPeriodDto) {
+    const file = await this.sif.exportPeriod(query.from, query.to);
+    return new StreamableFile(file.content, {
+      type: "application/zip",
+      disposition: `attachment; filename="${file.filename}"`,
+      length: file.content.length,
+    });
   }
 
   @Get(":recordId/xml")

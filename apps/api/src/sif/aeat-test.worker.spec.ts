@@ -74,6 +74,28 @@ describe("AEAT test submission ordering", () => {
 describe("AEAT uncertain delivery recovery", () => {
   afterEach(() => jest.useRealTimers());
 
+  it("refuses to transmit a record belonging to another issuing company", async () => {
+    const xml = "<frozen/>";
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const send = jest.fn();
+    const worker = new AeatTestWorker({ get: () => undefined } as unknown as ConfigService,
+      { enabled: false, companyId: "company-a", issuerTaxId: "B12345674", send } as unknown as AeatTestClient);
+    (worker as unknown as { admin: unknown }).admin = { sifAeatSubmission: {
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        companyId: "company-b", requestSha256: createHash("sha256").update(xml).digest("hex"),
+        record: { issuerTaxId: "B12345674", payload: { aeatXml: xml },
+          invoice: { aeatEnvironment: "TEST", sifMode: "VERIFACTU" } },
+      }),
+      updateMany,
+    } };
+    await (worker as unknown as { deliver: (id: string, attempts: number, lockedAt: Date) => Promise<void> })
+      .deliver("submission", 1, new Date("2026-09-18T10:00:00.000Z"));
+    expect(send).not.toHaveBeenCalled();
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: Status.FAILED }),
+    }));
+  });
+
   it("replays the same frozen XML after an ambiguous timeout and then unblocks the chain", async () => {
     jest.useFakeTimers().setSystemTime(new Date("2026-09-18T10:00:00.000Z"));
     const frozenXml = "<sfLR:RegFactuSistemaFacturacion>frozen</sfLR:RegFactuSistemaFacturacion>";
@@ -81,6 +103,7 @@ describe("AEAT uncertain delivery recovery", () => {
       status: Status.PENDING, attempts: 0, availableAt: new Date("2026-09-18T09:00:00.000Z"),
       lockedAt: null as Date | null, lastAttemptAt: null as Date | null };
     const submission = {
+      companyId: "company",
       requestSha256: createHash("sha256").update(frozenXml).digest("hex"),
       record: {
         payload: { aeatXml: frozenXml }, issuerTaxId: "B12345674", invoiceNumber: "F2026-0001",
@@ -121,6 +144,7 @@ describe("AEAT uncertain delivery recovery", () => {
     };
     const client = {
       enabled: false,
+      companyId: "company", issuerTaxId: "B12345674",
       send: jest.fn().mockRejectedValueOnce(new AeatTestTransportError("timeout", true))
         .mockResolvedValueOnce({ httpStatus: 200, responseXml: acceptedResponse() }),
     };
@@ -192,6 +216,7 @@ describe("AEAT uncertain delivery recovery", () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
     const admin = { sifAeatSubmission: {
       findUniqueOrThrow: jest.fn().mockResolvedValue({
+        companyId: "company",
         requestSha256: createHash("sha256").update(frozenXml).digest("hex"),
         record: {
           payload: { aeatXml: frozenXml }, recordType: "REGISTRATION", recordHash: "A".repeat(64),
@@ -202,7 +227,7 @@ describe("AEAT uncertain delivery recovery", () => {
       }),
       updateMany,
     } };
-    const client = { enabled: false,
+    const client = { enabled: false, companyId: "company", issuerTaxId: "B12345674",
       send: jest.fn().mockResolvedValue({ httpStatus: 200, responseXml: duplicateResponse() }),
       query: jest.fn().mockResolvedValue({ httpStatus: 200, responseXml: consultationResponse(queryHash) }),
     };

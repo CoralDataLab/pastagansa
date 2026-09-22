@@ -75,6 +75,12 @@ export function SifTransitionAudit({ companyId }: { companyId: string }) {
         </>
       )}
       <button className="secondary-button" disabled={audit.isFetching} onClick={() => void audit.refetch()} type="button">{audit.isFetching ? "Actualizando…" : "Actualizar inventario"}</button>
+      <form action="/api/sif/records/period-export" className="contact-form" method="get">
+        <label className="field"><span>Desde (fecha UTC de generación)</span><input name="from" required type="date" /></label>
+        <label className="field"><span>Hasta (fecha UTC de generación)</span><input name="to" required type="date" /></label>
+        <button className="secondary-button" type="submit">Descargar XML SIF del período</button>
+      </form>
+      <p>El ZIP contiene los XML originales y un manifiesto SHA-256. Si falta algún XML o falla la cadena, la descarga devuelve un error.</p>
     </section>
   );
 }

@@ -64,7 +64,7 @@ export class SifDeclarationPdfService {
       ["Identificador", value(input.company.sifSoftwareId)],
       ["Versión", value(input.company.sifSoftwareVersion)],
       ["Número de instalación", value(input.company.sifInstallationNumber)],
-      ["Modalidad prevista", "SIF no VERI*FACTU durante pruebas; VERI*FACTU pendiente de integración AEAT"],
+      ["Modalidades previstas", "VERI*FACTU y NO VERI*FACTU. Ambas limitadas a pruebas; falta completar la revisión de conformidad y activar producción."],
     ]);
     this.section(document, "2. Productor del sistema informático");
     this.fields(document, [
@@ -95,7 +95,9 @@ export class SifDeclarationPdfService {
       "Revisión técnica y normativa completa de la versión del software.",
       "Datos de localización del productor, lugar y fecha de suscripción.",
       "Firma o suscripción por la persona o entidad productora.",
-      "Implantación de XML, certificado y remisión SOAP antes de activar VERI*FACTU.",
+      "VERI*FACTU: transporte y certificado de producción, pruebas y respuesta AEAT documentadas.",
+      "NO VERI*FACTU: validar certificado y firma XAdES-EPES con tercero; completar registro de eventos, alarmas y exportación de eventos por período.",
+      "Completar todos los datos y evidencias del artículo 15 de la Orden HAC/1177/2024 para esta versión.",
     ]);
     document
       .font("Helvetica-Oblique")

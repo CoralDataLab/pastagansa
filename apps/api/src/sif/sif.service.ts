@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -27,7 +28,9 @@ import {
   SIF_HASH_SPECIFICATION_VERSION,
 } from "./sif-hash-v1";
 import { verifySifChain } from "./sif-chain";
+import { createSifZip } from "./sif-zip";
 import { AeatTestClient } from "./aeat-test.client";
+import { SifNoSigningService } from "./sif-no-signing.service";
 import { captureSifSoftwareSnapshot } from "./sif-software-profile";
 import { RecoverRejectedRegistrationDto } from "./dto/recover-rejected-registration.dto";
 import {
@@ -43,6 +46,7 @@ export class SifService {
     private readonly tenant: TenantContextService,
     private readonly audit: AuditService,
     @Optional() private readonly aeatTest?: AeatTestClient,
+    @Optional() private readonly noSigning?: SifNoSigningService,
   ) {}
 
   async listForInvoice(invoiceId: string) {
@@ -60,6 +64,64 @@ export class SifService {
       orderBy: { chainPosition: "asc" },
     });
     return verifySifChain(records);
+  }
+
+  /** Exports exactly the frozen XML for records generated within inclusive UTC dates. */
+  async exportPeriod(from: string, to: string) {
+    const start = parseUtcDay(from);
+    const last = parseUtcDay(to);
+    if (last.getTime() < start.getTime())
+      throw new BadRequestException("The SIF export end date precedes its start date");
+    const end = new Date(last.getTime() + 86_400_000);
+    const scope = this.scope();
+    const allRecords = await this.tenant.db.sifRecord.findMany({
+      where: scope,
+      orderBy: { chainPosition: "asc" },
+    });
+    const chain = verifySifChain(allRecords);
+    if (!chain.valid)
+      throw new ConflictException(`SIF chain verification failed at position ${chain.firstInvalid?.chainPosition}`);
+    const selected = allRecords.filter((record) =>
+      record.generatedAt >= start && record.generatedAt < end);
+    const files = selected.map((record) => {
+      const xml = storedAeatXml(record.payload);
+      if (!xml) throw new ConflictException(
+        `SIF XML snapshot unavailable at position ${record.chainPosition.toString()}`,
+      );
+      const name = `records/${record.chainPosition.toString().padStart(12, "0")}-${record.recordType.toLowerCase()}.xml`;
+      const content = Buffer.from(xml, "utf8");
+      return {
+        name, content,
+        manifest: {
+          name,
+          recordId: record.id,
+          chainPosition: record.chainPosition.toString(),
+          recordType: record.recordType,
+          generatedAt: record.generatedAt.toISOString(),
+          recordHash: record.recordHash,
+          sha256: createHash("sha256").update(content).digest("hex"),
+        },
+      };
+    });
+    const manifest = {
+      format: "pastagansa-sif-period-export-v1",
+      organizationId: scope.organizationId,
+      companyId: scope.companyId,
+      dateBasis: "generatedAt UTC; both dates inclusive",
+      from, to,
+      totalChainRecordsChecked: chain.recordsChecked,
+      recordCount: files.length,
+      records: files.map((file) => file.manifest),
+    };
+    const content = createSifZip([
+      { name: "manifest.json", content: Buffer.from(JSON.stringify(manifest, null, 2) + "\n", "utf8") },
+      ...files.map((file) => ({ name: file.name, content: file.content })),
+    ]);
+    await this.audit.record("sif_record.period_exported", "company", scope.companyId, {
+      from, to, recordCount: files.length,
+      archiveSha256: createHash("sha256").update(content).digest("hex"),
+    });
+    return { filename: `sif-${from}-${to}.zip`, content };
   }
 
   /** Inventory only: it never declares a historical chain suitable for regulated use. */
@@ -422,14 +484,19 @@ export class SifService {
     // append new records to the experimental SIF chain; existing records are
     // left untouched and remain readable through the idempotency check above.
     if (invoice.sifMode === SifMode.DISABLED) return null;
-    if (invoice.sifMode === SifMode.VERIFACTU && !this.aeatTest?.enabled)
+    if (invoice.sifMode === SifMode.VERIFACTU &&
+        (!this.aeatTest?.enabled || this.aeatTest.companyId !== scope.companyId ||
+         this.aeatTest.issuerTaxId !== invoice.issuerTaxId))
       throw new ConflictException(
-        "VERI*FACTU test issuance requires the AEAT test sender to be configured",
+        "VERI*FACTU test issuance requires a sender bound to this issuing company",
       );
     if (invoice.aeatEnvironment !== "TEST")
       throw new ConflictException(
         "SIF test issuance requires the AEAT test environment; production is not enabled",
       );
+    if (invoice.sifMode === SifMode.NO_VERIFACTU &&
+        !this.noSigning?.matches(scope.companyId, invoice.issuerTaxId))
+      throw new ConflictException("NO VERI*FACTU test issuance requires a signing certificate bound to this company");
 
     const softwareSnapshot = captureSifSoftwareSnapshot(invoice.company);
     if (invoice.sifMode === SifMode.NO_VERIFACTU && !softwareSnapshot.configured)
@@ -490,6 +557,10 @@ export class SifService {
     } catch (error) {
       if (!(error instanceof ConflictException)) throw error;
       xmlSnapshotUnavailable = error.message;
+    }
+    if (invoice.sifMode === SifMode.NO_VERIFACTU) {
+      if (!aeatXml) throw new ConflictException(xmlSnapshotUnavailable ?? "NO VERI*FACTU requires signed XML");
+      aeatXml = await this.noSigning!.sign(aeatXml);
     }
     if ((invoice.sifMode === SifMode.VERIFACTU || invoice.sifInvoiceType === "R2" || invoice.sifInvoiceType === "R3") && !aeatXml)
       throw new ConflictException(xmlSnapshotUnavailable ?? "VERI*FACTU test issuance requires exportable XML");
@@ -565,8 +636,14 @@ export class SifService {
         "Only an issued invoice can generate a SIF cancellation",
       );
     if (invoice.sifMode === SifMode.VERIFACTU &&
-        (invoice.aeatEnvironment !== "TEST" || !this.aeatTest?.enabled))
+        (invoice.aeatEnvironment !== "TEST" || !this.aeatTest?.enabled ||
+         this.aeatTest.companyId !== scope.companyId ||
+         this.aeatTest.issuerTaxId !== invoice.issuerTaxId))
       throw new ConflictException("VERI*FACTU cancellation requires the AEAT test sender");
+    if (invoice.sifMode === SifMode.NO_VERIFACTU &&
+        (invoice.aeatEnvironment !== "TEST" ||
+         !this.noSigning?.matches(scope.companyId, invoice.issuerTaxId)))
+      throw new ConflictException("NO VERI*FACTU cancellation requires a signing certificate bound to this company");
 
     const registration = await this.tenant.db.sifRecord.findFirst({
       where: { invoiceId, recordType: SifRecordType.REGISTRATION, ...scope },
@@ -635,6 +712,10 @@ export class SifService {
     } catch (error) {
       if (!(error instanceof ConflictException)) throw error;
       xmlSnapshotUnavailable = error.message;
+    }
+    if (invoice.sifMode === SifMode.NO_VERIFACTU) {
+      if (!aeatXml) throw new ConflictException(xmlSnapshotUnavailable ?? "NO VERI*FACTU requires signed cancellation XML");
+      aeatXml = await this.noSigning!.sign(aeatXml);
     }
     if (invoice.sifMode === SifMode.VERIFACTU && !aeatXml)
       throw new ConflictException(xmlSnapshotUnavailable ?? "VERI*FACTU cancellation requires exportable XML");
@@ -740,7 +821,9 @@ export class SifService {
       },
     });
     if (!invoice || invoice.sifMode !== SifMode.VERIFACTU ||
-        invoice.aeatEnvironment !== "TEST" || !this.aeatTest?.enabled)
+        invoice.aeatEnvironment !== "TEST" || !this.aeatTest?.enabled ||
+        this.aeatTest.companyId !== scope.companyId ||
+        this.aeatTest.issuerTaxId !== invoice.issuerTaxId)
       throw new ConflictException("AEAT test subsanation requires the enabled test sender");
     const cancelled = await this.tenant.db.sifRecord.findFirst({
       where: { invoiceId, recordType: SifRecordType.CANCELLATION, ...scope },
@@ -934,6 +1017,15 @@ function storedXmlSnapshotUnavailable(payload: Prisma.JsonValue): string | null 
   return typeof payload.xmlSnapshotUnavailable === "string"
     ? payload.xmlSnapshotUnavailable
     : null;
+}
+
+function parseUtcDay(value: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
+    throw new BadRequestException("SIF export dates must use YYYY-MM-DD");
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value)
+    throw new BadRequestException("Invalid SIF export date");
+  return date;
 }
 
 type RegistrationInvoice = {

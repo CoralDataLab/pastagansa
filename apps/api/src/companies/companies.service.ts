@@ -74,6 +74,9 @@ export class CompaniesService {
         throw new ConflictException("VERI*FACTU is available only in the AEAT TEST environment");
       if (company.sifMode !== SifMode.VERIFACTU && this.config.get<string>("AEAT_TEST_ENABLED") !== "true")
         throw new ConflictException("VERI*FACTU requires the configured AEAT test sender");
+      if (this.config.get<string>("AEAT_TEST_COMPANY_ID") !== company.id ||
+          this.config.get<string>("AEAT_TEST_ISSUER_TAX_ID") !== company.taxId)
+        throw new ConflictException("The AEAT test certificate is not bound to this issuing company");
       if (company.country !== "ES")
         throw new ConflictException("AEAT test mode requires a Spanish company");
     }
@@ -84,6 +87,11 @@ export class CompaniesService {
       throw new ConflictException(
         "NO VERI*FACTU is not production-ready; use the AEAT test environment only",
       );
+    if (targetMode === SifMode.NO_VERIFACTU && targetEnvironment === "TEST" &&
+        (this.config.get<string>("SIF_NO_SIGNING_ENABLED") !== "true" ||
+         this.config.get<string>("SIF_NO_COMPANY_ID") !== company.id ||
+         this.config.get<string>("SIF_NO_ISSUER_TAX_ID") !== company.taxId))
+      throw new ConflictException("NO VERI*FACTU test mode requires a signing certificate bound to this company");
     if (input.sifMode === SifMode.NO_VERIFACTU && company.country !== "ES")
       throw new ConflictException("El QR fiscal AEAT solo está disponible para empresas españolas");
     const { documentProfile, ...companyInput } = input;

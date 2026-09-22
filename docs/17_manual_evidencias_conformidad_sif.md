@@ -1,0 +1,106 @@
+# Manual de evidencias de conformidad SIF
+
+Estado: **procedimiento de revisión; no autoriza producción**. Este manual cubre las dos modalidades elegidas para PastaGansa, VERI*FACTU y NO VERI*FACTU. Se aplica a una versión concreta del producto, una instalación concreta y cada obligado tributario. El productor debe resolver todos los bloqueos y suscribir la declaración responsable de esa versión antes de presentarla como conforme. La AEAT no exige una certificación por terceros; la revisión independiente es una puerta interna de este proyecto.
+
+## Fuentes y responsables
+
+- [RD 1007/2023](https://www.boe.es/buscar/act.php?id=BOE-A-2023-24840), [Orden HAC/1177/2024](https://www.boe.es/buscar/act.php?id=BOE-A-2024-22138) y [documentación técnica vigente de la AEAT](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica.html). El revisor anota fecha, versión y enlace de cada fuente consultada. Los XSD locales y los ejemplos de la AEAT son evidencia técnica, no sustituyen sus validaciones de negocio.
+- Productor: propietario de la versión, matriz de requisitos, correcciones y declaración responsable. Revisor técnico: verifica código, datos, infraestructura, seguridad y pruebas de fallo. Asesor fiscal: verifica clasificación de facturas, importes, plazos, exclusiones y trámites externos; su revisión no sustituye la responsabilidad del productor.
+- No firmar un borrador de declaración ni desactivar un bloqueo de producción para obtener evidencia. Una respuesta aceptada del servicio de pruebas acredita solo ese envío, no la conformidad del producto ni la procedencia fiscal de la operación.
+
+## 1. Congelar el objeto de la revisión
+
+1. Registrar commit completo (`git rev-parse HEAD`), versión visible del software, identificador `PG`, imagen API/web por digest, versión de migraciones, configuración de modalidades y entorno, emisor de pruebas, instalación, certificado usado y fecha UTC. Comprobar el SHA realmente desplegado, no solo el del repositorio local.
+2. Definir explícitamente los casos que la versión **permite emitir**: F1 ordinaria, R1/R4 por diferencias, R2/R3 de IVA único sin cobros bajo revisión fiscal y anulación/subsanación soportadas. Bloquear o documentar cualquier caso que no pueda producir registros conformes. No llamar «soportado» a un caso cuyo PDF, registro y tratamiento de errores no se hayan probado juntos.
+3. Separar los obligados tributarios y sus cadenas. Inventariar registros históricos con `GET /v1/sif/records/transition-audit` y verificar la cadena con `GET /v1/sif/records/verification`. Conservar la respuesta y su hash. Resolver por escrito cualquier cadena experimental antes de empezar una instalación real; no reescribirla ni copiar staging a producción.
+4. Mantener la evidencia fiscal, certificados, SOAP y datos personales en un repositorio cifrado con acceso restringido **fuera de Git**. Guardar en Git solo el informe sin datos de terceros, los identificadores de casos y los SHA-256.
+5. El certificado cualificado indicado por el operador está disponible **solo para su propia empresa**. Identificarla por `companyId` y NIF antes de configurar una firma o un transporte de producción. Mantener bloqueado NO VERI*FACTU para las demás empresas hasta que cada emisor tenga su propio certificado cualificado o un representante autorizado y se pruebe la vinculación. Documentar cómo recibe el servidor el certificado y cómo se rota, sin incluir PFX ni contraseñas en el informe.
+
+## 2. Matriz de requisitos y bloqueos conocidos
+
+Cada fila del informe debe tener: ID, norma o especificación y versión, modalidad, código/migración revisados, prueba y archivo de evidencia, resultado `PASA`/`FALLA`/`NO APLICA`, incidencia, responsable y fecha de cierre. No marcar `PASA` por la existencia de una función o por un XSD válido sin ejecutar su recorrido completo.
+
+| ID | Prueba exigida | Estado conocido al 22/09/2026 |
+| --- | --- | --- |
+| COM-01 | Identidad del obligado, aislamiento multiempresa y cadena independiente; huella, numeración, fecha/hora, inmutabilidad y enlaces de alta/anulación. | Implementación y pruebas locales; falta revisión independiente de una instalación y su historial. |
+| COM-02 | PDF y QR fiscal del modo elegido, identificación y versión del software coherentes con XML y declaración. | Casos parciales probados; revisar visualmente cada clase y los indicadores `TipoUsoPosibleSoloVerifactu`, `TipoUsoPosibleMultiOT` e `IndicadorMultiplesOT`. |
+| COM-03 | Exportación fiel por período, lectura, conservación, restauración, verificación y alertas de alteración. | Hay descarga ZIP por período de generación UTC con XML congelados, manifiesto SHA-256 y verificación previa de cadena. Falta ensayo de restauración y alarma completa; para NO VERI*FACTU faltan además los eventos. |
+| V-01 | Remisión automática, segura y ordenada al endpoint **de producción**, certificado autorizado, respuesta y espera AEAT, reintentos e incidencias. | **BLOQUEADO**: el cliente y el outbox actuales usan únicamente AEAT pruebas; producción se rechaza. |
+| V-02 | En pruebas externas: alta, rectificativa, anulación y recuperación de errores con XML congelado, SOAP, CSV y consulta independiente. | F1/R1/R4 y algunas recuperaciones observadas; R2/R3 y otros casos soportados requieren evidencia completa por versión. |
+| N-01 | Firma XAdES Enveloped EPES de **cada** alta, anulación y evento con certificado cualificado vigente del emisor o representante autorizado; verificación bajo demanda. | Altas y anulaciones de pruebas se firman con `.p12` vinculado a empresa, NIF y huella del certificado; hay pruebas criptográficas y XSD con certificado generado. Un XML local se firmó y verificó con el `.p12` real del operador. **BLOQUEADO** hasta firmar eventos y validar firma, política, cualificación, representación y confianza de forma independiente. Usar la [especificación AEAT de firma](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica/especificaciones-tecnicas-firma-electronica-registros-evento.html). |
+| N-02 | Registro XML de eventos, huella y cadena propia, firma, arranque/parada, comprobaciones/anomalías/exportaciones, resumen al menos cada seis horas de funcionamiento y antes del cierre. | **BLOQUEADO**: no implementado. Ver art. 9 de la Orden HAC/1177/2024. |
+| N-03 | Verificación de huella, firma y cadena; alarma persistente y evento ante anomalías; exportación por período de facturas y eventos, comprobación de restauración. | **BLOQUEADO**: la verificación actual no cubre firma/eventos ni alarma reglamentaria. |
+| TAX-01 | Clasificación y cálculo de cada tipo permitido, incluidos R2/R3, pagos previos, base/cuota, asiento, libro IVA y PDF. | Revisión fiscal externa pendiente; los R2/R3 actuales solo admiten una línea y ningún cobro. |
+| TAX-02 | Entrega de rectificativa, prueba de reclamación o concurso, plazos y comunicación separada de modificación de base a AEAT. | Trámites externos no registrados como completados por el flujo SIF; conservar evidencia separada. |
+| GOV-01 | Declaración responsable del **productor para la versión exacta**, contenido del art. 15, firma, disponibilidad dentro del sistema y al cliente; archivo de versiones anteriores. | **BLOQUEADO**: la aplicación genera solo un borrador y no hay declaración suscrita. |
+| OPS-01 | Instalación aislada, secretos y certificados protegidos, backup externo cifrado y restauración, monitorización, fecha/hora, permisos y recuperación de incidentes. | Hay guías y ensayo local de restauración; evidencias de la instalación real pendientes. |
+
+La [revisión de producción](10_revision_sif_para_produccion.md) y la [aceptación AEAT](14_aceptacion_aeat_pruebas.md) contienen antecedentes. Sus estados históricos no sustituyen una ejecución sobre la versión candidata. Al actualizar esta matriz, reconciliar cualquier texto histórico que aún diga que R2/R3 no existen: ya hay una implementación limitada, no una aceptación de conformidad.
+
+## 3. Pruebas técnicas reproducibles
+
+1. En una base aislada, aplicar todas las migraciones y ejecutar CI (`npm ci`, `npm run db:generate`, `npm run db:deploy`, `npm run lint`, `npm run build`, `npm test`, `npm run test:integration` y `npm run test:e2e`). Archivar logs, versión de Node/PostgreSQL y resultado. El entorno de CI instala `xmllint` y `pdftotext` para validar XML/PDF.
+2. Para cada caso permitido, guardar: entrada y revisión fiscal, factura original si procede, PDF, registro/XML congelado, resultado de XSD y reglas de negocio, huella propia y anterior recalculadas, asiento y libro de IVA, saldo/vencimientos y respuesta de verificación. Usar una tabla de casos con F1 ordinaria, fecha de operación distinta, R1, R2, R3, R4, anulación, subsanación y rechazos. Añadir tipos de IVA soportados y límites del modelo. Un solo F1 aceptado no cubre los demás casos.
+3. Probar concurrencia e idempotencia: dos emisiones simultáneas, caída entre generación y remisión, respuesta incierta, rechazo definitivo, duplicado confirmado, reintento tras reinicio y transición de modo. Demostrar que no se consumen números ni quedan asientos/registros parciales ante fallo de emisión; que el XML y las huellas previas nunca cambian; y que el outbox respeta el orden y la espera indicada por AEAT.
+4. Para NO VERI*FACTU, añadir evidencia independiente de firma XAdES-EPES, certificado y cadena de confianza/representación, validación de política AGE, verificación de firma de registros y eventos, resumen de seis horas, alarma de corrupción y exportación/restauración por período. Probar con un certificado de ensayo y luego con el certificado cualificado autorizado sin introducir claves privadas en Git ni en informes. **No usar este modo en facturas reales mientras N-01 a N-03 estén bloqueados.**
+
+### Comprobar el `.p12` del emisor
+
+El titular ha confirmado que dispone de archivos `.p12` para **su empresa**. Antes del ensayo, anotar `companyId`, NIF del emisor, huella SHA-256 del certificado público, emisor, número de serie, vigencia, tipo de certificado y, si firma un representante, documento que acredita su representación. La [especificación de firma AEAT v0.1.5](https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Espec-Tecnicas/EspecTecGenerFirmaElectRfact.pdf) exige XAdES Enveloped EPES con la política AGE (`urn:oid:2.16.724.1.3.1.1.2.1.9`) y recomienda RSA/SHA-256; la firma cubre el nodo `RegistroAlta`, `RegistroAnulacion` o `RegistroEvento`, no el sobre SOAP. Verificar con un validador independiente tanto la firma como su política, vigencia y cadena de confianza. La presencia de un `.p12` por sí sola no acredita que sea cualificado ni que pertenezca al obligado o representante autorizado.
+
+Para inspeccionar solo el certificado público, ejecutar localmente `openssl pkcs12 -in certificado.p12 -clcerts -nokeys | openssl x509 -noout -subject -issuer -serial -dates -fingerprint -sha256`. Introducir la contraseña en el indicador interactivo; no escribirla en la línea de comandos ni pegarla en el informe. El servidor debe recibir el `.p12` y la contraseña como archivos secretos separados, legibles solo por el proceso API, con copia de seguridad y rotación documentadas. No montar el certificado de esta empresa para otro `companyId`.
+
+### Ensayo aislado de firma NO VERI*FACTU
+
+Este ensayo solo se habilita en **staging**. El fichero de contraseña debe ser texto UTF-8 con únicamente la contraseña (se admite un salto de línea final), fuera de Git y con permisos `600` en el equipo del operador. No montar un `.rtf`. El `.p12` del operador se abrió y se firmó/verificó un XML localmente el 22/09/2026; esto no acredita la cualificación del certificado, su cadena de confianza ni la conformidad del sistema. La vinculación automática actual exige que el sujeto del certificado contenga `organizationIdentifier=VATES-<NIF>`; un certificado de representante con otro formato requiere implementación y revisión específicas antes de usarse.
+
+1. Obtener el UUID de la empresa emisora desde la sesión/API de staging y comprobar su NIF. Obtener la huella SHA-256 del **certificado público** con el comando anterior, quitando los dos puntos de la huella. Confirmar vigencia, NIF, representación, estado de revocación y cualificación mediante un validador de confianza independiente; guardar el informe y sus hashes.
+2. Copiar el `.p12` y el archivo de contraseña al host de staging, fuera del repositorio, a rutas como `/srv/pastagansa-secrets/sif-no/staging/issuer.p12` y `/srv/pastagansa-secrets/sif-no/staging/passphrase`. En el host, asignar ambos a `root:<GID_secreto>` y modo `0640`; restringir el directorio a ese grupo. El contenedor API corre como `node` y recibe ese GID con `group_add`. Verificar el mapeo de UID/GID del host y acceso de solo lectura sin imprimir contenido.
+3. Guardar en el `.env.staging` privado (modo `600`) solo configuración y **rutas**, nunca la contraseña:
+
+   ```dotenv
+   SIF_NO_COMPANY_ID=<UUID de la empresa emisora>
+   SIF_NO_ISSUER_TAX_ID=<NIF de la empresa emisora>
+   SIF_NO_CERT_SHA256=<64 dígitos hexadecimales sin dos puntos>
+   SIF_NO_PFX_HOST_PATH=/srv/pastagansa-secrets/sif-no/staging/issuer.p12
+   SIF_NO_PFX_PASSPHRASE_HOST_PATH=/srv/pastagansa-secrets/sif-no/staging/passphrase
+   SIF_NO_SECRET_GID=<GID_secreto>
+   ```
+
+4. Comprobar `docker compose --env-file .env.staging -f docker-compose.staging.yml -f docker-compose.sif-no-test.yml config` y la lectura desde el contenedor con `docker compose --env-file .env.staging -f docker-compose.staging.yml -f docker-compose.sif-no-test.yml run --rm --no-deps --entrypoint sh api -c 'test -r /run/secrets/sif-no.p12 && test -r /run/secrets/sif-no-passphrase'`. El `config` puede mostrar rutas e identificadores; archivar su salida en el repositorio cifrado.
+5. Desplegar con `./scripts/staging-up.sh .env.staging docker-compose.sif-no-test.yml`. Activar NO VERI*FACTU solo para esa empresa de ensayo y emitir una factura de prueba y su anulación. Descargar los XML congelados, verificar firma XAdES-EPES, política y certificado con un validador independiente, y validar ambos contra el XSD AEAT vigente. Registrar SHA-256, XML, PDF, trazas y resultado. Repetir un fallo de certificado, contraseña y huella incorrectos: el proceso o la emisión deben detenerse sin persistir una factura a medias.
+6. Desactivar el modo de ensayo antes de cualquier migración a producción. Los eventos, alarmas y exportación integral siguen bloqueados según N-02/N-03; la firma local correcta no libera ese bloqueo.
+
+### Descargar y comprobar los XML por período
+
+En **Configuración → Inventario histórico SIF**, elegir las fechas **UTC de generación**, ambas inclusive, y pulsar **Descargar XML SIF del período**. La API equivalente es `GET /v1/sif/records/period-export?from=AAAA-MM-DD&to=AAAA-MM-DD`, con permiso `sif_record.read` y ámbito de la empresa de la sesión. El ZIP contiene `manifest.json` y un archivo XML por registro. Se rechaza íntegro si falla la verificación de la cadena o falta un XML congelado; un ZIP vacío solo prueba que no hubo registros en ese período de esta base. El evento de auditoría guarda fechas, recuento y SHA-256 del ZIP. **Este archivo todavía no incluye eventos NO VERI*FACTU.**
+
+1. Guardar el ZIP directamente en el archivo cifrado de evidencias, anotar fecha UTC, usuario, empresa, versión y SHA-256 del ZIP (`shasum -a 256 archivo.zip` en macOS o `sha256sum archivo.zip` en Linux).
+2. Ejecutar `unzip -t archivo.zip`. Extraerlo en un directorio aislado y cotejar para **cada** fila de `manifest.json` el SHA-256 del XML indicado, la posición y la huella del registro con la respuesta de `GET /v1/sif/records/verification` y el historial de facturas.
+3. Repetir la descarga de un período de frontera que incluya alta, subsanación y anulación, comprobar que no falta ninguna posición del período y restaurar una copia en un entorno aislado. Registrar resultado, herramienta usada y hashes antes/después. El ZIP no equivale a un backup de la base de datos.
+
+## 4. Evidencia AEAT y fiscal
+
+1. Desplegar el SHA candidato en staging de pruebas aislado. Para cada remisión VERI*FACTU, descargar el XML congelado y `GET /v1/sif/records/{recordId}/test-submissions/{submissionId}/evidence`. Comparar SHA-256 del XML con `requestSha256`, del SOAP archivado con `responseSha256`, identidad, tipo, importes, huella, estado y CSV. Si hay conciliación, revisar su respuesta aparte.
+2. Consultar independientemente el registro en la sede AEAT de **pruebas**, exportar su resultado y cotejar identidad, huella y estado con la evidencia del producto. Conservar fecha, usuario, captura/CSV y hash. Registrar un resultado rechazado o con errores como incidencia; no tratarlo como aceptación. Ver [procedimiento histórico](14_aceptacion_aeat_pruebas.md#evidencia-exportable-y-cobertura-pendiente).
+3. Para R2/R3, el asesor fiscal firma una ficha por caso con original, fecha de operación, hecho legal, reclamación si procede, exclusiones, pagos, plazo, base/cuota y justificación de la clasificación. Archivar separadamente prueba de entrega al cliente y de la comunicación fiscal específica. El acuse VERI*FACTU no acredita ninguno de esos dos trámites.
+4. El entorno de pruebas no sustituye la prueba final de transporte y observabilidad de la instalación de producción. La primera remisión real requiere certificado y autorización correctos, confirmación de identidad/CSV y seguimiento de rechazo/alarma, sin generar una factura ficticia para probarlo.
+
+## 5. Archivo, revisión y puerta de salida
+
+Una estructura sugerida fuera del repositorio:
+
+```text
+evidencias/<version>/<obligado>/<modalidad>/<caso>/
+  manifiesto.json
+  entrada-y-revision-fiscal.pdf
+  factura.pdf
+  registro.xml
+  respuesta-soap.xml
+  consulta-aeat.pdf
+  informe-tecnico.pdf
+```
+
+El manifiesto debe contener SHA-256, nombre, tipo, procedencia, fecha UTC y responsable de **cada** archivo, SHA de despliegue, modo, entorno y resultado. No incluir la clave privada, contraseña PFX ni secretos. Los revisores firman un informe con cada fila de la matriz y las incidencias. El productor resuelve y vuelve a probar las filas afectadas, congela versión e imágenes, y solo entonces suscribe la declaración responsable conforme al art. 15. Debe estar disponible desde el producto y para el cliente, y conservarse la de cada versión comercializada. Una modificación posterior del código exige nueva revisión de alcance y declaración para la versión nueva.
+
+La decisión de salida es **NO** si queda una fila obligatoria `FALLA` o sin evidencia, si no coincide el SHA desplegado, si falta la declaración del productor, si hay registros SIF históricos sin decisión documentada o si no está probada la recuperación de backups y de errores AEAT. El productor registra por escrito la decisión, fecha, versión y responsables. Este manual no equivale a esa decisión.
