@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import PDFDocument = require("pdfkit");
+import { vatRecoveryDescription } from "./vat-recovery-description";
 import {
   aeatQrPng,
   aeatQrUrl,
@@ -243,7 +244,7 @@ export class InvoicePdfService {
     document.roundedRect(PAGE.left, y, PAGE.right - PAGE.left, 72, 6)
       .strokeColor(COLOR.line).stroke();
     document.font("Helvetica-Bold").fontSize(9).fillColor(COLOR.ink)
-      .text("Ajuste de cuota IVA por impago", PAGE.left + 12, y + 10);
+      .text(vatRecoveryDescription(invoice.sifInvoiceType!), PAGE.left + 12, y + 10);
     document.font("Helvetica").fontSize(8).fillColor(COLOR.muted)
       .text(`Tipo IVA original: ${decimal(invoice.lines[0].taxRate, 2)}% · Base de la diferencia: ${money(invoice.subtotal, invoice.currency)}`,
         PAGE.left + 12, y + 29, { width: 465 })
@@ -445,6 +446,8 @@ export class InvoicePdfService {
     invoice: InvoicePdfInput,
     issuer: IssuerSnapshot,
   ) {
+    if (!invoice.notes && !issuer.defaultNotes && !issuer.paymentInstructions &&
+        !issuer.bankIban && !issuer.paymentTerms && !invoice.dueDate) return;
     const primary = issuerPrimaryColor(issuer);
     const notes =
       truncatePdfText([invoice.notes, issuer.defaultNotes].filter(Boolean).join("\n")) ||

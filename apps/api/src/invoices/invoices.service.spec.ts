@@ -65,19 +65,22 @@ describe("buildVatOnlyRectificationLine", () => {
   }
 
   it("derives the VAT-only difference from the original fiscal line", () => {
-    const result = buildVatOnlyRectificationLine(original());
+    const result = buildVatOnlyRectificationLine(original(), SifInvoiceType.R2);
     expect(result.persisted.netAmount.toFixed(2)).toBe("0.00");
     expect(result.persisted.taxAmount.toFixed(2)).toBe("210.00");
     expect(result.persisted.totalAmount.toFixed(2)).toBe("210.00");
     expect(result.tax.taxableBase.toFixed(2)).toBe("0.00");
     expect(result.tax.taxRuleId).toBe("rule-21");
+    expect(result.persisted.description).toBe("Ajuste de cuota IVA por concurso de acreedores de F2026-00001");
+    expect(buildVatOnlyRectificationLine(original(), SifInvoiceType.R3).persisted.description)
+      .toBe("Ajuste de cuota IVA por crédito incobrable de F2026-00001");
   });
 
   it("rejects a partial payment rather than overstating recoverable VAT", () => {
     const paid = original();
     paid.amountPaid = new Decimal(100);
     paid.amountDue = new Decimal(1110);
-    expect(() => buildVatOnlyRectificationLine(paid)).toThrow(
+    expect(() => buildVatOnlyRectificationLine(paid, SifInvoiceType.R3)).toThrow(
       "does not yet support paid or partially paid invoices",
     );
   });
@@ -85,7 +88,7 @@ describe("buildVatOnlyRectificationLine", () => {
   it("rejects an inconsistent VAT breakdown", () => {
     const inconsistent = original();
     inconsistent.lines[0].taxLines[0].taxAmount = new Decimal(209);
-    expect(() => buildVatOnlyRectificationLine(inconsistent)).toThrow(
+    expect(() => buildVatOnlyRectificationLine(inconsistent, SifInvoiceType.R3)).toThrow(
       "requires a consistent ordinary VAT breakdown",
     );
   });

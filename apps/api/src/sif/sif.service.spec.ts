@@ -1,6 +1,8 @@
 import { RectificationImpact, SifAeatSubmissionStatus as SubmissionStatus, SifMode, SifRecordType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
 import { SifService } from "./sif.service";
 
 describe("SifService transition audit", () => {
@@ -230,6 +232,66 @@ describe("SifService XML export", () => {
 });
 
 describe("SifService registration profile", () => {
+  it.each([
+    ["R2", "concurso de acreedores"],
+    ["R3", "crédito incobrable"],
+  ])("freezes a VAT-only %s XML with the matching legal cause", async (invoiceType, cause) => {
+    const create = jest.fn().mockImplementation(({ data }) =>
+      Promise.resolve({ ...data, chainPosition: 1n }),
+    );
+    const service = new SifService({
+      required: {
+        organizationId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+      },
+      db: {
+        $executeRaw: jest.fn(),
+        sifRecord: { findFirst: jest.fn().mockResolvedValue(null), create },
+        invoice: { findFirst: jest.fn().mockResolvedValue({
+          id: "33333333-3333-4333-8333-333333333333",
+          status: "ISSUED", fullNumber: "R2026-0003", sifMode: SifMode.NO_VERIFACTU,
+          aeatEnvironment: "TEST", documentType: "CREDIT_NOTE",
+          rectificationImpact: RectificationImpact.DECREASE,
+          issuerLegalName: "Coral Data Lab", issuerTaxId: "B12345674",
+          customerLegalName: "Client S.L.", customerTaxId: "B76543210",
+          sifInvoiceType: invoiceType, notes: null,
+          originalInvoice: {
+            issuerTaxId: "B12345674", fullNumber: "F2026-0007",
+            issueDate: new Date("2026-09-15T00:00:00.000Z"),
+            operationDate: new Date("2026-09-01T00:00:00.000Z"),
+          },
+          issueDate: new Date("2026-09-22T00:00:00.000Z"),
+          taxTotal: new Decimal("21.00"), total: new Decimal("21.00"),
+          lines: [{ description: "Ajuste de cuota IVA por impago de F2026-0007" }],
+          taxLines: [{
+            taxableBase: new Decimal("0.00"), taxRate: new Decimal("21"),
+            taxAmount: new Decimal("21.00"), subject: true, exempt: false,
+            reverseCharge: false, surchargeRate: null, surchargeAmount: new Decimal("0"),
+          }],
+          company: {
+            timezone: "Europe/Madrid",
+            sifSoftwareProducerName: "Coral Data Lab", sifSoftwareProducerTaxId: "B12345674",
+            sifSoftwareName: "PastaGansa", sifSoftwareId: "PG",
+            sifSoftwareVersion: "0.1.0", sifInstallationNumber: "test-1",
+          },
+        }) },
+      },
+    } as never, { record: jest.fn() } as never);
+
+    await service.createRegistration("33333333-3333-4333-8333-333333333333");
+
+    const xml = create.mock.calls[0][0].data.payload.aeatXml as string;
+    expect(xml).toContain(`<sf:TipoFactura>${invoiceType}</sf:TipoFactura>`);
+    expect(xml).toContain(`Ajuste de cuota IVA por ${cause} de F2026-0007`);
+    expect(xml).not.toContain("por impago");
+    expect(xml).toContain("<sf:BaseImponibleOimporteNoSujeto>0.00</sf:BaseImponibleOimporteNoSujeto>");
+    expect(xml).toContain("<sf:CuotaRepercutida>-21.00</sf:CuotaRepercutida>");
+    expect(xml).toContain("<sf:ImporteTotal>-21.00</sf:ImporteTotal>");
+    const validation = spawnSync("xmllint", ["--noout", "--schema", join(__dirname, "xsd", "SuministroLR.xsd"), "-"],
+      { input: xml, encoding: "utf8" });
+    expect(validation.status).toBe(0);
+  });
+
   it.each([
     [RectificationImpact.DECREASE, "-100.00", "-21.00", "-121.00"],
     [RectificationImpact.INCREASE, "100.00", "21.00", "121.00"],

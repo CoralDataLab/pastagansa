@@ -18,6 +18,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { createHash } from "node:crypto";
 import { AuditService } from "../audit/audit.service";
 import { TenantContextService } from "../tenancy/tenant-context.service";
+import { vatRecoveryDescription } from "../invoices/vat-recovery-description";
 import {
   formatSifIssueDate,
   formatSifTimestamp,
@@ -984,7 +985,9 @@ function registrationXmlRecord(
       "SIF XML export requires between one and twelve supported VAT breakdown lines",
     );
   const description = [
-    ...invoice.lines.map((line) => line.description.trim()),
+    ...(invoice.sifInvoiceType === "R2" || invoice.sifInvoiceType === "R3"
+      ? [`${vatRecoveryDescription(invoice.sifInvoiceType)} de ${invoice.originalInvoice!.fullNumber}`]
+      : invoice.lines.map((line) => line.description.trim())),
     invoice.notes?.trim(),
   ]
     .filter(Boolean)

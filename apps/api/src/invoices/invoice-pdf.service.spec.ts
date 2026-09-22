@@ -131,7 +131,7 @@ describe("InvoicePdfService", () => {
       issueDate: new Date("2026-09-18"), operationDate: new Date("2026-09-08"), dueDate: null,
       currency: "EUR", notes: null,
       subtotal: value("0"), discountTotal: value("0"), taxTotal: value("210"), total: value("210"),
-      lines: [{ position: 1, description: "Ajuste de cuota IVA por impago de F2026-00002",
+      lines: [{ position: 1, description: "Ajuste de cuota IVA por crédito incobrable de F2026-00002",
         quantity: value("1"), unitPrice: value("0"), discountPct: value("0"),
         taxRate: value("21"), totalAmount: value("210") }],
     }, { compress: false });
@@ -140,11 +140,40 @@ describe("InvoicePdfService", () => {
       .map(([, operation]) => [...operation.matchAll(/<([0-9a-fA-F]+)>/g)]
         .map(([, hex]) => Buffer.from(hex, "hex").toString("latin1")).join(""))
       .join(" ");
-    expect(text).toContain("Ajuste de cuota IVA por impago");
+    expect(text).toContain("Ajuste de cuota IVA por crédito incobrable");
     expect(text).toContain("Base de la diferencia:");
     expect(text).toContain("-210,00");
     expect(text).toContain("Emisión original:");
     expect(text).not.toContain("Precio");
+  });
+
+  it("keeps a sparse R2 rectification with a tax QR on one page", async () => {
+    const pdf = await new InvoicePdfService().render({
+      fullNumber: "R2026-00003", status: "ISSUED", documentType: "CREDIT_NOTE",
+      sifInvoiceType: "R2", rectificationKind: "DIFFERENCE", rectificationImpact: "DECREASE",
+      rectificationReason: "Concurso de acreedores revisado", originalInvoice: {
+        id: "original", fullNumber: "F2026-00007",
+        issueDate: new Date("2026-09-22"), operationDate: new Date("2026-09-01"),
+      },
+      issuerLegalName: "Example Company", issuerTaxId: "B12345674",
+      issuerSnapshot: { version: 1, source: "company_profile", legalName: "Example Company", taxId: "B12345674" },
+      issuerLogoMediaType: null, issuerLogoContent: null,
+      sifQr: { mode: "VERIFACTU", environment: "TEST" },
+      customerLegalName: "Example Customer", customerTaxId: "B76543210", billingAddress: null,
+      issueDate: new Date("2026-09-22"), operationDate: new Date("2026-09-01"), dueDate: null,
+      currency: "EUR", notes: null,
+      subtotal: value("0"), discountTotal: value("0"), taxTotal: value("21"), total: value("21"),
+      lines: [{ position: 1, description: "Ajuste de cuota IVA por concurso de acreedores de F2026-00007",
+        quantity: value("1"), unitPrice: value("0"), discountPct: value("0"),
+        taxRate: value("21"), totalAmount: value("21") }],
+    }, { compress: false });
+    expect(pdf.toString("latin1").match(/\/Type \/Page\b/g)?.length).toBe(1);
+    const text = [...pdf.toString("latin1").matchAll(/\[(.*?)\]\s*TJ/gs)]
+      .flatMap(([, operation]) => [...operation.matchAll(/<([0-9a-fA-F]+)>/g)]
+        .map(([, hex]) => Buffer.from(hex, "hex").toString("latin1"))).join("");
+    expect(text).toContain("Ajuste de cuota IVA por concurso de acreedores");
+    expect(text).toContain("-21,00");
+    expect(text).not.toContain("Sin notas adicionales");
   });
 });
 

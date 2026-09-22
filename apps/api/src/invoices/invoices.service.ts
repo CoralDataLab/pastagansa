@@ -37,6 +37,7 @@ import { ListInvoicesDto } from "./dto/list-invoices.dto";
 import { IssueInvoiceDto, VatRecoveryReviewDto } from "./dto/issue-invoice.dto";
 import { CancelIssuedInErrorDto } from "./dto/cancel-issued-in-error.dto";
 import { InvoicePdfService } from "./invoice-pdf.service";
+import { vatRecoveryDescription } from "./vat-recovery-description";
 
 @Injectable()
 export class InvoicesService {
@@ -246,7 +247,7 @@ export class InvoicesService {
         throw new ConflictException(
           "R2/R3 draft requires an original invoice without earlier rectifications",
         );
-      vatOnlyLine = buildVatOnlyRectificationLine(original);
+      vatOnlyLine = buildVatOnlyRectificationLine(original, input.sifInvoiceType);
     }
 
     const rules = input.lines
@@ -824,7 +825,7 @@ export class InvoicesService {
         throw new ConflictException("R2/R3 supports only a VAT-only decrease by difference");
       if (prior.length || !original.creditedAmount.isZero())
         throw new ConflictException("R2/R3 requires an original without earlier issued corrections");
-      const expected = buildVatOnlyRectificationLine(original);
+      const expected = buildVatOnlyRectificationLine(original, invoice.sifInvoiceType);
       const actual = invoice.lines[0];
       const tax = actual?.taxLines[0];
       if (invoice.lines.length !== 1 || !tax ||
@@ -834,7 +835,8 @@ export class InvoicesService {
           !invoice.total.equals(expected.persisted.totalAmount) ||
           actual.position !== 1 ||
           actual.catalogItemId !== null ||
-          actual.description !== expected.persisted.description ||
+          (actual.description !== expected.persisted.description &&
+            actual.description !== `Ajuste de cuota IVA por impago de ${original.fullNumber}`) ||
           !actual.quantity.equals(expected.persisted.quantity) ||
           !actual.unitPrice.isZero() ||
           !actual.discountPct.isZero() ||
@@ -1236,6 +1238,7 @@ export function buildVatOnlyRectificationLine(
       taxLines: Array<Parameters<typeof copyTaxLine>[0]>;
     }>;
   },
+  type: SifInvoiceType,
 ): BuiltInvoiceLine {
   if (
     original.sifInvoiceType !== SifInvoiceType.F1 ||
@@ -1288,7 +1291,7 @@ export function buildVatOnlyRectificationLine(
     persisted: {
       position: 1,
       catalogItemId: undefined,
-      description: `Ajuste de cuota IVA por impago de ${original.fullNumber}`,
+      description: `${vatRecoveryDescription(type)} de ${original.fullNumber}`,
       quantity: new Decimal(1),
       unitPrice: zero,
       discountPct: zero,
