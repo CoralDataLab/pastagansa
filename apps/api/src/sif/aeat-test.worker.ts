@@ -1,11 +1,14 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PrismaClient, SifAeatSubmissionStatus } from "@prisma/client";
+import { AeatEnvironment, Prisma, PrismaClient, SifAeatSubmissionStatus,
+  SifMode } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { formatSifIssueDate } from "./sif-hash-v1";
-import { AeatTestClient, AeatTestTransportError } from "./aeat-test.client";
+import { AeatTestClient, AeatProductionClient, AeatTransportClient,
+  AeatTestTransportError } from "./aeat-test.client";
 import { parseAeatTestSoapResponse } from "./aeat-test-soap";
 import { queryConfirmsDuplicate } from "./aeat-test-query";
+import { sifProductionReleaseMatches } from "./sif-production-gate";
 
 const LEASE_MS = 120_000;
 const RETRY_CAP_SECONDS = 3_600;
@@ -29,14 +32,13 @@ export function predecessorHasDefinitiveAeatResponse(submission: {
     submission.recordStatus === "Incorrecto";
 }
 
-@Injectable()
-export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(AeatTestWorker.name);
+export class AeatWorkerCore implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(AeatWorkerCore.name);
   private readonly admin?: PrismaClient;
   private timer?: NodeJS.Timeout;
   private running = false;
 
-  constructor(config: ConfigService, private readonly client: AeatTestClient) {
+  constructor(private readonly config: ConfigService, private readonly client: AeatTransportClient) {
     const directUrl = config.get<string>("DIRECT_DATABASE_URL");
     if (client.enabled && directUrl)
       this.admin = new PrismaClient({ datasources: { db: { url: directUrl } } });
@@ -44,6 +46,9 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     if (!this.admin) return;
+    if (this.client.environment === "PRODUCTION" &&
+        !sifProductionReleaseMatches(this.config, this.client.companyId!))
+      throw new Error("AEAT production sender requires the reviewed declaration artifact");
     this.timer = setInterval(() => void this.tick(), 5_000);
     this.timer.unref();
     void this.tick();
@@ -56,9 +61,18 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
 
   async processOne(): Promise<boolean> {
     if (!this.admin) return false;
+    if (this.client.environment === "PRODUCTION" &&
+        !sifProductionReleaseMatches(this.config, this.client.companyId!)) return false;
+    const source: Prisma.SifAeatSubmissionWhereInput = {
+      companyId: this.client.companyId!, record: { invoice: {
+        aeatEnvironment: this.client.environment === "PRODUCTION"
+          ? AeatEnvironment.PRODUCTION : AeatEnvironment.TEST,
+        sifMode: SifMode.VERIFACTU,
+      } },
+    };
     const stale = new Date(Date.now() - LEASE_MS);
     await this.admin.sifAeatSubmission.updateMany({
-      where: { status: SifAeatSubmissionStatus.SENDING, lockedAt: { lt: stale } },
+      where: { ...source, status: SifAeatSubmissionStatus.SENDING, lockedAt: { lt: stale } },
       data: {
         status: SifAeatSubmissionStatus.UNKNOWN,
         lockedAt: null,
@@ -74,7 +88,7 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
       if (!lock?.acquired) return null;
       const now = new Date();
       const last = await db.sifAeatSubmission.findFirst({
-        where: { lastAttemptAt: { not: null } },
+        where: { ...source, lastAttemptAt: { not: null } },
         orderBy: { lastAttemptAt: "desc" },
         select: { lastAttemptAt: true, waitSeconds: true },
       });
@@ -83,6 +97,7 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
         return null;
       const candidates = await db.sifAeatSubmission.findMany({
         where: {
+          ...source,
           status: { in: [SifAeatSubmissionStatus.PENDING, SifAeatSubmissionStatus.RETRY, SifAeatSubmissionStatus.UNKNOWN] },
           availableAt: { lte: now },
         },
@@ -125,7 +140,7 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
     if (this.running) return;
     this.running = true;
     try { await this.processOne(); }
-    catch (error) { this.logger.error("AEAT test outbox failed", error); }
+    catch (error) { this.logger.error(`AEAT ${this.client.environment} outbox failed`, error); }
     finally { this.running = false; }
   }
 
@@ -145,13 +160,20 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
       const payload = submission.record.payload;
       const xml = payload && typeof payload === "object" && !Array.isArray(payload)
         ? payload.aeatXml : null;
-      if (submission.record.invoice.aeatEnvironment !== "TEST" ||
+      if (submission.record.invoice.aeatEnvironment !== (this.client.environment ?? "TEST") ||
           submission.record.invoice.sifMode !== "VERIFACTU" ||
           submission.companyId !== this.client.companyId ||
           submission.record.issuerTaxId !== this.client.issuerTaxId ||
           typeof xml !== "string" ||
           createHash("sha256").update(xml).digest("hex") !== submission.requestSha256)
-        throw new Error("AEAT test submission does not match a frozen VERI*FACTU test record");
+        throw new Error("AEAT submission does not match this sender's frozen VERI*FACTU record");
+
+      if (this.client.environment === "PRODUCTION" &&
+          !sifProductionReleaseMatches(this.config, this.client.companyId!)) {
+        await this.retry(id, attempts, lockedAt,
+          "AEAT production release was revoked before transport", null, null);
+        return;
+      }
 
       transportAttempted = true;
       const response = await this.client.send(xml);
@@ -304,4 +326,14 @@ export class AeatTestWorker implements OnModuleInit, OnModuleDestroy {
       data: { ...data, lockedAt: null, completedAt: new Date() },
     });
   }
+}
+
+@Injectable()
+export class AeatTestWorker extends AeatWorkerCore {
+  constructor(config: ConfigService, client: AeatTestClient) { super(config, client); }
+}
+
+@Injectable()
+export class AeatProductionWorker extends AeatWorkerCore {
+  constructor(config: ConfigService, client: AeatProductionClient) { super(config, client); }
 }

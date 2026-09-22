@@ -541,7 +541,7 @@ describe("SifService registration profile", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("rejects a no VERI*FACTU production invoice before creating a record", async () => {
+  it("rejects a no VERI*FACTU production invoice without the release artifact", async () => {
     const create = jest.fn();
     const service = new SifService({
       required: {
@@ -559,7 +559,7 @@ describe("SifService registration profile", () => {
     } as never, {} as never);
 
     await expect(service.createRegistration("33333333-3333-4333-8333-333333333333"))
-      .rejects.toThrow("production is not enabled");
+      .rejects.toThrow("reviewed declaration artifact");
     expect(create).not.toHaveBeenCalled();
   });
 

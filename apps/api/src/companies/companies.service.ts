@@ -20,6 +20,7 @@ import {
 } from "./company-logo";
 import { SifDeclarationPdfService } from "../sif/sif-declaration-pdf.service";
 import { SifNoEventService } from "../sif/sif-no-event.service";
+import { sifProductionReleaseMatches } from "../sif/sif-production-gate";
 
 export type UploadedCompanyLogo = {
   buffer: Buffer;
@@ -65,6 +66,13 @@ export class CompaniesService {
     const company = await this.current();
     const targetMode = input.sifMode ?? company.sifMode;
     const targetEnvironment = input.aeatEnvironment ?? company.aeatEnvironment;
+    if (targetEnvironment !== company.aeatEnvironment &&
+        (await this.tenant.db.sifRecord.count({
+          where: { organizationId: company.organizationId, companyId: company.id },
+        }) || await this.tenant.db.sifEventRecord.count({
+          where: { organizationId: company.organizationId, companyId: company.id },
+        })))
+      throw new ConflictException("A SIF installation with records cannot switch AEAT environments");
     if (targetMode !== company.sifMode &&
         (targetMode === SifMode.VERIFACTU || company.sifMode === SifMode.VERIFACTU) &&
         await this.tenant.db.sifRecord.count({
@@ -72,32 +80,28 @@ export class CompaniesService {
         }))
       throw new ConflictException("Review the existing SIF chain before changing VERI*FACTU mode");
     if (targetMode === SifMode.VERIFACTU) {
-      if (targetEnvironment !== "TEST")
-        throw new ConflictException("VERI*FACTU is available only in the AEAT TEST environment");
-      if (company.sifMode !== SifMode.VERIFACTU && this.config.get<string>("AEAT_TEST_ENABLED") !== "true")
-        throw new ConflictException("VERI*FACTU requires the configured AEAT test sender");
-      if (this.config.get<string>("AEAT_TEST_COMPANY_ID") !== company.id ||
-          this.config.get<string>("AEAT_TEST_ISSUER_TAX_ID") !== company.taxId)
-        throw new ConflictException("The AEAT test certificate is not bound to this issuing company");
+      const prefix = targetEnvironment === "TEST" ? "AEAT_TEST" : "AEAT_PRODUCTION";
+      if (this.config.get<string>(`${prefix}_ENABLED`) !== "true" ||
+          this.config.get<string>(`${prefix}_COMPANY_ID`) !== company.id ||
+          this.config.get<string>(`${prefix}_ISSUER_TAX_ID`) !== company.taxId)
+        throw new ConflictException("VERI*FACTU requires an AEAT sender bound to this issuing company and environment");
       if (company.country !== "ES")
-        throw new ConflictException("AEAT test mode requires a Spanish company");
+        throw new ConflictException("AEAT mode requires a Spanish company");
     }
-    if (
-      (input.sifMode ?? company.sifMode) === SifMode.NO_VERIFACTU &&
-      (input.aeatEnvironment ?? company.aeatEnvironment) === "PRODUCTION"
-    )
-      throw new ConflictException(
-        "NO VERI*FACTU is not production-ready; use the AEAT test environment only",
-      );
-    if (targetMode === SifMode.NO_VERIFACTU && targetEnvironment === "TEST" &&
+    if (targetMode !== SifMode.DISABLED && targetEnvironment === "PRODUCTION" &&
+        !sifProductionReleaseMatches(this.config, company.id))
+      throw new ConflictException("Production SIF requires the reviewed, company-bound declaration artifact");
+    if (targetMode === SifMode.NO_VERIFACTU &&
         (this.config.get<string>("SIF_NO_SIGNING_ENABLED") !== "true" ||
          this.config.get<string>("SIF_NO_COMPANY_ID") !== company.id ||
          this.config.get<string>("SIF_NO_ISSUER_TAX_ID") !== company.taxId))
-      throw new ConflictException("NO VERI*FACTU test mode requires a signing certificate bound to this company");
+      throw new ConflictException("NO VERI*FACTU requires a signing certificate bound to this company");
     if (input.sifMode === SifMode.NO_VERIFACTU && company.country !== "ES")
       throw new ConflictException("El QR fiscal AEAT solo está disponible para empresas españolas");
-    if (company.sifMode === SifMode.NO_VERIFACTU && targetMode !== SifMode.NO_VERIFACTU)
+    if (company.sifMode === SifMode.NO_VERIFACTU && targetMode !== SifMode.NO_VERIFACTU) {
+      await this.noEvents.appendSummary(this.tenant.db, company);
       await this.noEvents.appendBasic(company, "02");
+    }
     const { documentProfile, ...companyInput } = input;
     const companyData = Object.fromEntries(
       Object.entries(companyInput).filter(([, value]) => value !== undefined),

@@ -49,10 +49,38 @@ export function validateConfiguration(values: Record<string, unknown>) {
       if (!String(values[name]).startsWith("/"))
         throw new Error(`${name} must be an absolute path`);
   }
+  for (const name of ["AEAT_PRODUCTION_ENABLED", "SIF_PRODUCTION_RELEASE_ENABLED"])
+    if (values[name] && !["true", "false"].includes(String(values[name])))
+      throw new Error(`${name} must be true or false`);
+  if (String(values.SIF_PRODUCTION_RELEASE_ENABLED) === "true") {
+    for (const name of ["SIF_PRODUCTION_RELEASE_COMPANY_ID", "SIF_PRODUCTION_DECLARATION_PATH", "SIF_PRODUCTION_DECLARATION_SHA256"])
+      if (typeof values[name] !== "string" || !values[name])
+        throw new Error(`${name} is required when SIF_PRODUCTION_RELEASE_ENABLED is true`);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(values.SIF_PRODUCTION_RELEASE_COMPANY_ID)))
+      throw new Error("SIF_PRODUCTION_RELEASE_COMPANY_ID must be a UUID");
+    if (!String(values.SIF_PRODUCTION_DECLARATION_PATH).startsWith("/"))
+      throw new Error("SIF_PRODUCTION_DECLARATION_PATH must be an absolute path");
+    if (!/^[0-9a-f]{64}$/i.test(String(values.SIF_PRODUCTION_DECLARATION_SHA256)))
+      throw new Error("SIF_PRODUCTION_DECLARATION_SHA256 must contain 64 hexadecimal characters");
+  }
+  if (String(values.AEAT_PRODUCTION_ENABLED) === "true") {
+    if (String(values.SIF_PRODUCTION_RELEASE_ENABLED) !== "true")
+      throw new Error("AEAT_PRODUCTION_ENABLED requires SIF_PRODUCTION_RELEASE_ENABLED");
+    for (const name of ["AEAT_PRODUCTION_PFX_PATH", "AEAT_PRODUCTION_PFX_PASSPHRASE_FILE", "AEAT_PRODUCTION_COMPANY_ID", "AEAT_PRODUCTION_ISSUER_TAX_ID", "AEAT_PRODUCTION_CERT_SHA256", "DIRECT_DATABASE_URL"])
+      if (typeof values[name] !== "string" || !values[name])
+        throw new Error(`${name} is required when AEAT_PRODUCTION_ENABLED is true`);
+    if (values.AEAT_PRODUCTION_COMPANY_ID !== values.SIF_PRODUCTION_RELEASE_COMPANY_ID)
+      throw new Error("AEAT_PRODUCTION_COMPANY_ID must match SIF_PRODUCTION_RELEASE_COMPANY_ID");
+    for (const name of ["AEAT_PRODUCTION_PFX_PATH", "AEAT_PRODUCTION_PFX_PASSPHRASE_FILE"])
+      if (!String(values[name]).startsWith("/"))
+        throw new Error(`${name} must be an absolute path`);
+    if (!/^[0-9a-f]{64}$/i.test(String(values.AEAT_PRODUCTION_CERT_SHA256)))
+      throw new Error("AEAT_PRODUCTION_CERT_SHA256 must contain 64 hexadecimal characters");
+  }
   if (values.SIF_NO_SIGNING_ENABLED && !["true", "false"].includes(String(values.SIF_NO_SIGNING_ENABLED)))
     throw new Error("SIF_NO_SIGNING_ENABLED must be true or false");
   if (String(values.SIF_NO_SIGNING_ENABLED) === "true") {
-    for (const name of ["SIF_NO_PFX_PATH", "SIF_NO_PFX_PASSPHRASE_FILE", "SIF_NO_COMPANY_ID", "SIF_NO_ISSUER_TAX_ID", "SIF_NO_CERT_SHA256"])
+    for (const name of ["SIF_NO_PFX_PATH", "SIF_NO_PFX_PASSPHRASE_FILE", "SIF_NO_COMPANY_ID", "SIF_NO_ISSUER_TAX_ID", "SIF_NO_CERT_SHA256", "DIRECT_DATABASE_URL"])
       if (typeof values[name] !== "string" || !values[name])
         throw new Error(`${name} is required when SIF_NO_SIGNING_ENABLED is true`);
     for (const name of ["SIF_NO_PFX_PATH", "SIF_NO_PFX_PASSPHRASE_FILE"])

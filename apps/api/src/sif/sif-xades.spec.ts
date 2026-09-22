@@ -122,4 +122,35 @@ describe("AEAT NO VERI*FACTU XAdES-EPES", () => {
     expect(spawnSync("xmllint", ["--noout", "--schema", join(__dirname, "xsd", "EventosSIF.xsd"), "-"],
       { input: signedStop, encoding: "utf8" }).status).toBe(0);
   });
+
+  it.each([
+    { eventType: "03" as const, detail: { kind: "03" as const, recordsChecked: 2 } },
+    { eventType: "04" as const, detail: { kind: "04" as const, anomalyType: "01", description: "Hash mismatch" } },
+    { eventType: "05" as const, detail: { kind: "05" as const, recordsChecked: 3 } },
+    { eventType: "06" as const, detail: { kind: "06" as const, anomalyType: "02", description: "Signature invalid" } },
+    { eventType: "08" as const, detail: { kind: "08" as const,
+      from: "2026-09-22T00:00:00.000Z", to: "2026-09-22T23:59:59.000Z",
+      first: { issuerTaxId: "B12345674", invoiceNumber: "F2026-0001", issueDate: "22-09-2026", hash: "A".repeat(64) },
+      last: { issuerTaxId: "B12345674", invoiceNumber: "F2026-0001", issueDate: "22-09-2026", hash: "A".repeat(64) },
+      registrations: 1, taxTotal: "21.00", invoiceTotal: "121.00", cancellations: 0 } },
+    { eventType: "09" as const, detail: { kind: "09" as const,
+      from: "2026-09-22T00:00:00.000Z", to: "2026-09-22T23:59:59.000Z",
+      first: { eventType: "01", generatedAt: "2026-09-22T09:00:00+02:00", hash: "A".repeat(64) },
+      last: { eventType: "01", generatedAt: "2026-09-22T09:00:00+02:00", hash: "A".repeat(64) },
+      count: 1 } },
+    { eventType: "10" as const, detail: { kind: "10" as const, counts: [{ eventType: "01", count: 1 }],
+      registrations: 0, taxTotal: "0.00", invoiceTotal: "0.00", cancellations: 0 } },
+  ])("validates signed event $eventType against AEAT XSD", async ({ eventType, detail }) => {
+    const event = renderSifBasicEventXml({
+      eventType, detail, producerName: "Test Producer", producerTaxId: "B12345674",
+      softwareName: "PastaGansa", softwareId: "PG", softwareVersion: "0.1.0",
+      installationNumber: "test-1", issuerName: "Test Issuer", issuerTaxId: "B12345674",
+      generatedAt: "2026-09-22T09:00:00+02:00",
+    });
+    const signed = await signSifRecordXml(event.xml, identity);
+    expect(await verifySifRecordSignature(signed)).toBe(true);
+    const validation = spawnSync("xmllint", ["--noout", "--schema", join(__dirname, "xsd", "EventosSIF.xsd"), "-"],
+      { input: signed, encoding: "utf8" });
+    expect(validation.status).toBe(0);
+  });
 });

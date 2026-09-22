@@ -273,6 +273,7 @@ model Organization {
   taxLedgerAmounts      TaxLedgerAmount[]
   sifRecords            SifRecord[]
   sifEvents             SifEventRecord[]
+  sifIntegrityAlarms    SifIntegrityAlarm[]
   sifAeatSubmissions    SifAeatSubmission[]
   purchaseInvoices      PurchaseInvoice[]
   purchaseInvoiceLines  PurchaseInvoiceLine[]
@@ -335,6 +336,7 @@ model Company {
   taxLedgerAmounts      TaxLedgerAmount[]
   sifRecords            SifRecord[]
   sifEvents             SifEventRecord[]
+  sifIntegrityAlarms    SifIntegrityAlarm[]
   sifAeatSubmissions    SifAeatSubmission[]
   purchaseInvoices      PurchaseInvoice[]
   purchaseInvoiceLines  PurchaseInvoiceLine[]
@@ -634,6 +636,25 @@ model SifEventRecord {
   @@unique([id, organizationId, companyId])
   @@index([companyId, generatedAt, id])
   @@map("sif_event_records")
+}
+
+model SifIntegrityAlarm {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  companyId      String       @map("company_id") @db.Uuid
+  fingerprint    String       @db.Char(64)
+  source         String       @db.VarChar(20)
+  chainPosition  BigInt?      @map("chain_position")
+  reason         String       @db.VarChar(300)
+  firstDetectedAt DateTime    @default(now()) @map("first_detected_at") @db.Timestamptz(6)
+  lastDetectedAt DateTime     @default(now()) @map("last_detected_at") @db.Timestamptz(6)
+  resolvedAt     DateTime?    @map("resolved_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company        Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, fingerprint])
+  @@index([companyId, resolvedAt, lastDetectedAt])
+  @@map("sif_integrity_alarms")
 }
 
 model SifAeatSubmission {

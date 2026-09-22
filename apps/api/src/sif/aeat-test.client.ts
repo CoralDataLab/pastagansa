@@ -5,11 +5,14 @@ import { Agent, request } from "node:https";
 import { createSecureContext } from "node:tls";
 import { aeatTestSoapEnvelope } from "./aeat-test-soap";
 import { aeatTestQueryEnvelope, type AeatTestQueryIdentity } from "./aeat-test-query";
+import { validateSifSigningIdentity } from "./sif-xades";
 
-// SistemaVerifactuPruebas in the AEAT SistemaFacturacion.wsdl. Never accept a
-// configurable production URL while this integration is limited to testing.
+// Fixed endpoints from the AEAT SistemaFacturacion.wsdl; never accept a URL
+// from runtime configuration.
 export const AEAT_TEST_ENDPOINT =
   "https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP";
+export const AEAT_PRODUCTION_ENDPOINT =
+  "https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP";
 
 export class AeatTestTransportError extends Error {
   constructor(message: string, readonly ambiguous: boolean) {
@@ -17,23 +20,32 @@ export class AeatTestTransportError extends Error {
   }
 }
 
-@Injectable()
-export class AeatTestClient implements OnModuleDestroy {
+export class AeatTransportClient implements OnModuleDestroy {
   readonly enabled: boolean;
   readonly companyId: string | null;
   readonly issuerTaxId: string | null;
+  readonly environment: "TEST" | "PRODUCTION";
+  private readonly endpoint: string;
   private readonly agent?: Agent;
 
-  constructor(config: ConfigService) {
-    this.enabled = config.get<string>("AEAT_TEST_ENABLED") === "true";
-    this.companyId = this.enabled ? config.getOrThrow<string>("AEAT_TEST_COMPANY_ID") : null;
-    this.issuerTaxId = this.enabled ? config.getOrThrow<string>("AEAT_TEST_ISSUER_TAX_ID") : null;
+  constructor(config: ConfigService, environment: "TEST" | "PRODUCTION") {
+    this.environment = environment;
+    const prefix = environment === "TEST" ? "AEAT_TEST" : "AEAT_PRODUCTION";
+    this.endpoint = environment === "TEST" ? AEAT_TEST_ENDPOINT : AEAT_PRODUCTION_ENDPOINT;
+    this.enabled = config.get<string>(`${prefix}_ENABLED`) === "true";
+    this.companyId = this.enabled ? config.getOrThrow<string>(`${prefix}_COMPANY_ID`) : null;
+    this.issuerTaxId = this.enabled ? config.getOrThrow<string>(`${prefix}_ISSUER_TAX_ID`) : null;
     if (this.enabled) {
-      const pfx = readFileSync(config.getOrThrow<string>("AEAT_TEST_PFX_PATH"));
+      const pfx = readFileSync(config.getOrThrow<string>(`${prefix}_PFX_PATH`));
       const passphrase = readFileSync(
-        config.getOrThrow<string>("AEAT_TEST_PFX_PASSPHRASE_FILE"), "utf8",
+        config.getOrThrow<string>(`${prefix}_PFX_PASSPHRASE_FILE`), "utf8",
       ).replace(/\r?\n$/, "");
-      if (!passphrase) throw new Error("AEAT test certificate passphrase file is empty");
+      if (!passphrase) throw new Error("AEAT certificate passphrase file is empty");
+      if (environment === "PRODUCTION") validateSifSigningIdentity({
+        p12: pfx, passphrase,
+        expectedCertificateSha256: config.getOrThrow<string>("AEAT_PRODUCTION_CERT_SHA256"),
+        expectedIssuerTaxId: this.issuerTaxId!,
+      });
       createSecureContext({ pfx, passphrase, minVersion: "TLSv1.2" });
       this.agent = new Agent({
         pfx,
@@ -61,7 +73,7 @@ export class AeatTestClient implements OnModuleDestroy {
     const body = Buffer.from(soapXml, "utf8");
     return new Promise((resolve, reject) => {
       let sent = false;
-      const req = request(AEAT_TEST_ENDPOINT, {
+      const req = request(this.endpoint, {
         method: "POST",
         agent: this.agent,
         headers: {
@@ -94,4 +106,14 @@ export class AeatTestClient implements OnModuleDestroy {
       req.end(body);
     });
   }
+}
+
+@Injectable()
+export class AeatTestClient extends AeatTransportClient {
+  constructor(config: ConfigService) { super(config, "TEST"); }
+}
+
+@Injectable()
+export class AeatProductionClient extends AeatTransportClient {
+  constructor(config: ConfigService) { super(config, "PRODUCTION"); }
 }

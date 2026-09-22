@@ -17,6 +17,7 @@ import {
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { createHash } from "node:crypto";
+import { ConfigService } from "@nestjs/config";
 import { AuditService } from "../audit/audit.service";
 import { TenantContextService } from "../tenancy/tenant-context.service";
 import { vatRecoveryDescription } from "../invoices/vat-recovery-description";
@@ -29,8 +30,10 @@ import {
 } from "./sif-hash-v1";
 import { verifySifChain } from "./sif-chain";
 import { createSifZip } from "./sif-zip";
-import { AeatTestClient } from "./aeat-test.client";
+import { AeatTestClient, AeatProductionClient } from "./aeat-test.client";
 import { SifNoSigningService } from "./sif-no-signing.service";
+import { SifNoEventService } from "./sif-no-event.service";
+import { sifProductionReleaseMatches } from "./sif-production-gate";
 import { captureSifSoftwareSnapshot } from "./sif-software-profile";
 import { RecoverRejectedRegistrationDto } from "./dto/recover-rejected-registration.dto";
 import {
@@ -47,7 +50,22 @@ export class SifService {
     private readonly audit: AuditService,
     @Optional() private readonly aeatTest?: AeatTestClient,
     @Optional() private readonly noSigning?: SifNoSigningService,
+    @Optional() private readonly noEvents?: SifNoEventService,
+    @Optional() private readonly aeatProduction?: AeatProductionClient,
+    @Optional() private readonly config?: ConfigService,
   ) {}
+
+  private senderMatches(environment: "TEST" | "PRODUCTION",
+    companyId: string, issuerTaxId: string): boolean {
+    const sender = environment === "TEST" ? this.aeatTest : this.aeatProduction;
+    return !!sender?.enabled && sender.companyId === companyId &&
+      sender.issuerTaxId === issuerTaxId;
+  }
+
+  private productionReleased(environment: "TEST" | "PRODUCTION", companyId: string): boolean {
+    return environment === "TEST" || (!!this.config &&
+      sifProductionReleaseMatches(this.config, companyId));
+  }
 
   async listForInvoice(invoiceId: string) {
     return (
@@ -103,8 +121,11 @@ export class SifService {
         },
       };
     });
+    const eventExport = this.noEvents
+      ? await this.noEvents.exportSnapshot(from, to, selected)
+      : null;
     const manifest = {
-      format: "pastagansa-sif-period-export-v1",
+      format: "pastagansa-sif-period-export-v2",
       organizationId: scope.organizationId,
       companyId: scope.companyId,
       dateBasis: "generatedAt UTC; both dates inclusive",
@@ -112,13 +133,18 @@ export class SifService {
       totalChainRecordsChecked: chain.recordsChecked,
       recordCount: files.length,
       records: files.map((file) => file.manifest),
+      eventChainRecordsChecked: eventExport?.recordsChecked ?? 0,
+      exportEventsRecorded: eventExport?.exportEventsRecorded ?? false,
+      eventCount: eventExport?.files.length ?? 0,
+      events: eventExport?.files.map((file) => file.manifest) ?? [],
     };
     const content = createSifZip([
       { name: "manifest.json", content: Buffer.from(JSON.stringify(manifest, null, 2) + "\n", "utf8") },
       ...files.map((file) => ({ name: file.name, content: file.content })),
+      ...(eventExport?.files.map((file) => ({ name: file.name, content: file.content })) ?? []),
     ]);
     await this.audit.record("sif_record.period_exported", "company", scope.companyId, {
-      from, to, recordCount: files.length,
+      from, to, recordCount: files.length, eventCount: eventExport?.files.length ?? 0,
       archiveSha256: createHash("sha256").update(content).digest("hex"),
     });
     return { filename: `sif-${from}-${to}.zip`, content };
@@ -485,14 +511,13 @@ export class SifService {
     // left untouched and remain readable through the idempotency check above.
     if (invoice.sifMode === SifMode.DISABLED) return null;
     if (invoice.sifMode === SifMode.VERIFACTU &&
-        (!this.aeatTest?.enabled || this.aeatTest.companyId !== scope.companyId ||
-         this.aeatTest.issuerTaxId !== invoice.issuerTaxId))
+        !this.senderMatches(invoice.aeatEnvironment, scope.companyId, invoice.issuerTaxId))
       throw new ConflictException(
-        "VERI*FACTU test issuance requires a sender bound to this issuing company",
+        "VERI*FACTU issuance requires a sender bound to this issuing company and environment",
       );
-    if (invoice.aeatEnvironment !== "TEST")
+    if (!this.productionReleased(invoice.aeatEnvironment, scope.companyId))
       throw new ConflictException(
-        "SIF test issuance requires the AEAT test environment; production is not enabled",
+        "SIF production issuance requires the reviewed declaration artifact",
       );
     if (invoice.sifMode === SifMode.NO_VERIFACTU &&
         !this.noSigning?.matches(scope.companyId, invoice.issuerTaxId))
@@ -636,12 +661,11 @@ export class SifService {
         "Only an issued invoice can generate a SIF cancellation",
       );
     if (invoice.sifMode === SifMode.VERIFACTU &&
-        (invoice.aeatEnvironment !== "TEST" || !this.aeatTest?.enabled ||
-         this.aeatTest.companyId !== scope.companyId ||
-         this.aeatTest.issuerTaxId !== invoice.issuerTaxId))
-      throw new ConflictException("VERI*FACTU cancellation requires the AEAT test sender");
+        (!this.senderMatches(invoice.aeatEnvironment, scope.companyId, invoice.issuerTaxId) ||
+         !this.productionReleased(invoice.aeatEnvironment, scope.companyId)))
+      throw new ConflictException("VERI*FACTU cancellation requires the company-bound sender and release");
     if (invoice.sifMode === SifMode.NO_VERIFACTU &&
-        (invoice.aeatEnvironment !== "TEST" ||
+        (!this.productionReleased(invoice.aeatEnvironment, scope.companyId) ||
          !this.noSigning?.matches(scope.companyId, invoice.issuerTaxId)))
       throw new ConflictException("NO VERI*FACTU cancellation requires a signing certificate bound to this company");
 
@@ -821,10 +845,9 @@ export class SifService {
       },
     });
     if (!invoice || invoice.sifMode !== SifMode.VERIFACTU ||
-        invoice.aeatEnvironment !== "TEST" || !this.aeatTest?.enabled ||
-        this.aeatTest.companyId !== scope.companyId ||
-        this.aeatTest.issuerTaxId !== invoice.issuerTaxId)
-      throw new ConflictException("AEAT test subsanation requires the enabled test sender");
+        !this.senderMatches(invoice.aeatEnvironment, scope.companyId, invoice.issuerTaxId) ||
+        !this.productionReleased(invoice.aeatEnvironment, scope.companyId))
+      throw new ConflictException("AEAT subsanation requires the company-bound sender and release");
     const cancelled = await this.tenant.db.sifRecord.findFirst({
       where: { invoiceId, recordType: SifRecordType.CANCELLATION, ...scope },
     });
