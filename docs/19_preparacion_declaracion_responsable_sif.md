@@ -1,0 +1,35 @@
+# Preparación de la declaración responsable del SIF PastaGansa
+
+**BORRADOR DE TRABAJO — NO SUSCRITO.** Este documento prepara los datos de una futura declaración, pero no afirma conformidad ni habilita producción. La declaración final corresponde al **productor** del sistema, para una versión concreta. Debe seguir, en orden, los apartados 1.a–1.l del [artículo 15 de la Orden HAC/1177/2024](https://www.boe.es/buscar/act.php?id=BOE-A-2024-22138) y permanecer accesible desde el producto para cada versión, conforme al [artículo 13 del RD 1007/2023](https://www.boe.es/buscar/act.php?id=BOE-A-2023-24840). La [AEAT publica un ejemplo](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica/ejemplo-declaracion-responsable.html); usar la redacción oficial de los encabezados al preparar el documento final.
+
+La [FAQ de la AEAT](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/certificacion-sistemas-informaticos-declaracion-responsable.html) aclara que no existe certificación externa ni registro previo del producto y que la declaración del productor no requiere firma electrónica. Debe ser una declaración escrita, suscrita y accesible para el usuario de la versión correspondiente.
+
+## Datos preparados en el orden legal
+
+| Apartado | Dato para la versión que se decida liberar | Estado |
+| --- | --- | --- |
+| 1.a Nombre del sistema | **PastaGansa**. Confirmar que ésta será su denominación comercial definitiva. | Propuesto; pendiente de ratificación del productor. |
+| 1.b Código identificador | **PG**, confirmado por el titular como código definitivo y exclusivo de PastaGansa; coincide con los registros de staging. | Decisión del productor comunicada; incorporar al documento suscrito. |
+| 1.c Versión completa | En staging figura `0.1.0`, confirmado por el titular. Ese valor no distingue por sí solo todos los commits posteriores: registrar un identificador único para la versión que finalmente se libere, el commit completo y los digests API/web, y cotejarlo con el perfil de los XML SIF. | **Pendiente**: congelar versión, imagen API/web y configuración; `0.1.0` de staging no es todavía versión declarada. |
+| 1.d Componentes y funciones | Aplicación web Next.js, API NestJS, base PostgreSQL y despliegue en contenedores; facturas/PDF, QR, registro SIF encadenado y XML, remisión VERI*FACTU, firma y eventos en modo NO VERI*FACTU, consulta/exportación y aislamiento por empresa. Indicar sistema operativo, hardware/servicio de alojamiento y límites de la instalación final. | Descripción basada en el repositorio; inventario final y evidencia pendientes. |
+| 1.e Uso exclusivo VERI*FACTU | **N — No**. El titular confirma que la primera declaración cubrirá la versión actual con VERI*FACTU y NO VERI*FACTU. | Alcance confirmado; evidencia de ambas modalidades pendiente. |
+| 1.f Varios obligados tributarios | **S — Sí**: el producto permite varias empresas y registra cadenas por obligado. Verificar separación, configuración de certificados y permisos en la versión candidata. | Implementado; revisión de instalación pendiente. |
+| 1.g Firma fuera de VERI*FACTU | Se ha implementado firma XAdES Enveloped EPES de registros y eventos, con certificado configurado para el emisor. Antes de declararlo conforme, verificar certificado cualificado, política, representación, cadena de confianza, eventos y restauración en la instalación final. | **BLOQUEADO** por las filas N-01–N-03 del manual de conformidad. |
+| 1.h Productor | **CORALDATALAB, S.L.**, entidad productora confirmada por el titular. Confirmar la grafía registral exacta antes de suscribir. | Identidad declarada; cotejo documental pendiente. |
+| 1.i Identificación fiscal del productor | **B93975670**, NIF español de CORALDATALAB, S.L. comunicado por el titular. | Identidad declarada; cotejo documental pendiente. |
+| 1.j Domicilio postal del productor | El titular lo ha comunicado. Transcribirlo al documento final privado tras cotejo documental; no incorporar aquí el domicilio completo. | Domicilio declarado; cotejo documental pendiente. |
+| 1.k Afirmación normativa | Solo en el documento final, una vez cerrada la matriz, el productor declara conformidad de **esa versión** con art. 29.2.j LGT, RD 1007/2023, Orden HAC/1177/2024 y especificaciones AEAT aplicables. | **No redactar como afirmación firmada ni suscribir todavía**. |
+| 1.l Fecha y lugar | Día/mes/año de suscripción y localidad/país; el titular ha indicado que firmará como **administrador único** de CORALDATALAB, S.L. Su nombre completo queda solo en el borrador privado. | Representación declarada; cotejar nombramiento y dejar fecha/lugar para la suscripción real. |
+
+La dirección web y los datos de contacto adicionales pueden ir en un anexo. La declaración final debe ser un documento legible e individualizado por versión. El botón actual de **Configuración → Descargar borrador de declaración responsable** proporciona un PDF de preparación; no reemplaza la declaración completa y suscrita.
+
+## Decisiones y pruebas que faltan antes de firmar
+
+1. Cotejar razón social, NIF y domicilio del productor con documentación societaria. El titular ha elegido **PG** como código definitivo y exclusivo y ha confirmado que la primera declaración abarcará ambas modalidades. Por ello, el apartado 1.e será **N** y la firma NO VERI*FACTU del apartado 1.g debe quedar validada antes de suscribir.
+2. Congelar el código y la versión SIF que aparecerá en cada XML. Cotejar commit, digest de imágenes, configuración, identificador de instalación y NIF del productor; guardar el resultado sin secretos.
+3. Cerrar las filas COM, V, N, TAX, GOV y OPS de la [matriz de conformidad](17_manual_evidencias_conformidad_sif.md), con pruebas por versión. En particular, resolver N-01–N-03 antes de declarar conforme una edición que permita NO VERI*FACTU; validar también R3, recuperación de errores, entrega fiscal y restauración según la modalidad ofrecida.
+4. Solo cuando no queden bloqueos aplicables, preparar el documento final con los rótulos y orden oficiales, firmarlo por el productor, conservar el PDF firmado y su SHA-256 fuera de Git, y ponerlo a disposición dentro del producto y para clientes. El control de producción ya exige ruta, SHA-256 y empresa vinculada, pero comprobar su funcionamiento con el archivo final.
+
+**Estado de decisión:** pendiente. La aceptación de registros en AEAT pruebas, incluso con CSV, no sustituye la declaración ni acredita que todas las modalidades de esta versión cumplen los requisitos.
+
+El [texto de trabajo con los apartados 1.a–1.l](20_borrador_declaracion_responsable_pastagansa.md) se mantiene sin suscribir hasta cerrar esta hoja y congelar la versión.
