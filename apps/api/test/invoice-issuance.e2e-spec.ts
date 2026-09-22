@@ -98,7 +98,7 @@ describe("invoice issuance concurrency", () => {
       .post("/v1/contacts")
       .send({
         legalName: "Concurrency Customer",
-        taxId: "B76543210",
+        taxId: "B76543214",
         isCustomer: true,
         isSupplier: false,
       })
@@ -120,7 +120,7 @@ describe("invoice issuance concurrency", () => {
           issuerLegalName: "Issuance Company",
           issuerTaxId: "B12345674",
           customerLegalName: "Concurrency Customer",
-          customerTaxId: "B76543210",
+          customerTaxId: "B76543214",
           issueDate: new Date("2026-09-08"),
           currency: "EUR",
           subtotal: "100",

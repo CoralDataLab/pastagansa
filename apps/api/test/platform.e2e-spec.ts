@@ -305,7 +305,7 @@ describe("platform integrity", () => {
       .post("/v1/contacts")
       .send({
         legalName: "Customer A",
-        taxId: "B76543210",
+        taxId: "B76543214",
         email: "billing-a@example.com",
         isCustomer: true,
         isSupplier: false,
