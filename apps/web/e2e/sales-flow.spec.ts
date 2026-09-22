@@ -385,7 +385,7 @@ test("completes the sales flow from registration to payment", async ({
 
   await page.getByRole("button", { name: "Rectificar factura" }).click();
   const rectificationDialog = page.getByRole("dialog", {
-    name: "Rectificar factura completa",
+    name: "Rectificar factura",
   });
   await rectificationDialog.getByLabel("Motivo fiscal AEAT").selectOption("R1");
   await rectificationDialog
