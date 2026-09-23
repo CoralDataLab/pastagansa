@@ -5,6 +5,7 @@ import helmet from "helmet";
 import { randomUUID } from "node:crypto";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { HttpExceptionFilter } from "./platform/http-exception.filter";
+import { APP_VERSION } from "./version";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -44,7 +45,7 @@ async function bootstrap() {
     app,
     new DocumentBuilder()
       .setTitle("Pastagansa API")
-      .setVersion("0.1")
+      .setVersion(APP_VERSION)
       .addBearerAuth()
       .build(),
   );

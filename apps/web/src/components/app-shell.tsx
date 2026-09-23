@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { APP_VERSION } from "../lib/version";
 
 type ActiveMembership = {
   organization: { id: string; name: string };
@@ -231,7 +232,7 @@ export function AppShell({
         )}
         {children}
         <footer className="workspace-footer">
-          {session.data.user.email} · {company.baseCurrency}
+          {session.data.user.email} · {company.baseCurrency} · v{APP_VERSION}
         </footer>
       </main>
     </div>
