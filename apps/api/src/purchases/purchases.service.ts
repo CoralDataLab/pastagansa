@@ -512,7 +512,23 @@ export class PurchasesService {
         "Purchase invoice supplier must be active in this company",
       );
     await this.validateCatalogItems(input.lines);
-    const rules = await this.tax.resolveRules(input.lines, operationDate);
+    const hasDisbursements = input.lines.some((line) => line.isDisbursement);
+    const disbursementRule = hasDisbursements
+      ? await this.tenant.db.taxRule.findFirst({
+          where: { code: "ES_VAT_NOT_SUBJECT", effectiveFrom: { lte: new Date(operationDate) },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date(operationDate) } }] },
+        })
+      : null;
+    if (hasDisbursements && !disbursementRule)
+      throw new BadRequestException("Non-subject VAT rule is not available for disbursements");
+    for (const line of input.lines) {
+      if (line.isDisbursement && (line.taxRuleId || line.exemptionReason || line.taxRate !== 0 || line.deductiblePct !== 0))
+        throw new BadRequestException("Suplidos must have 0 VAT, 0 deductible VAT and no custom tax rule");
+    }
+    const rules = await this.tax.resolveRules(
+      input.lines.map((line) => line.isDisbursement ? { ...line, taxRuleId: disbursementRule!.id } : line),
+      operationDate,
+    );
     const lines = input.lines.map((line, index) =>
       buildLine(line, rules[index], index + 1),
     );
@@ -535,7 +551,10 @@ export class PurchasesService {
       },
     );
     const withholdingRate = new Decimal(input.withholdingRate ?? 0);
-    const withholdingBase = totals.subtotal.minus(totals.discountTotal);
+    const withholdingBase = lines.reduce(
+      (sum, line) => line.persisted.isDisbursement ? sum : sum.plus(line.persisted.netAmount),
+      new Decimal(0),
+    );
     const withholdingAmount = withholdingBase.mul(withholdingRate).div(100).toDecimalPlaces(2);
     if (withholdingAmount.greaterThanOrEqualTo(totals.total))
       throw new BadRequestException("Withholding must be less than the invoice total");
@@ -626,6 +645,8 @@ function buildLine(
     throw new BadRequestException(
       "This tax rule does not allow input VAT deduction",
     );
+  if (input.isDisbursement && (rule.code !== "ES_VAT_NOT_SUBJECT" || rule.subject || rule.rate !== null))
+    throw new BadRequestException("Suplidos require the non-subject VAT rule");
   const calculation = calculateInvoiceLine(
     { ...input, taxRate: Number(rule.rate ?? 0) },
     position,
@@ -640,6 +661,7 @@ function buildLine(
     persisted: {
       position,
       catalogItemId: input.catalogItemId,
+      isDisbursement: input.isDisbursement ?? false,
       description: calculation.persisted.description,
       quantity: calculation.persisted.quantity,
       unitPrice: calculation.persisted.unitPrice,
@@ -670,6 +692,7 @@ interface BuiltLine {
   persisted: {
     position: number;
     catalogItemId?: string;
+    isDisbursement: boolean;
     description: string;
     quantity: Decimal;
     unitPrice: Decimal;

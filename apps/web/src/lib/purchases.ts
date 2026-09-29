@@ -17,9 +17,11 @@ export const purchaseInputSchema = z.object({
         quantity: z.number().positive().multipleOf(0.001),
         unitPrice: z.number().min(0).multipleOf(0.01),
         discountPct: z.number().min(0).max(100).multipleOf(0.01),
-        taxRate: z.union([z.literal(21), z.literal(10), z.literal(4)]),
+        taxRate: z.union([z.literal(21), z.literal(10), z.literal(4), z.literal(0)]),
+        isDisbursement: z.boolean().optional(),
         deductiblePct: z.number().min(0).max(100).multipleOf(0.01),
-      }),
+      }).refine((line) => line.isDisbursement ? line.taxRate === 0 && line.deductiblePct === 0 : line.taxRate !== 0,
+        "El suplido debe ser no sujeto, con IVA deducible 0 %"),
     )
     .min(1)
     .max(200),
@@ -59,6 +61,7 @@ export interface Purchase {
     quantity: string;
     unitPrice: string;
     discountPct: string;
+    isDisbursement: boolean;
     netAmount: string;
     taxAmount: string;
     totalAmount: string;

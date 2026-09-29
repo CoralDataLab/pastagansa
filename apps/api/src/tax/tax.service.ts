@@ -318,7 +318,8 @@ export class TaxService {
       throw new ConflictException(
         "Every purchase invoice line must have exactly one fiscal breakdown",
       );
-    const taxLines = purchase.lines.map((line) => line.taxLines[0]);
+    // Suplidos son pagos por cuenta del cliente, no base de IVA soportado.
+    const taxLines = purchase.lines.filter((line) => !line.isDisbursement).map((line) => line.taxLines[0]);
     const entry = await this.tenant.db.taxLedgerEntry.create({
       data: {
         ...scope,

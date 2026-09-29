@@ -228,7 +228,7 @@ interface EditableLine {
   quantity: string;
   unitPrice: string;
   discountPct: string;
-  taxRate: "21" | "10" | "4";
+  taxRate: "21" | "10" | "4" | "SUPLIDO";
   deductiblePct: string;
 }
 
@@ -264,8 +264,8 @@ export function PurchaseDialog({
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           discountPct: line.discountPct,
-          taxRate: supportedRate(line.taxLines[0]?.taxRate),
-          deductiblePct: line.taxLines[0]?.deductiblePct ?? "100",
+          taxRate: line.isDisbursement ? "SUPLIDO" : supportedRate(line.taxLines[0]?.taxRate),
+          deductiblePct: line.isDisbursement ? "0" : line.taxLines[0]?.deductiblePct ?? "100",
         }))
       : [blankLine()],
   );
@@ -313,8 +313,9 @@ export function PurchaseDialog({
         quantity: Number(line.quantity),
         unitPrice: Number(line.unitPrice),
         discountPct: Number(line.discountPct),
-        taxRate: Number(line.taxRate) as 21 | 10 | 4,
-        deductiblePct: Number(line.deductiblePct),
+        taxRate: line.taxRate === "SUPLIDO" ? 0 : Number(line.taxRate) as 21 | 10 | 4,
+        isDisbursement: line.taxRate === "SUPLIDO",
+        deductiblePct: line.taxRate === "SUPLIDO" ? 0 : Number(line.deductiblePct),
       })),
     });
   }
@@ -426,12 +427,12 @@ export function PurchaseDialog({
                 step="0.01"
                 defaultValue={initial?.withholdingRate ?? "0"}
               />
-              <small>Se calcula sobre la base antes de IVA. El total fiscal conserva el IVA; el saldo al proveedor se reduce.</small>
+              <small>Se calcula sobre la base antes de IVA, excluidos los suplidos. El total conserva el IVA; el saldo al proveedor se reduce.</small>
             </label>
             <div className="invoice-lines-heading">
               <div>
                 <strong>Conceptos</strong>
-                <small>Indica IVA soportado y porcentaje deducible.</small>
+                <small>Indica IVA soportado y porcentaje deducible. Para pagos hechos por el proveedor en tu nombre, selecciona «Suplido (no sujeto)»; no se incluyen en IVA ni en la base de retención.</small>
               </div>
               <button
                 type="button"
@@ -517,22 +518,25 @@ export function PurchaseDialog({
                     <span>IVA</span>
                     <select
                       value={line.taxRate}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const taxRate = event.target.value as EditableLine["taxRate"];
                         updateLine(line.key, {
-                          taxRate: event.target
-                            .value as EditableLine["taxRate"],
-                        })
-                      }
+                          taxRate,
+                          deductiblePct: taxRate === "SUPLIDO" ? "0" : line.taxRate === "SUPLIDO" ? "100" : line.deductiblePct,
+                        });
+                      }}
                     >
                       <option value="21">21 %</option>
                       <option value="10">10 %</option>
                       <option value="4">4 %</option>
+                      <option value="SUPLIDO">Suplido (no sujeto)</option>
                     </select>
                   </label>
                   <label className="field">
                     <span>Deducible %</span>
                     <input
                       required
+                      disabled={line.taxRate === "SUPLIDO"}
                       type="number"
                       min="0"
                       max="100"

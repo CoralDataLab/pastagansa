@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsNumber,
   IsOptional,
@@ -18,6 +19,7 @@ import { IsCurrencyCode, IsNotBlank } from "../../common/validation";
 export class PurchaseInvoiceLineDto {
   @IsOptional() @IsUUID() catalogItemId?: string;
   @IsOptional() @IsUUID() taxRuleId?: string;
+  @IsOptional() @IsBoolean() isDisbursement?: boolean;
   @IsOptional() @IsString() @MaxLength(100) exemptionReason?: string;
   @IsString() @MaxLength(2000) @IsNotBlank() description!: string;
   @Type(() => Number)

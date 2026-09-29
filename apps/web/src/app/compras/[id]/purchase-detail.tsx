@@ -191,8 +191,8 @@ export function PurchaseDetail({ id }: { id: string }) {
                   <td className="money-cell">
                     {formatMoney(line.unitPrice, document.currency)}
                   </td>
-                  <td>{Number(line.taxLines[0]?.taxRate ?? 0)} %</td>
-                  <td>{Number(line.taxLines[0]?.deductiblePct ?? 0)} %</td>
+                  <td>{line.isDisbursement ? "Suplido · no sujeto" : `${Number(line.taxLines[0]?.taxRate ?? 0)} %`}</td>
+                  <td>{line.isDisbursement ? "—" : `${Number(line.taxLines[0]?.deductiblePct ?? 0)} %`}</td>
                   <td className="money-cell">
                     {formatMoney(line.totalAmount, document.currency)}
                   </td>

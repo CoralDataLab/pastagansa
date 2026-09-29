@@ -1127,6 +1127,7 @@ model PurchaseInvoiceLine {
   companyId         String            @map("company_id") @db.Uuid
   purchaseInvoiceId String            @map("purchase_invoice_id") @db.Uuid
   catalogItemId     String?           @map("catalog_item_id") @db.Uuid
+  isDisbursement    Boolean           @default(false) @map("is_disbursement")
   position          Int
   description       String
   quantity          Decimal           @db.Decimal(14, 3)

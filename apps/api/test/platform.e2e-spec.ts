@@ -2750,6 +2750,36 @@ describe("platform integrity", () => {
     expect(posted.reduce((sum: number, entry: Record<string, { credit: string }>) => sum + Number(entry["475100"].credit), 0)).toBe(30);
     const paid = await authed(account.accessToken, tenant).get(`/v1/purchase-invoices/${draft.body.id}`).expect(200);
     expect(paid.body).toMatchObject({ total: "242", amountPaid: "212", amountDue: "0" });
+
+    const invalidSuplido = await authed(account.accessToken, tenant)
+      .post("/v1/purchase-invoices")
+      .send({ supplierId: supplier.body.id, supplierInvoiceNumber: "PRO-2026-002",
+        issueDate: "2026-09-18", receivedDate: "2026-09-18", withholdingRate: 15,
+        lines: [{ description: "Suplido", quantity: 1, unitPrice: 7.80,
+          taxRate: 21, deductiblePct: 0, isDisbursement: true }] })
+      .expect(400);
+    expect(JSON.stringify(invalidSuplido.body)).toContain("Suplidos must have 0 VAT");
+    const withSuplido = await authed(account.accessToken, tenant)
+      .post("/v1/purchase-invoices")
+      .send({ supplierId: supplier.body.id, supplierInvoiceNumber: "PRO-2026-002",
+        issueDate: "2026-09-18", receivedDate: "2026-09-18", withholdingRate: 15,
+        lines: [
+          { description: "Constitución", quantity: 1, unitPrice: 117.37, taxRate: 21, deductiblePct: 100 },
+          { description: "Suplido", quantity: 1, unitPrice: 7.80, taxRate: 0, deductiblePct: 0, isDisbursement: true },
+        ] })
+      .expect(201);
+    expect(withSuplido.body).toMatchObject({ total: "149.82", taxTotal: "24.65", withholdingAmount: "17.61" });
+    expect(withSuplido.body.lines[1]).toMatchObject({ isDisbursement: true, taxAmount: "0", totalAmount: "7.8" });
+    const approvedSuplido = await authed(account.accessToken, tenant)
+      .post(`/v1/purchase-invoices/${withSuplido.body.id}/approve`)
+      .set("idempotency-key", "suplido-approval")
+      .send({ sequenceId: sequence.body.id }).expect(200);
+    expect(approvedSuplido.body.amountDue).toBe("132.21");
+    const taxBook = await authed(account.accessToken, tenant)
+      .get(`/v1/tax-ledger?purchaseInvoiceId=${withSuplido.body.id}`)
+      .expect(200);
+    expect(taxBook.body.data[0].amounts).toHaveLength(1);
+    expect(taxBook.body.data[0].amounts[0]).toMatchObject({ taxableBase: "117.37", taxAmount: "24.65" });
   });
 
   async function register(
