@@ -21,7 +21,8 @@ export class PurchaseInvoiceLineDto {
   @IsOptional() @IsUUID() catalogItemId?: string;
   @IsOptional() @IsUUID() taxRuleId?: string;
   @IsOptional() @IsBoolean() isDisbursement?: boolean;
-  @IsOptional() @IsIn(["600000", "623000"]) expenseAccountCode?: "600000" | "623000";
+  @IsOptional() @IsBoolean() isEuServiceReverseCharge?: boolean;
+  @IsOptional() @IsIn(["600000", "623000", "629000"]) expenseAccountCode?: "600000" | "623000" | "629000";
   @IsOptional() @IsString() @MaxLength(100) exemptionReason?: string;
   @IsString() @MaxLength(2000) @IsNotBlank() description!: string;
   @Type(() => Number)

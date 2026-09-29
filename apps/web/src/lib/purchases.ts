@@ -19,10 +19,13 @@ export const purchaseInputSchema = z.object({
         discountPct: z.number().min(0).max(100).multipleOf(0.01),
         taxRate: z.union([z.literal(21), z.literal(10), z.literal(4), z.literal(0)]),
         isDisbursement: z.boolean().optional(),
-        expenseAccountCode: z.enum(["600000", "623000"]).optional(),
+        isEuServiceReverseCharge: z.boolean().optional(),
+        expenseAccountCode: z.enum(["600000", "623000", "629000"]).optional(),
         deductiblePct: z.number().min(0).max(100).multipleOf(0.01),
-      }).refine((line) => line.isDisbursement ? line.taxRate === 0 && line.deductiblePct === 0 : line.taxRate !== 0,
-        "El suplido debe ser no sujeto, con IVA deducible 0 %"),
+      }).refine((line) => line.isDisbursement ? line.taxRate === 0 && line.deductiblePct === 0 && !line.isEuServiceReverseCharge
+        : line.isEuServiceReverseCharge ? line.taxRate === 21 && (line.expenseAccountCode === undefined || line.expenseAccountCode === "629000")
+        : line.taxRate !== 0,
+        "Comprueba el tipo fiscal y la cuenta de gasto de la línea"),
     )
     .min(1)
     .max(200),
@@ -63,11 +66,11 @@ export interface Purchase {
     unitPrice: string;
     discountPct: string;
     isDisbursement: boolean;
-    expenseAccountCode: "600000" | "623000";
+    expenseAccountCode: "600000" | "623000" | "629000";
     netAmount: string;
     taxAmount: string;
     totalAmount: string;
-    taxLines: Array<{ taxRate: string | null; deductiblePct: string }>;
+    taxLines: Array<{ taxRate: string | null; deductiblePct: string; taxCode: string; reverseCharge: boolean; taxAmount: string }>;
   }>;
   approvals?: Array<{
     id: string;

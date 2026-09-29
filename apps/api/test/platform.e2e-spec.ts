@@ -292,7 +292,7 @@ describe("platform integrity", () => {
     const taxRules = await authed(accountA.accessToken, tenantA)
       .get("/v1/tax-rules?effectiveOn=2026-09-08")
       .expect(200);
-    expect(taxRules.body).toHaveLength(6);
+    expect(taxRules.body).toHaveLength(7);
     expect(taxRules.body.map(({ code }: { code: string }) => code)).toContain(
       "ES_VAT_GENERAL_21",
     );
@@ -1822,7 +1822,7 @@ describe("platform integrity", () => {
     const accounts = await authed(accountA.accessToken, tenantA)
       .get("/v1/accounting/accounts")
       .expect(200);
-    expect(accounts.body).toHaveLength(12);
+    expect(accounts.body).toHaveLength(13);
     const bankAccount = accounts.body.find(
       ({ code }: { code: string }) => code === "572000",
     );
@@ -2836,6 +2836,59 @@ describe("platform integrity", () => {
     expect(accountingAmounts(splitEntries.body.data[0])).toMatchObject({
       "623000": { debit: "50", credit: "0" },
       "600000": { debit: "20", credit: "0" },
+    });
+
+    const euSupplier = await authed(account.accessToken, tenant).post("/v1/contacts")
+      .send({ legalName: "Anthropic Ireland, Limited", taxCountry: "IE", taxId: "IE4276970QH",
+        isCustomer: false, isSupplier: true }).expect(201);
+    const euInput = { supplierId: euSupplier.body.id, supplierInvoiceNumber: "AA/01851",
+      issueDate: "2026-09-28", receivedDate: "2026-09-28", currency: "EUR", withholdingRate: 0,
+      lines: [{ description: "Suscripción", quantity: 1, unitPrice: 90, taxRate: 21, deductiblePct: 100,
+        isEuServiceReverseCharge: true, expenseAccountCode: "629000" }] };
+    await authed(account.accessToken, tenant).post("/v1/purchase-invoices")
+      .send({ ...euInput, supplierInvoiceNumber: "AA/01851-invalid", withholdingRate: 15 }).expect(400);
+    const euPurchase = await authed(account.accessToken, tenant).post("/v1/purchase-invoices")
+      .send(euInput).expect(201);
+    expect(euPurchase.body).toMatchObject({ total: "90", taxTotal: "18.9", deductibleTaxTotal: "18.9",
+      supplierTaxCountry: "IE", withholdingAmount: "0" });
+    expect(euPurchase.body.lines[0]).toMatchObject({ totalAmount: "90", taxAmount: "18.9", expenseAccountCode: "629000" });
+    expect(euPurchase.body.lines[0].taxLines[0]).toMatchObject({ taxCode: "ES_EU_SERVICE_REVERSE_21", reverseCharge: true });
+    await authed(account.accessToken, tenant).post(`/v1/purchase-invoices/${euPurchase.body.id}/approve`)
+      .set("idempotency-key", "eu-service-approval").send({ sequenceId: sequence.body.id }).expect(200);
+    const euEntries = await authed(account.accessToken, tenant)
+      .get(`/v1/accounting/journal-entries?sourceType=PURCHASE_INVOICE&sourceId=${euPurchase.body.id}`).expect(200);
+    expect(accountingAmounts(euEntries.body.data[0])).toEqual({
+      "400000": { debit: "0", credit: "90" },
+      "472000": { debit: "18.9", credit: "0" },
+      "477000": { debit: "0", credit: "18.9" },
+      "629000": { debit: "90", credit: "0" },
+    });
+    const euLedger = await authed(account.accessToken, tenant)
+      .get(`/v1/tax-ledger?purchaseInvoiceId=${euPurchase.body.id}`).expect(200);
+    expect(euLedger.body.data).toHaveLength(1);
+    expect(euLedger.body.data[0]).toMatchObject({ direction: "PURCHASES", counterpartyCountry: "IE" });
+    expect(euLedger.body.data[0].amounts[0]).toMatchObject({ taxableBase: "90", taxAmount: "18.9", deductibleAmount: "18.9" });
+    const euPayment = await authed(account.accessToken, tenant).post(`/v1/purchase-invoices/${euPurchase.body.id}/payments`)
+      .set("idempotency-key", "eu-service-bank-payment")
+      .send({ amount: 90, paidAt: "2026-09-29T12:00:00.000Z", method: "BANK_TRANSFER" }).expect(201);
+    const paidEuPurchase = await authed(account.accessToken, tenant).get(`/v1/purchase-invoices/${euPurchase.body.id}`).expect(200);
+    expect(paidEuPurchase.body).toMatchObject({ amountDue: "0", amountPaid: "90" });
+    const euPaymentEntries = await authed(account.accessToken, tenant)
+      .get(`/v1/accounting/journal-entries?sourceType=SUPPLIER_PAYMENT&sourceId=${euPayment.body.id}`).expect(200);
+    expect(accountingAmounts(euPaymentEntries.body.data[0])).toEqual({
+      "400000": { debit: "90", credit: "0" },
+      "572000": { debit: "0", credit: "90" },
+    });
+    const nonDeductibleEu = await authed(account.accessToken, tenant).post("/v1/purchase-invoices")
+      .send({ ...euInput, supplierInvoiceNumber: "AA/01852", lines: [{ ...euInput.lines[0], deductiblePct: 0 }] }).expect(201);
+    await authed(account.accessToken, tenant).post(`/v1/purchase-invoices/${nonDeductibleEu.body.id}/approve`)
+      .set("idempotency-key", "eu-service-nondeductible").send({ sequenceId: sequence.body.id }).expect(200);
+    const nonDeductibleEntry = await authed(account.accessToken, tenant)
+      .get(`/v1/accounting/journal-entries?sourceType=PURCHASE_INVOICE&sourceId=${nonDeductibleEu.body.id}`).expect(200);
+    expect(accountingAmounts(nonDeductibleEntry.body.data[0])).toEqual({
+      "400000": { debit: "0", credit: "90" },
+      "477000": { debit: "0", credit: "18.9" },
+      "629000": { debit: "108.9", credit: "0" },
     });
   });
 

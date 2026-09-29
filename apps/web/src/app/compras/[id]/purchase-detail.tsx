@@ -191,7 +191,7 @@ export function PurchaseDetail({ id }: { id: string }) {
                   <td className="money-cell">
                     {formatMoney(line.unitPrice, document.currency)}
                   </td>
-                  <td>{line.isDisbursement ? "Suplido · no sujeto" : `${Number(line.taxLines[0]?.taxRate ?? 0)} %`}</td>
+                  <td>{line.isDisbursement ? "Suplido · no sujeto" : line.taxLines[0]?.taxCode === "ES_EU_SERVICE_REVERSE_21" ? "Servicio UE · inversión 21 %" : `${Number(line.taxLines[0]?.taxRate ?? 0)} %`}</td>
                   <td>{line.isDisbursement ? "—" : `${Number(line.taxLines[0]?.deductiblePct ?? 0)} %`}</td>
                   <td className="money-cell">
                     {formatMoney(line.totalAmount, document.currency)}
@@ -214,7 +214,7 @@ export function PurchaseDetail({ id }: { id: string }) {
             </strong>
           </span>
           <span>
-            IVA soportado{" "}
+            IVA calculado (incluye autorrepercusión){" "}
             <strong>{formatMoney(document.taxTotal, document.currency)}</strong>
           </span>
           <span>
@@ -224,7 +224,7 @@ export function PurchaseDetail({ id }: { id: string }) {
             </strong>
           </span>
           <span className="grand-total">
-            Total{" "}
+            Total a proveedor{" "}
             <strong>{formatMoney(document.total, document.currency)}</strong>
           </span>
           {Number(document.withholdingAmount) > 0 && (
@@ -234,6 +234,9 @@ export function PurchaseDetail({ id }: { id: string }) {
             </>
           )}
         </div>
+        {document.lines?.some((line) => line.taxLines[0]?.taxCode === "ES_EU_SERVICE_REVERSE_21") && (
+          <p className="notice">Servicio UE: el IVA se autorrepercute y no se paga al proveedor. Verifica VIES, derecho a deducir y declaración 303/349 fuera de este flujo.</p>
+        )}
         {document.notes && (
           <p className="invoice-notes">
             <strong>Notas:</strong> {document.notes}

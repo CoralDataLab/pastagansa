@@ -228,8 +228,8 @@ interface EditableLine {
   quantity: string;
   unitPrice: string;
   discountPct: string;
-  taxRate: "21" | "10" | "4" | "SUPLIDO";
-  expenseAccountCode: "AUTO" | "600000" | "623000";
+  taxRate: "21" | "10" | "4" | "SUPLIDO" | "EU_SERVICE";
+  expenseAccountCode: "AUTO" | "600000" | "623000" | "629000";
   deductiblePct: string;
 }
 
@@ -266,7 +266,7 @@ export function PurchaseDialog({
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           discountPct: line.discountPct,
-          taxRate: line.isDisbursement ? "SUPLIDO" : supportedRate(line.taxLines[0]?.taxRate),
+          taxRate: line.isDisbursement ? "SUPLIDO" : line.taxLines[0]?.taxCode === "ES_EU_SERVICE_REVERSE_21" ? "EU_SERVICE" : supportedRate(line.taxLines[0]?.taxRate),
           expenseAccountCode: line.expenseAccountCode ?? "600000",
           deductiblePct: line.isDisbursement ? "0" : line.taxLines[0]?.deductiblePct ?? "100",
         }))
@@ -316,8 +316,9 @@ export function PurchaseDialog({
         quantity: Number(line.quantity),
         unitPrice: Number(line.unitPrice),
         discountPct: Number(line.discountPct),
-        taxRate: line.taxRate === "SUPLIDO" ? 0 : Number(line.taxRate) as 21 | 10 | 4,
+        taxRate: line.taxRate === "SUPLIDO" ? 0 : line.taxRate === "EU_SERVICE" ? 21 : Number(line.taxRate) as 21 | 10 | 4,
         isDisbursement: line.taxRate === "SUPLIDO",
+        isEuServiceReverseCharge: line.taxRate === "EU_SERVICE",
         ...(line.expenseAccountCode === "AUTO" ? {} : { expenseAccountCode: line.expenseAccountCode }),
         deductiblePct: line.taxRate === "SUPLIDO" ? 0 : Number(line.deductiblePct),
       })),
@@ -436,7 +437,7 @@ export function PurchaseDialog({
             <div className="invoice-lines-heading">
               <div>
                 <strong>Conceptos</strong>
-                <small>Indica IVA soportado y porcentaje deducible. Para pagos hechos por el proveedor en tu nombre, selecciona «Suplido (no sujeto)»; no se incluyen en IVA ni en la base de retención.</small>
+                <small>Indica IVA soportado y porcentaje deducible. Para suplidos, selecciona «Suplido (no sujeto)». Para servicios B2B de la UE sujetos en España, «Servicio UE · inversión 21 %»: el IVA se autorrepercute y no aumenta el importe al proveedor. Verifica el VAT ID y el tratamiento fiscal antes de aprobar.</small>
               </div>
               <button
                 type="button"
@@ -527,6 +528,7 @@ export function PurchaseDialog({
                         updateLine(line.key, {
                           taxRate,
                           deductiblePct: taxRate === "SUPLIDO" ? "0" : line.taxRate === "SUPLIDO" ? "100" : line.deductiblePct,
+                          expenseAccountCode: taxRate === "EU_SERVICE" ? "629000" : line.taxRate === "EU_SERVICE" ? "AUTO" : line.expenseAccountCode,
                         });
                       }}
                     >
@@ -534,13 +536,15 @@ export function PurchaseDialog({
                       <option value="10">10 %</option>
                       <option value="4">4 %</option>
                       <option value="SUPLIDO">Suplido (no sujeto)</option>
+                      <option value="EU_SERVICE">Servicio UE · inversión 21 %</option>
                     </select>
                   </label>
                   <label className="field">
                     <span>Cuenta de gasto</span>
-                    <select value={line.expenseAccountCode} onChange={(event) => updateLine(line.key, { expenseAccountCode: event.target.value as EditableLine["expenseAccountCode"] })}>
+                    <select disabled={line.taxRate === "EU_SERVICE"} value={line.expenseAccountCode} onChange={(event) => updateLine(line.key, { expenseAccountCode: event.target.value as EditableLine["expenseAccountCode"] })}>
                       <option value="AUTO">Automática (623 con retención; si no, 600)</option>
                       <option value="623000">623 · Servicios profesionales</option>
+                      <option value="629000">629 · Otros servicios</option>
                       <option value="600000">600 · Compras</option>
                     </select>
                   </label>

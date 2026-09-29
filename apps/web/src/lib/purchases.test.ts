@@ -58,6 +58,17 @@ describe("purchase helpers", () => {
     expect(purchaseInputSchema.safeParse({ ...input, lines: [{ ...input.lines[0], taxRate: 21 }] }).success).toBe(false);
   });
 
+  it("accepts an EU service reverse-charge purchase with supplier total excluding VAT", () => {
+    const input = {
+      supplierId: "98a6dca2-21c9-4e94-8b1a-5a078220ad36", supplierInvoiceNumber: "AA/01851",
+      issueDate: "2026-09-28", receivedDate: "2026-09-28", currency: "EUR",
+      lines: [{ description: "Suscripción", quantity: 1, unitPrice: 90, discountPct: 0,
+        taxRate: 21, deductiblePct: 100, isEuServiceReverseCharge: true, expenseAccountCode: "629000" }],
+    };
+    expect(purchaseInputSchema.safeParse(input).success).toBe(true);
+    expect(purchaseInputSchema.safeParse({ ...input, lines: [{ ...input.lines[0], taxRate: 10 }] }).success).toBe(false);
+  });
+
   it("labels the approval states", () => {
     expect(purchaseStatusLabel("PENDING_APPROVAL")).toBe(
       "Pendiente de aprobación",

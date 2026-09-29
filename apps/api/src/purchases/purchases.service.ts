@@ -521,16 +521,35 @@ export class PurchasesService {
       : null;
     if (hasDisbursements && !disbursementRule)
       throw new BadRequestException("Non-subject VAT rule is not available for disbursements");
+    const hasEuReverse = input.lines.some((line) => line.isEuServiceReverseCharge);
+    if (hasEuReverse && (
+      input.lines.some((line) => !line.isEuServiceReverseCharge) ||
+      !EU_VAT_COUNTRIES.has(supplier.taxCountry) ||
+      !supplier.taxId?.toUpperCase().startsWith(supplier.taxCountry === "GR" ? "EL" : supplier.taxCountry) ||
+      (input.currency ?? "EUR") !== "EUR" || (input.withholdingRate ?? 0) !== 0
+    )) throw new BadRequestException("EU service reverse charge requires an EU VAT-ID supplier, EUR, no withholding and only EU service lines");
+    const euRule = hasEuReverse
+      ? await this.tenant.db.taxRule.findFirst({
+          where: { code: "ES_EU_SERVICE_REVERSE_21", effectiveFrom: { lte: new Date(operationDate) },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date(operationDate) } }] },
+        })
+      : null;
+    if (hasEuReverse && !euRule)
+      throw new BadRequestException("EU service reverse charge rule is not available");
     for (const line of input.lines) {
       if (line.isDisbursement && (line.taxRuleId || line.exemptionReason || line.taxRate !== 0 || line.deductiblePct !== 0))
         throw new BadRequestException("Suplidos must have 0 VAT, 0 deductible VAT and no custom tax rule");
+      if (line.isEuServiceReverseCharge && (line.taxRuleId || line.exemptionReason || line.isDisbursement || line.taxRate !== 21 ||
+          (line.expenseAccountCode && line.expenseAccountCode !== "629000")))
+        throw new BadRequestException("EU service reverse charge requires 21%, account 629 and no alternative tax rule");
     }
     const rules = await this.tax.resolveRules(
-      input.lines.map((line) => line.isDisbursement ? { ...line, taxRuleId: disbursementRule!.id } : line),
+      input.lines.map((line) => line.isDisbursement ? { ...line, taxRuleId: disbursementRule!.id }
+        : line.isEuServiceReverseCharge ? { ...line, taxRuleId: euRule!.id } : line),
       operationDate,
     );
     const lines = input.lines.map((line, index) =>
-      buildLine(line, rules[index], index + 1, input.withholdingRate ? "623000" : "600000"),
+      buildLine(line, rules[index], index + 1, line.isEuServiceReverseCharge ? "629000" : input.withholdingRate ? "623000" : "600000"),
     );
     const totals = lines.reduce(
       (sum, line) => ({
@@ -637,11 +656,16 @@ export class PurchasesService {
   }
 }
 
+const EU_VAT_COUNTRIES = new Set([
+  "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "EL", "GR", "FI", "FR", "HR", "HU",
+  "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK",
+]);
+
 function buildLine(
   input: PurchaseInvoiceLineDto,
   rule: TaxRule,
   position: number,
-  defaultExpenseAccountCode: "600000" | "623000",
+  defaultExpenseAccountCode: "600000" | "623000" | "629000",
 ): BuiltLine {
   if (!rule.deductionRight && input.deductiblePct > 0)
     throw new BadRequestException(
@@ -649,6 +673,8 @@ function buildLine(
     );
   if (input.isDisbursement && (rule.code !== "ES_VAT_NOT_SUBJECT" || rule.subject || rule.rate !== null))
     throw new BadRequestException("Suplidos require the non-subject VAT rule");
+  if (Boolean(input.isEuServiceReverseCharge) !== (rule.code === "ES_EU_SERVICE_REVERSE_21"))
+    throw new BadRequestException("EU service reverse charge must use the specific tax rule");
   const calculation = calculateInvoiceLine(
     { ...input, taxRate: Number(rule.rate ?? 0) },
     position,
@@ -671,7 +697,7 @@ function buildLine(
       discountPct: calculation.persisted.discountPct,
       netAmount: calculation.persisted.netAmount,
       taxAmount: calculation.persisted.taxAmount,
-      totalAmount: calculation.persisted.totalAmount,
+      totalAmount: input.isEuServiceReverseCharge ? calculation.persisted.netAmount : calculation.persisted.totalAmount,
     },
     tax: {
       taxRuleId: rule.id,

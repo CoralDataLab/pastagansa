@@ -556,20 +556,31 @@ export class AccountingService {
       JournalSourceType.PURCHASE_INVOICE,
       PURCHASE_RULE_ROLES,
     );
-    const professional = purchase.lines.some((line) => line.expenseAccountCode === "623000")
-      ? await this.tenant.db.account.findFirst({
-          where: { ...this.scope(), code: "623000", active: true }, select: { id: true },
-        })
-      : null;
-    if (purchase.lines.some((line) => line.expenseAccountCode === "623000") && !professional)
-      throw new ConflictException("Active professional services account 623000 is required");
+    const expenseCodes = [...new Set(purchase.lines.map((line) => line.expenseAccountCode).filter((code) => code !== "600000"))];
+    const otherExpenseAccounts = await this.tenant.db.account.findMany({
+      where: { ...this.scope(), code: { in: expenseCodes }, active: true, accountClass: AccountClass.EXPENSE },
+      select: { id: true, code: true },
+    });
+    const byCode = new Map(otherExpenseAccounts.map((account) => [account.code, account.id]));
+    if (otherExpenseAccounts.length !== expenseCodes.length)
+      throw new ConflictException("Active purchase expense accounts are required");
     const expenses = new Map<string, Decimal>();
+    let reverseOutput = new Decimal(0);
     for (const line of purchase.lines) {
-      const accountId = line.expenseAccountCode === "623000" ? professional!.id : accounts.PURCHASE_EXPENSE;
+      const accountId = line.expenseAccountCode === "600000" ? accounts.PURCHASE_EXPENSE : byCode.get(line.expenseAccountCode)!;
       if (line.taxLines.length !== 1) throw new ConflictException("Purchase line tax breakdown is incomplete");
-      const amount = line.totalAmount.minus(line.taxLines[0].deductibleAmount);
+      const tax = line.taxLines[0];
+      if (tax.reverseCharge) reverseOutput = reverseOutput.plus(tax.taxAmount);
+      const amount = line.totalAmount.plus(tax.reverseCharge ? tax.taxAmount : 0).minus(tax.deductibleAmount);
       expenses.set(accountId, (expenses.get(accountId) ?? new Decimal(0)).plus(amount));
     }
+    const outputVatAccount = reverseOutput.greaterThan(0)
+      ? (await this.tenant.db.account.findFirst({
+          where: { ...this.scope(), code: "477000", active: true }, select: { id: true },
+        }))?.id
+      : null;
+    if (reverseOutput.greaterThan(0) && !outputVatAccount)
+      throw new ConflictException("Active output VAT account 477000 is required");
     return this.createPostedEntry({
       entryDate: purchase.operationDate,
       description: `Purchase invoice ${purchase.supplierInvoiceNumber}`,
@@ -589,6 +600,9 @@ export class AccountingService {
         ),
         ...(purchase.withholdingAmount.greaterThan(0)
           ? [posting(accounts.WITHHOLDING_PAYABLE, purchase.withholdingAmount, true)]
+          : []),
+        ...(reverseOutput.greaterThan(0)
+          ? [posting(outputVatAccount!, reverseOutput, true)]
           : []),
       ],
     });
@@ -1010,6 +1024,13 @@ const DEFAULT_ACCOUNTS = [
   {
     code: "623000",
     name: "Servicios de profesionales independientes",
+    accountClass: AccountClass.EXPENSE,
+    systemRole: null,
+    isReconcilable: false,
+  },
+  {
+    code: "629000",
+    name: "Otros servicios",
     accountClass: AccountClass.EXPENSE,
     systemRole: null,
     isReconcilable: false,
