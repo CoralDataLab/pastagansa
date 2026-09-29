@@ -15,12 +15,19 @@ describe("parseContactCsv", () => {
         legalName: "Acme, S.L.",
         tradeName: "Acme",
         taxId: "B12345674",
+        taxCountry: "ES",
         email: "admin@acme.es",
         phone: "+34 600 000 000",
         isCustomer: true,
         isSupplier: false,
       },
     ]);
+  });
+
+  it("accepts foreign IDs only with an explicit tax_country column", () => {
+    const rows = parseContactCsv(`${header},tax_country\nAnthropic Ireland,,IE4276970QH,,,0,1,IE`);
+    expect(rows[0]).toMatchObject({ taxId: "IE4276970QH", taxCountry: "IE" });
+    expect(() => parseContactCsv(`${header}\nAnthropic Ireland,,IE4276970QH,,,0,1`)).toThrow(BadRequestException);
   });
 
   it("rejects duplicate fiscal IDs inside an import", () => {

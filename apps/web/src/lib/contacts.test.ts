@@ -21,6 +21,11 @@ describe("contact input", () => {
     });
   });
 
+  it("sends the fiscal country for a foreign supplier", () => {
+    expect(contactInputSchema.parse(contactPayload({ legalName: "Anthropic Ireland", taxId: "IE4276970QH", taxCountry: "IE", isSupplier: "on" })))
+      .toMatchObject({ taxId: "IE4276970QH", taxCountry: "IE" });
+  });
+
   it("supports a supplier-only contact", () => {
     expect(
       contactInputSchema.parse(

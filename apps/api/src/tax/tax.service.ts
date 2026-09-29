@@ -332,7 +332,7 @@ export class TaxService {
         receivedDate: purchase.receivedDate,
         counterpartyId: purchase.supplierId,
         counterpartyTaxId: purchase.supplierTaxId,
-        counterpartyCountry: "ES",
+        counterpartyCountry: purchase.supplierTaxCountry,
         documentNumber: purchase.supplierInvoiceNumber,
         registrationNumber: purchase.receptionFullNumber,
       },

@@ -5,6 +5,7 @@ export const contactInputSchema = z
     legalName: z.string().trim().min(1).max(240),
     tradeName: z.string().trim().max(240).optional(),
     taxId: z.string().trim().max(40).optional(),
+    taxCountry: z.string().trim().regex(/^[A-Za-z]{2}$/).transform((country) => country.toUpperCase()),
     email: z.union([z.email(), z.literal("")]).optional(),
     phone: z.string().trim().max(40).optional(),
     paymentTermsDays: z.number().int().min(0).max(365).optional(),
@@ -25,6 +26,7 @@ export interface Contact {
   legalName: string;
   tradeName: string | null;
   taxId: string | null;
+  taxCountry: string;
   email: string | null;
   phone: string | null;
   paymentTermsDays: number;
@@ -47,6 +49,7 @@ export function contactPayload(values: Record<string, FormDataEntryValue>) {
     legalName: String(values.legalName ?? "").trim(),
     tradeName: optional("tradeName"),
     taxId: optional("taxId"),
+    taxCountry: String(values.taxCountry ?? "ES").trim().toUpperCase(),
     email: optional("email"),
     phone: optional("phone"),
     paymentTermsDays: Number(values.paymentTermsDays ?? 0),

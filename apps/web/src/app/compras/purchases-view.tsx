@@ -229,6 +229,7 @@ interface EditableLine {
   unitPrice: string;
   discountPct: string;
   taxRate: "21" | "10" | "4" | "SUPLIDO";
+  expenseAccountCode: "AUTO" | "600000" | "623000";
   deductiblePct: string;
 }
 
@@ -240,6 +241,7 @@ const blankLine = (): EditableLine => ({
   unitPrice: "",
   discountPct: "0",
   taxRate: "21",
+  expenseAccountCode: "AUTO",
   deductiblePct: "100",
 });
 
@@ -265,6 +267,7 @@ export function PurchaseDialog({
           unitPrice: line.unitPrice,
           discountPct: line.discountPct,
           taxRate: line.isDisbursement ? "SUPLIDO" : supportedRate(line.taxLines[0]?.taxRate),
+          expenseAccountCode: line.expenseAccountCode ?? "600000",
           deductiblePct: line.isDisbursement ? "0" : line.taxLines[0]?.deductiblePct ?? "100",
         }))
       : [blankLine()],
@@ -315,6 +318,7 @@ export function PurchaseDialog({
         discountPct: Number(line.discountPct),
         taxRate: line.taxRate === "SUPLIDO" ? 0 : Number(line.taxRate) as 21 | 10 | 4,
         isDisbursement: line.taxRate === "SUPLIDO",
+        ...(line.expenseAccountCode === "AUTO" ? {} : { expenseAccountCode: line.expenseAccountCode }),
         deductiblePct: line.taxRate === "SUPLIDO" ? 0 : Number(line.deductiblePct),
       })),
     });
@@ -380,7 +384,7 @@ export function PurchaseDialog({
                 </select>
               </label>
               <label className="field">
-                <span>Número del proveedor</span>
+                <span>Nº de factura del proveedor</span>
                 <input
                   name="supplierInvoiceNumber"
                   required
@@ -530,6 +534,14 @@ export function PurchaseDialog({
                       <option value="10">10 %</option>
                       <option value="4">4 %</option>
                       <option value="SUPLIDO">Suplido (no sujeto)</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Cuenta de gasto</span>
+                    <select value={line.expenseAccountCode} onChange={(event) => updateLine(line.key, { expenseAccountCode: event.target.value as EditableLine["expenseAccountCode"] })}>
+                      <option value="AUTO">Automática (623 con retención; si no, 600)</option>
+                      <option value="623000">623 · Servicios profesionales</option>
+                      <option value="600000">600 · Compras</option>
                     </select>
                   </label>
                   <label className="field">

@@ -345,6 +345,19 @@ describe("platform integrity", () => {
         isSupplier: true,
       })
       .expect(201);
+    await authed(accountA.accessToken, tenantA).post("/v1/contacts")
+      .send({ legalName: "Anthropic Ireland", taxId: "IE4276970QH", isCustomer: false, isSupplier: true })
+      .expect(400);
+    const foreignContact = await authed(accountA.accessToken, tenantA).post("/v1/contacts")
+      .send({ legalName: "Anthropic Ireland", taxCountry: "IE", taxId: "IE4276970QH", isCustomer: false, isSupplier: true })
+      .expect(201);
+    expect(foreignContact.body).toMatchObject({ taxCountry: "IE", taxId: "IE4276970QH" });
+    const foreignEdited = await authed(accountA.accessToken, tenantA).patch(`/v1/contacts/${foreignContact.body.id}`)
+      .send({ tradeName: "Anthropic", isSupplier: true, isCustomer: false }).expect(200);
+    expect(foreignEdited.body).toMatchObject({ taxCountry: "IE", taxId: "IE4276970QH" });
+    await authed(accountA.accessToken, tenantA).patch(`/v1/contacts/${foreignContact.body.id}`)
+      .send({ taxCountry: "ES", isSupplier: true, isCustomer: false }).expect(400);
+
     const customerContacts = await authed(accountA.accessToken, tenantA)
       .get("/v1/contacts?kind=CUSTOMER")
       .expect(200);
@@ -924,7 +937,7 @@ describe("platform integrity", () => {
     const defaultAccountingRules = await authed(accountA.accessToken, tenantA)
       .get("/v1/accounting/rules")
       .expect(200);
-    expect(defaultAccountingRules.body).toHaveLength(11);
+    expect(defaultAccountingRules.body).toHaveLength(12);
     expect(defaultAccountingRules.body).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1809,7 +1822,7 @@ describe("platform integrity", () => {
     const accounts = await authed(accountA.accessToken, tenantA)
       .get("/v1/accounting/accounts")
       .expect(200);
-    expect(accounts.body).toHaveLength(9);
+    expect(accounts.body).toHaveLength(12);
     const bankAccount = accounts.body.find(
       ({ code }: { code: string }) => code === "572000",
     );
@@ -2721,9 +2734,10 @@ describe("platform integrity", () => {
       .get("/v1/accounting/journal-entries?sourceType=PURCHASE_INVOICE")
       .expect(200);
     expect(accountingAmounts(purchaseEntries.body.data[0])).toEqual({
-      "400000": { debit: "0", credit: "242" },
+      "400000": { debit: "0", credit: "212" },
       "472000": { debit: "42", credit: "0" },
-      "600000": { debit: "200", credit: "0" },
+      "475100": { debit: "0", credit: "30" },
+      "623000": { debit: "200", credit: "0" },
     });
     for (const [index, amount] of [100, 112].entries()) {
       await authed(account.accessToken, tenant)
@@ -2747,7 +2761,8 @@ describe("platform integrity", () => {
       .expect(200);
     expect(paymentEntries.body.data).toHaveLength(2);
     const posted = paymentEntries.body.data.map(accountingAmounts);
-    expect(posted.reduce((sum: number, entry: Record<string, { credit: string }>) => sum + Number(entry["475100"].credit), 0)).toBe(30);
+    expect(posted.every((entry: Record<string, unknown>) => !entry["475100"])).toBe(true);
+    expect(posted.reduce((sum: number, entry: Record<string, { debit: string }>) => sum + Number(entry["400000"].debit), 0)).toBe(212);
     const paid = await authed(account.accessToken, tenant).get(`/v1/purchase-invoices/${draft.body.id}`).expect(200);
     expect(paid.body).toMatchObject({ total: "242", amountPaid: "212", amountDue: "0" });
 
@@ -2780,6 +2795,48 @@ describe("platform integrity", () => {
       .expect(200);
     expect(taxBook.body.data[0].amounts).toHaveLength(1);
     expect(taxBook.body.data[0].amounts[0]).toMatchObject({ taxableBase: "117.37", taxAmount: "24.65" });
+    const professionalEntries = await authed(account.accessToken, tenant)
+      .get("/v1/accounting/journal-entries?sourceType=PURCHASE_INVOICE").expect(200);
+    expect(accountingAmounts(professionalEntries.body.data[0])).toEqual({
+      "400000": { debit: "0", credit: "132.21" },
+      "472000": { debit: "24.65", credit: "0" },
+      "475100": { debit: "0", credit: "17.61" },
+      "623000": { debit: "125.17", credit: "0" },
+    });
+    const shareholderPayment = await authed(account.accessToken, tenant)
+      .post(`/v1/purchase-invoices/${withSuplido.body.id}/payments`)
+      .set("idempotency-key", "shareholder-payment")
+      .send({ amount: 132.21, paidAt: "2026-09-19T12:00:00.000Z", method: "OTHER",
+        paidByShareholder: true, reference: "Aportación no reintegrable del socio" }).expect(201);
+    const shareholderEntries = await authed(account.accessToken, tenant)
+      .get(`/v1/accounting/journal-entries?sourceType=SUPPLIER_PAYMENT&sourceId=${shareholderPayment.body.id}`).expect(200);
+    expect(accountingAmounts(shareholderEntries.body.data[0])).toEqual({
+      "400000": { debit: "132.21", credit: "0" },
+      "118000": { debit: "0", credit: "132.21" },
+    });
+    const updatedWithholdings = await authed(account.accessToken, tenant)
+      .get("/v1/purchase-invoices/withholdings?year=2026").expect(200);
+    expect(updatedWithholdings.body.payments.find((row: { paymentId: string }) => row.paymentId === shareholderPayment.body.id))
+      .toMatchObject({ base: "117.37", withheld: "17.61" });
+
+    const splitExpense = await authed(account.accessToken, tenant)
+      .post("/v1/purchase-invoices")
+      .send({ supplierId: supplier.body.id, supplierInvoiceNumber: "PRO-2026-003",
+        issueDate: "2026-09-18", receivedDate: "2026-09-18", withholdingRate: 0,
+        lines: [
+          { description: "Servicio", quantity: 1, unitPrice: 50, taxRate: 21, deductiblePct: 100, expenseAccountCode: "623000" },
+          { description: "Material", quantity: 1, unitPrice: 20, taxRate: 21, deductiblePct: 100, expenseAccountCode: "600000" },
+        ] }).expect(201);
+    await authed(account.accessToken, tenant)
+      .post(`/v1/purchase-invoices/${splitExpense.body.id}/approve`)
+      .set("idempotency-key", "split-expense-approval")
+      .send({ sequenceId: sequence.body.id }).expect(200);
+    const splitEntries = await authed(account.accessToken, tenant)
+      .get(`/v1/accounting/journal-entries?sourceType=PURCHASE_INVOICE&sourceId=${splitExpense.body.id}`).expect(200);
+    expect(accountingAmounts(splitEntries.body.data[0])).toMatchObject({
+      "623000": { debit: "50", credit: "0" },
+      "600000": { debit: "20", credit: "0" },
+    });
   });
 
   async function register(

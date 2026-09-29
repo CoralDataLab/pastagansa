@@ -745,7 +745,7 @@ function PaymentsPanel({ purchase }: { purchase: Purchase }) {
       requestJson<SupplierPayment[]>(`/api/purchases/${purchase.id}/payments`),
   });
   const record = useMutation({
-    mutationFn: async (payload: PaymentInput) => {
+    mutationFn: async (payload: PaymentInput & { paidByShareholder?: boolean }) => {
       const storageName = `pastagansa:supplier-payment:${purchase.id}`;
       const key = supplierPaymentKey(
         purchase.id,
@@ -875,7 +875,7 @@ function PaymentDialog({
   pending: boolean;
   error?: string;
   onClose(): void;
-  onSubmit(input: PaymentInput): void;
+  onSubmit(input: PaymentInput & { paidByShareholder?: boolean }): void;
 }) {
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -890,7 +890,8 @@ function PaymentDialog({
     onSubmit({
       amount: Number(values.get("amount")),
       paidAt: String(values.get("paidAt")),
-      method: String(values.get("method")) as PaymentInput["method"],
+      method: String(values.get("method")) === "SHAREHOLDER" ? "OTHER" : String(values.get("method")) as PaymentInput["method"],
+      paidByShareholder: String(values.get("method")) === "SHAREHOLDER",
       reference: String(values.get("reference") ?? "").trim() || undefined,
     });
   }
@@ -952,11 +953,13 @@ function PaymentDialog({
                 <option value="DIRECT_DEBIT">Domiciliación</option>
                 <option value="CASH">Efectivo</option>
                 <option value="CARD">Tarjeta</option>
-                <option value="OTHER">Otro</option>
+                <option value="OTHER">Otro (contrapartida bancaria)</option>
+                <option value="SHAREHOLDER">Pagado por socio · aportación no reintegrable (118)</option>
               </select>
+              <small>Selecciona socio solo si existe una aportación no reintegrable documentada. «Otro» continúa usando la cuenta bancaria; efectivo usa caja (570).</small>
             </label>
             <label className="field full">
-              <span>Referencia (opcional)</span>
+              <span>Referencia del justificante (obligatoria si pagó el socio)</span>
               <input name="reference" maxLength={240} />
             </label>
           </div>

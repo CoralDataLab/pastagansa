@@ -546,6 +546,7 @@ export class AccountingService {
         ...this.scope(),
         status: PurchaseInvoiceStatus.APPROVED,
       },
+      include: { lines: { include: { taxLines: true } } },
     });
     if (!purchase)
       throw new ConflictException(
@@ -555,23 +556,40 @@ export class AccountingService {
       JournalSourceType.PURCHASE_INVOICE,
       PURCHASE_RULE_ROLES,
     );
-    const expense = purchase.total.minus(purchase.deductibleTaxTotal);
+    const professional = purchase.lines.some((line) => line.expenseAccountCode === "623000")
+      ? await this.tenant.db.account.findFirst({
+          where: { ...this.scope(), code: "623000", active: true }, select: { id: true },
+        })
+      : null;
+    if (purchase.lines.some((line) => line.expenseAccountCode === "623000") && !professional)
+      throw new ConflictException("Active professional services account 623000 is required");
+    const expenses = new Map<string, Decimal>();
+    for (const line of purchase.lines) {
+      const accountId = line.expenseAccountCode === "623000" ? professional!.id : accounts.PURCHASE_EXPENSE;
+      if (line.taxLines.length !== 1) throw new ConflictException("Purchase line tax breakdown is incomplete");
+      const amount = line.totalAmount.minus(line.taxLines[0].deductibleAmount);
+      expenses.set(accountId, (expenses.get(accountId) ?? new Decimal(0)).plus(amount));
+    }
     return this.createPostedEntry({
       entryDate: purchase.operationDate,
       description: `Purchase invoice ${purchase.supplierInvoiceNumber}`,
       sourceType: JournalSourceType.PURCHASE_INVOICE,
       sourceId: purchase.id,
       lines: [
-        posting(accounts.PURCHASE_EXPENSE, expense, false, purchase.supplierId),
+        ...[...expenses.entries()].filter(([, amount]) => amount.greaterThan(0)).map(([accountId, amount]) =>
+          posting(accountId, amount, false, purchase.supplierId)),
         ...(purchase.deductibleTaxTotal.greaterThan(0)
           ? [posting(accounts.INPUT_VAT, purchase.deductibleTaxTotal, false)]
           : []),
         posting(
           accounts.SUPPLIER_PAYABLE,
-          purchase.total,
+          purchase.total.minus(purchase.withholdingAmount),
           true,
           purchase.supplierId,
         ),
+        ...(purchase.withholdingAmount.greaterThan(0)
+          ? [posting(accounts.WITHHOLDING_PAYABLE, purchase.withholdingAmount, true)]
+          : []),
       ],
     });
   }
@@ -669,6 +687,23 @@ export class AccountingService {
       JournalSourceType.SUPPLIER_PAYMENT,
       SUPPLIER_PAYMENT_RULE_ROLES,
     );
+    const cashOrShareholder = payment.paidByShareholder || payment.method === "CASH"
+      ? await this.tenant.db.account.findFirst({
+          where: { ...this.scope(), code: payment.paidByShareholder ? "118000" : "570000", active: true },
+          select: { id: true },
+        })
+      : null;
+    if ((payment.paidByShareholder || payment.method === "CASH") && !cashOrShareholder)
+      throw new ConflictException("Active cash or shareholder contribution account is required");
+    // Historical invoices posted the gross payable and deferred 4751 to payments.
+    // Preserve their original basis; new invoices recognize 4751 at approval.
+    const invoiceEntry = await this.tenant.db.journalEntry.findFirst({
+      where: { ...this.scope(), sourceType: JournalSourceType.PURCHASE_INVOICE, sourceId: payment.purchaseInvoiceId },
+      include: { lines: { include: { account: { select: { code: true } } } } },
+    });
+    if (!invoiceEntry) throw new ConflictException("Purchase accounting entry is missing");
+    const legacyWithholding = payment.withholdingAmount.greaterThan(0) &&
+      !invoiceEntry.lines.some((line) => line.account.code === "475100" && line.credit.greaterThan(0));
     return this.createPostedEntry({
       entryDate: payment.paidAt,
       description:
@@ -681,14 +716,12 @@ export class AccountingService {
       lines: [
         posting(
           accounts.SUPPLIER_PAYABLE,
-          payment.amount.plus(payment.withholdingAmount),
+          legacyWithholding ? payment.amount.plus(payment.withholdingAmount) : payment.amount,
           false,
           payment.purchaseInvoice.supplierId,
         ),
-        posting(accounts.BANK, payment.amount, true),
-        ...(payment.withholdingAmount.greaterThan(0)
-          ? [posting(accounts.WITHHOLDING_PAYABLE, payment.withholdingAmount, true)]
-          : []),
+        posting(cashOrShareholder?.id ?? accounts.BANK, payment.amount, true),
+        ...(legacyWithholding ? [posting(accounts.WITHHOLDING_PAYABLE, payment.withholdingAmount, true)] : []),
       ],
     });
   }
@@ -895,6 +928,7 @@ const PURCHASE_RULE_ROLES = [
   AccountingRole.PURCHASE_EXPENSE,
   AccountingRole.INPUT_VAT,
   AccountingRole.SUPPLIER_PAYABLE,
+  AccountingRole.WITHHOLDING_PAYABLE,
 ] as const;
 const CUSTOMER_PAYMENT_RULE_ROLES = [
   AccountingRole.BANK,
@@ -974,6 +1008,20 @@ const DEFAULT_ACCOUNTS = [
     isReconcilable: false,
   },
   {
+    code: "623000",
+    name: "Servicios de profesionales independientes",
+    accountClass: AccountClass.EXPENSE,
+    systemRole: null,
+    isReconcilable: false,
+  },
+  {
+    code: "118000",
+    name: "Aportaciones de socios o propietarios",
+    accountClass: AccountClass.EQUITY,
+    systemRole: null,
+    isReconcilable: false,
+  },
+  {
     code: "477000",
     name: "Hacienda Pública, IVA repercutido",
     accountClass: AccountClass.LIABILITY,
@@ -986,6 +1034,13 @@ const DEFAULT_ACCOUNTS = [
     accountClass: AccountClass.ASSET,
     systemRole: AccountingRole.INPUT_VAT,
     isReconcilable: false,
+  },
+  {
+    code: "570000",
+    name: "Caja",
+    accountClass: AccountClass.ASSET,
+    systemRole: null,
+    isReconcilable: true,
   },
   {
     code: "572000",

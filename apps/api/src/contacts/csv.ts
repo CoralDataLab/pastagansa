@@ -1,11 +1,12 @@
 import { BadRequestException } from "@nestjs/common";
-import { isSpanishTaxId } from "../common/validation";
+import { validContactTaxId } from "./contact-tax-id";
 
 export interface ImportedContactRow {
   row: number;
   legalName: string;
   tradeName: string | null;
   taxId: string | null;
+  taxCountry: string;
   email: string | null;
   phone: string | null;
   isCustomer: boolean;
@@ -57,10 +58,11 @@ export function parseContactCsv(csv: string): ImportedContactRow[] {
           `Row ${row}: a contact must be a customer, a supplier, or both`,
         );
       const taxId = nullable(value("tax_id"))?.toUpperCase() ?? null;
-      if (taxId && !isSpanishTaxId(taxId))
-        throw new BadRequestException(
-          `Row ${row}: tax_id is not a valid Spanish tax ID`,
-        );
+      const taxCountry = (headers.includes("tax_country") ? record[headers.indexOf("tax_country")]?.trim() : "ES")?.toUpperCase() || "ES";
+      if (!/^[A-Z]{2}$/.test(taxCountry))
+        throw new BadRequestException(`Row ${row}: tax_country must be a two-letter country code`);
+      if (!validContactTaxId(taxId, taxCountry))
+        throw new BadRequestException(`Row ${row}: tax_id is invalid for tax_country ${taxCountry}`);
       if (taxId && seenTaxIds.has(taxId))
         throw new BadRequestException(
           `Row ${row}: duplicate tax_id in this import`,
@@ -74,6 +76,7 @@ export function parseContactCsv(csv: string): ImportedContactRow[] {
         legalName,
         tradeName: nullable(value("trade_name")),
         taxId,
+        taxCountry,
         email,
         phone: nullable(value("phone")),
         isCustomer,

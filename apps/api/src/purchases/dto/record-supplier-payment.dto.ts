@@ -2,6 +2,7 @@ import { PaymentMethod } from "@prisma/client";
 import { Type } from "class-transformer";
 import {
   IsDateString,
+  IsBoolean,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -21,6 +22,9 @@ export class RecordSupplierPaymentDto {
 
   @IsEnum(PaymentMethod)
   method!: PaymentMethod;
+
+  @IsOptional() @IsBoolean()
+  paidByShareholder?: boolean;
 
   @IsOptional()
   @IsString()

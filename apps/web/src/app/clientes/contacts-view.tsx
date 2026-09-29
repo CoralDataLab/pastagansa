@@ -431,14 +431,19 @@ function ContactDialog({
             />
           </label>
           <label className="field">
-            <span>NIF</span>
+            <span>País fiscal (ISO, 2 letras)</span>
+            <input name="taxCountry" required maxLength={2} minLength={2} autoCapitalize="characters" placeholder="ES o IE" defaultValue={contact?.taxCountry ?? "ES"} />
+          </label>
+          <label className="field">
+            <span>Identificador fiscal (NIF / VAT ID)</span>
             <input
               name="taxId"
               maxLength={40}
               autoCapitalize="characters"
-              placeholder="B12345674"
+              placeholder="B12345674 o IE4276970QH"
               defaultValue={contact?.taxId ?? ""}
             />
+            <small>Un ID extranjero se comprueba solo sintácticamente. Confirma su validez fiscal por separado.</small>
           </label>
           <label className="field">
             <span>Correo de facturación</span>

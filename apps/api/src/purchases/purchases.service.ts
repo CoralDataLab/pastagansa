@@ -530,7 +530,7 @@ export class PurchasesService {
       operationDate,
     );
     const lines = input.lines.map((line, index) =>
-      buildLine(line, rules[index], index + 1),
+      buildLine(line, rules[index], index + 1, input.withholdingRate ? "623000" : "600000"),
     );
     const totals = lines.reduce(
       (sum, line) => ({
@@ -567,6 +567,7 @@ export class PurchasesService {
         supplierInvoiceNumber: input.supplierInvoiceNumber.trim(),
         supplierLegalName: supplier.legalName,
         supplierTaxId: supplier.taxId,
+        supplierTaxCountry: supplier.taxCountry,
         issueDate: new Date(input.issueDate),
         operationDate: new Date(operationDate),
         receivedDate: new Date(input.receivedDate),
@@ -640,6 +641,7 @@ function buildLine(
   input: PurchaseInvoiceLineDto,
   rule: TaxRule,
   position: number,
+  defaultExpenseAccountCode: "600000" | "623000",
 ): BuiltLine {
   if (!rule.deductionRight && input.deductiblePct > 0)
     throw new BadRequestException(
@@ -662,6 +664,7 @@ function buildLine(
       position,
       catalogItemId: input.catalogItemId,
       isDisbursement: input.isDisbursement ?? false,
+      expenseAccountCode: input.expenseAccountCode ?? defaultExpenseAccountCode,
       description: calculation.persisted.description,
       quantity: calculation.persisted.quantity,
       unitPrice: calculation.persisted.unitPrice,
@@ -693,6 +696,7 @@ interface BuiltLine {
     position: number;
     catalogItemId?: string;
     isDisbursement: boolean;
+    expenseAccountCode: string;
     description: string;
     quantity: Decimal;
     unitPrice: Decimal;

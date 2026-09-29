@@ -453,6 +453,7 @@ model Contact {
   legalName        String            @map("legal_name") @db.VarChar(240)
   tradeName        String?           @map("trade_name") @db.VarChar(240)
   taxId            String?           @map("tax_id") @db.VarChar(40)
+  taxCountry       String            @default("ES") @map("tax_country") @db.Char(2)
   email            String?           @db.VarChar(320)
   phone            String?           @db.VarChar(40)
   paymentTermsDays Int?              @map("payment_terms_days")
@@ -841,6 +842,7 @@ model PurchaseInvoice {
   status                PurchaseInvoiceStatus        @default(DRAFT)
   supplierLegalName     String                       @map("supplier_legal_name") @db.VarChar(240)
   supplierTaxId         String?                      @map("supplier_tax_id") @db.VarChar(40)
+  supplierTaxCountry    String                       @default("ES") @map("supplier_tax_country") @db.Char(2)
   issueDate             DateTime                     @map("issue_date") @db.Date
   operationDate         DateTime                     @map("operation_date") @db.Date
   receivedDate          DateTime                     @map("received_date") @db.Date
@@ -994,6 +996,7 @@ model SupplierPayment {
   currency          String                      @db.Char(3)
   paidAt            DateTime                    @map("paid_at") @db.Timestamptz(6)
   method            PaymentMethod
+  paidByShareholder Boolean            @default(false) @map("paid_by_shareholder")
   reference         String?                     @db.VarChar(240)
   notes             String?                     @db.VarChar(1000)
   createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1128,6 +1131,7 @@ model PurchaseInvoiceLine {
   purchaseInvoiceId String            @map("purchase_invoice_id") @db.Uuid
   catalogItemId     String?           @map("catalog_item_id") @db.Uuid
   isDisbursement    Boolean           @default(false) @map("is_disbursement")
+  expenseAccountCode String           @default("600000") @map("expense_account_code") @db.VarChar(6)
   position          Int
   description       String
   quantity          Decimal           @db.Decimal(14, 3)

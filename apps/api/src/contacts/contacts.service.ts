@@ -15,6 +15,7 @@ import { parseContactCsv } from "./csv";
 import { CreateContactAddressDto } from "./dto/create-contact-address.dto";
 import { UpdateContactAddressDto } from "./dto/update-contact-address.dto";
 import { decodeCursor, encodeCursor } from "../common/cursor";
+import { validContactTaxId } from "./contact-tax-id";
 
 @Injectable()
 export class ContactsService {
@@ -73,6 +74,9 @@ export class ContactsService {
       throw new BadRequestException(
         "A contact must be a customer, a supplier, or both",
       );
+    const taxCountry = input.taxCountry?.toUpperCase() ?? "ES";
+    if (!validContactTaxId(input.taxId, taxCountry))
+      throw new BadRequestException("El identificador fiscal no es válido para el país seleccionado");
     let contact;
     try {
       contact = await this.tenant.db.contact.create({
@@ -81,6 +85,7 @@ export class ContactsService {
           legalName: input.legalName.trim(),
           tradeName: input.tradeName?.trim() || null,
           taxId: input.taxId?.trim().toUpperCase() || null,
+          taxCountry,
           email: input.email?.trim().toLowerCase() || null,
           phone: input.phone?.trim() || null,
           paymentTermsDays: input.paymentTermsDays,
@@ -132,6 +137,7 @@ export class ContactsService {
             legalName: row.legalName,
             tradeName: row.tradeName,
             taxId: row.taxId,
+            taxCountry: row.taxCountry,
             email: row.email,
             phone: row.phone,
             isCustomer: row.isCustomer,
@@ -149,6 +155,8 @@ export class ContactsService {
   async update(id: string, input: UpdateContactDto) {
     const contact = await this.findActive(id);
     const next = { ...contact, ...normalize(input) };
+    if (!validContactTaxId(next.taxId, next.taxCountry))
+      throw new BadRequestException("El identificador fiscal no es válido para el país seleccionado");
     if (!next.isCustomer && !next.isSupplier)
       throw new BadRequestException(
         "A contact must be a customer, a supplier, or both",
@@ -316,7 +324,7 @@ export class ContactsService {
 
 function normalize(input: CreateContactDto | UpdateContactDto) {
   return {
-    ...input,
+    ...Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)),
     ...(input.legalName !== undefined
       ? { legalName: input.legalName.trim() }
       : {}),
@@ -326,6 +334,7 @@ function normalize(input: CreateContactDto | UpdateContactDto) {
     ...(input.taxId !== undefined
       ? { taxId: input.taxId.trim().toUpperCase() || null }
       : {}),
+    ...(input.taxCountry !== undefined ? { taxCountry: input.taxCountry.toUpperCase() } : {}),
     ...(input.email !== undefined
       ? { email: input.email.trim().toLowerCase() || null }
       : {}),

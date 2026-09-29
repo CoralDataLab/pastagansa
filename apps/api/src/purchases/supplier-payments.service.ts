@@ -171,6 +171,8 @@ export class SupplierPaymentsService {
     input: RecordSupplierPaymentDto,
     idempotencyKey: string,
   ) {
+    if (input.paidByShareholder && (input.method !== "OTHER" || !input.reference?.trim()))
+      throw new BadRequestException("La aportación no reintegrable del socio requiere método Otro y una referencia documental");
     const scope = this.scope();
     await this.lockPurchase(purchaseInvoiceId);
     const purchase = await this.requirePurchase(purchaseInvoiceId);
@@ -206,7 +208,11 @@ export class SupplierPaymentsService {
     const retained = previousPayments.reduce((sum, item) => sum.plus(item.withholdingAmount), new Decimal(0));
     const retainedBase = previousPayments.reduce((sum, item) => sum.plus(item.withholdingBase), new Decimal(0));
     const netTotal = purchase.total.minus(purchase.withholdingAmount);
-    const grossBase = purchase.subtotal.minus(purchase.discountTotal);
+    const purchaseLines = await this.tenant.db.purchaseInvoiceLine.findMany({
+      where: { purchaseInvoiceId, ...scope }, select: { netAmount: true, isDisbursement: true },
+    });
+    const grossBase = purchaseLines.reduce((sum, line) =>
+      line.isDisbursement ? sum : sum.plus(line.netAmount), new Decimal(0));
     const { withholdingAmount, withholdingBase } = allocateProfessionalWithholding({
       netPayment: amount,
       netDue: purchase.amountDue,
@@ -237,6 +243,7 @@ export class SupplierPaymentsService {
           currency: purchase.currency,
           paidAt: new Date(input.paidAt),
           method: input.method,
+          paidByShareholder: input.paidByShareholder ?? false,
           reference: input.reference?.trim() || null,
           notes: input.notes?.trim() || null,
         },
@@ -314,6 +321,7 @@ export class SupplierPaymentsService {
       amount: Decimal;
       paidAt: Date;
       method: string;
+      paidByShareholder: boolean;
       reference: string | null;
       notes: string | null;
     },
@@ -325,6 +333,7 @@ export class SupplierPaymentsService {
       payment.amount.equals(new Decimal(input.amount)) &&
       payment.paidAt.getTime() === new Date(input.paidAt).getTime() &&
       payment.method === input.method &&
+      payment.paidByShareholder === (input.paidByShareholder ?? false) &&
       payment.reference === (input.reference?.trim() || null) &&
       payment.notes === (input.notes?.trim() || null)
     );

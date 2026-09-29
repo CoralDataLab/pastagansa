@@ -6,6 +6,7 @@ import { SessionError, tenantApiRequest } from "@/lib/server-session";
 
 const schema = paymentInputSchema.extend({
   idempotencyKey: z.string().trim().min(1).max(128),
+  paidByShareholder: z.boolean().optional(),
 });
 
 export async function GET(

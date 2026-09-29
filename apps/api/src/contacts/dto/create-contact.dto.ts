@@ -12,7 +12,7 @@ import {
   Min,
 } from "class-validator";
 import { PaymentMethod } from "@prisma/client";
-import { IsNotBlank, IsSpanishTaxId } from "../../common/validation";
+import { IsNotBlank } from "../../common/validation";
 
 export class CreateContactDto {
   @IsString()
@@ -25,9 +25,11 @@ export class CreateContactDto {
   @MaxLength(240)
   tradeName?: string;
 
-  @IsOptional()
-  @IsSpanishTaxId()
+  @IsOptional() @IsString() @MaxLength(40)
   taxId?: string;
+
+  @IsOptional() @Matches(/^[A-Za-z]{2}$/)
+  taxCountry?: string;
 
   @IsOptional()
   @IsEmail()
