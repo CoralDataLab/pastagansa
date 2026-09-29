@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { accountingDescription, journalSourceLabel, manualEntrySchema } from "./accounting";
+import { accountingDescription, journalMoneyCents, journalSourceLabel, manualEntrySchema } from "./accounting";
 
 describe("accounting presentation", () => {
+  it("parses Spanish and dot-decimal amounts without guessing thousands", () => {
+    expect(journalMoneyCents("367,79")).toBe(36779);
+    expect(journalMoneyCents("367.79")).toBe(36779);
+    expect(journalMoneyCents("367,79 €")).toBe(36779);
+    expect(journalMoneyCents("")).toBe(0);
+    expect(journalMoneyCents("1.234,56")).toBeNull();
+    expect(journalMoneyCents("367,799")).toBeNull();
+    expect(journalMoneyCents("-367,79")).toBeNull();
+  });
+
   it("accepts a balanced shareholder contribution and rejects an imbalanced entry", () => {
     const entry = {
       entryDate: "2026-09-14", description: "Aportación no reintegrable · extracto",

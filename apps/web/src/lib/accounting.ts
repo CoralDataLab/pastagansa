@@ -23,6 +23,15 @@ export const manualEntrySchema = z.object({
 
 export type ManualEntryInput = z.infer<typeof manualEntrySchema>;
 
+// Accept either decimal separator and an optional euro sign, but never guess
+// whether a separator is a thousands separator.
+export function journalMoneyCents(input: string): number | null {
+  if (!input.trim()) return 0;
+  const match = /^\s*(\d{1,9})(?:[,.](\d{1,2}))?\s*€?\s*$/.exec(input);
+  if (!match) return null;
+  return Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
+}
+
 export interface Account {
   id: string;
   code: string;

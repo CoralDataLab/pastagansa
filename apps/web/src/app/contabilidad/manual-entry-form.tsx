@@ -3,7 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { formatMoney } from "@/lib/catalog";
 import { todayIso } from "@/lib/invoices";
-import { manualEntrySchema, type Account, type JournalEntry } from "@/lib/accounting";
+import { journalMoneyCents, manualEntrySchema, type Account, type JournalEntry } from "@/lib/accounting";
 
 type DraftLine = { key: number; accountId: string; debit: string; credit: string };
 let nextLineKey = 0;
@@ -23,8 +23,9 @@ export function ManualEntryForm({ accounts, onSaved }: { accounts: Account[]; on
   // Reuse the same key after an uncertain response; only an edit creates a new attempt.
   const attemptKey = useRef<string | null>(null);
   const activeAccounts = accounts.filter((account) => account.active);
-  const debitCents = lines.reduce((sum, line) => sum + Math.round((Number(line.debit) || 0) * 100), 0);
-  const creditCents = lines.reduce((sum, line) => sum + Math.round((Number(line.credit) || 0) * 100), 0);
+  const invalidMoney = lines.some((line) => journalMoneyCents(line.debit) === null || journalMoneyCents(line.credit) === null);
+  const debitCents = lines.reduce((sum, line) => sum + (journalMoneyCents(line.debit) ?? 0), 0);
+  const creditCents = lines.reduce((sum, line) => sum + (journalMoneyCents(line.credit) ?? 0), 0);
 
   function changed() {
     attemptKey.current = null;
@@ -53,9 +54,13 @@ export function ManualEntryForm({ accounts, onSaved }: { accounts: Account[]; on
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
+    if (invalidMoney) {
+      setError("Usa importes como 367,79 o 367.79, sin separadores de miles y con dos decimales como máximo.");
+      return;
+    }
     const parsed = manualEntrySchema.safeParse({
       entryDate, description,
-      lines: lines.map((line) => ({ accountId: line.accountId, debit: Number(line.debit || 0), credit: Number(line.credit || 0) })),
+      lines: lines.map((line) => ({ accountId: line.accountId, debit: (journalMoneyCents(line.debit) ?? 0) / 100, credit: (journalMoneyCents(line.credit) ?? 0) / 100 })),
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Revisa el asiento.");
@@ -109,13 +114,13 @@ export function ManualEntryForm({ accounts, onSaved }: { accounts: Account[]; on
             <label className="field"><span>Cuenta · línea {index + 1}</span><select required value={line.accountId} disabled={pending} onChange={(event) => updateLine(line.key, { accountId: event.target.value })}>
               <option value="">Selecciona cuenta</option>{activeAccounts.map((account) => <option key={account.id} value={account.id}>{account.code} · {account.name}</option>)}
             </select></label>
-            <label className="field"><span>Debe (€)</span><input type="number" min="0" max="999999999.99" step="0.01" value={line.debit} disabled={pending} onChange={(event) => updateLine(line.key, { debit: event.target.value })} /></label>
-            <label className="field"><span>Haber (€)</span><input type="number" min="0" max="999999999.99" step="0.01" value={line.credit} disabled={pending} onChange={(event) => updateLine(line.key, { credit: event.target.value })} /></label>
+            <label className="field"><span>Debe (€)</span><input type="text" inputMode="decimal" autoComplete="off" placeholder="0,00" value={line.debit} disabled={pending} onChange={(event) => updateLine(line.key, { debit: event.target.value })} /></label>
+            <label className="field"><span>Haber (€)</span><input type="text" inputMode="decimal" autoComplete="off" placeholder="0,00" value={line.credit} disabled={pending} onChange={(event) => updateLine(line.key, { credit: event.target.value })} /></label>
             <button className="text-button" disabled={pending || lines.length <= 2} onClick={() => { changed(); setLines((current) => current.filter((item) => item.key !== line.key)); }} type="button" aria-label={`Quitar línea ${index + 1}`}>Quitar</button>
           </div>)}
         </div>
         <button className="secondary-button" disabled={pending || lines.length >= 500} onClick={() => { changed(); setLines((current) => [...current, { key: ++nextLineKey, accountId: "", debit: "", credit: "" }]); }} type="button">Añadir línea</button>
-        <p role="status">Debe: {formatMoney((debitCents / 100).toFixed(2), "EUR")} · Haber: {formatMoney((creditCents / 100).toFixed(2), "EUR")} · Diferencia: {formatMoney((Math.abs(debitCents - creditCents) / 100).toFixed(2), "EUR")}</p>
+        <p role="status">{invalidMoney ? "Revisa el formato de los importes (ejemplo: 367,79)." : <>Debe: {formatMoney((debitCents / 100).toFixed(2), "EUR")} · Haber: {formatMoney((creditCents / 100).toFixed(2), "EUR")} · Diferencia: {formatMoney((Math.abs(debitCents - creditCents) / 100).toFixed(2), "EUR")}</>}</p>
         <label className="check-field"><input checked={confirmed} disabled={pending} onChange={(event) => setConfirmed(event.target.checked)} type="checkbox" /><span>He comprobado el justificante y que este asiento no esté ya registrado. Los asientos contabilizados se corrigen mediante reversión, no edición.</span></label>
         {error && <p className="form-error" role="alert">{error}</p>}
         {success && <p className="form-success" role="status">{success}</p>}
