@@ -2,6 +2,7 @@ import { Type } from "class-transformer";
 import { AeatEnvironment, SifMode } from "@prisma/client";
 import {
   IsEmail,
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -40,6 +41,9 @@ export class UpdateCompanyDto {
   @MaxLength(240)
   @IsNotBlank()
   legalName?: string;
+
+  @IsOptional() @IsBoolean()
+  soleShareholder?: boolean;
 
   @IsOptional()
   @IsCurrencyCode()

@@ -69,7 +69,7 @@ export function CompanySettingsView() {
     },
   });
 
-  function updateCompany(field: keyof Omit<CompanySettingsInput, "documentProfile">, value: string) {
+  function updateCompany(field: keyof Omit<CompanySettingsInput, "documentProfile">, value: string | boolean) {
     setFormOverride(
       (current) =>
         current
@@ -147,6 +147,7 @@ export function CompanySettingsView() {
             <div className="contact-form">
               <TextField disabled={!canUpdate} label="Razón social" onChange={(value) => updateCompany("legalName", value)} required value={form.legalName} />
               <TextField disabled label="NIF" value={company.data.taxId} />
+              <label className="field full"><span><input checked={form.soleShareholder} disabled={!canUpdate} onChange={(event) => updateCompany("soleShareholder", event.target.checked)} type="checkbox" /> Sociedad Unipersonal</span><small>Actívalo solo mientras conste la unipersonalidad de la sociedad. La mención se fijará en las nuevas facturas, rectificativas y presupuestos, aunque el pie sea personalizado. Los documentos existentes no cambian.</small></label>
               <TextField disabled={!canUpdate} label="Nombre comercial" onChange={(value) => updateProfile("tradeName", value)} value={form.documentProfile.tradeName ?? ""} />
               <TextField disabled={!canUpdate} label="País fiscal" maxLength={2} onChange={(value) => updateProfile("addressCountry", value)} value={form.documentProfile.addressCountry ?? ""} />
             </div>

@@ -13,6 +13,8 @@ describe("InvoicePdfService", () => {
         version: 1,
         source: "company_profile",
         legalName: "Empresa Ejemplo, S.L.",
+        soleShareholder: true,
+        documentFooter: "Pie personalizado",
         taxId: "B12345674",
         addressLine1: "Calle Ejemplo, 1",
         city: "Madrid",
@@ -54,6 +56,8 @@ describe("InvoicePdfService", () => {
     const boxes = spawnSync("pdftotext", ["-bbox", "-", "-"], { input: pdf });
     expect(boxes.status).toBe(0);
     const html = boxes.stdout.toString();
+    expect(html).toContain("Sociedad</word>");
+    expect(html).toContain("Unipersonal</word>");
     const dueDateBottom = Number(html.match(/<word[^>]*yMax="([^"]+)"[^>]*>08\/10\/2026<\/word>/)?.[1]);
     const qrLabelTop = Number(html.match(/<word[^>]*yMin="([^"]+)"[^>]*>QR<\/word>/)?.[1]);
     expect(Number.isFinite(dueDateBottom)).toBe(true);
@@ -77,6 +81,7 @@ describe("InvoicePdfService", () => {
         version: 1,
         source: "company_profile",
         legalName: "Example Company",
+        soleShareholder: true,
         taxId: "B12345674",
       },
       issuerLogoMediaType: null,
@@ -111,6 +116,7 @@ describe("InvoicePdfService", () => {
     expect(pdf.toString("latin1").match(/\/Type \/Page\b/g)?.length).toBe(1);
     const extracted = spawnSync("pdftotext", ["-layout", "-", "-"], { input: pdf });
     expect(extracted.status).toBe(0);
+    expect(extracted.stdout.toString()).toContain("Sociedad Unipersonal");
     expect(extracted.stdout.toString()).toContain("Fecha de operación");
     expect(extracted.stdout.toString()).toContain("08/09/2026");
   });

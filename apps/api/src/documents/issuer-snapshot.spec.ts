@@ -1,6 +1,7 @@
 import {
   captureIssuerSnapshot,
   issuerAddressLines,
+  issuerUnipersonalMention,
   readIssuerSnapshot,
 } from "./issuer-snapshot";
 
@@ -8,6 +9,7 @@ describe("issuer snapshots", () => {
   it("captures commercial data and the exact logo metadata", () => {
     const captured = captureIssuerSnapshot({
       legalName: "Coral Data Lab, S.L.",
+      soleShareholder: true,
       taxId: "B12345674",
       documentProfile: {
         tradeName: "Coral",
@@ -39,9 +41,13 @@ describe("issuer snapshots", () => {
     expect(snapshot).toMatchObject({
       source: "company_profile",
       legalName: "Coral Data Lab, S.L.",
+      soleShareholder: true,
       bankIban: "ES9121000418450200051332",
       logo: { mediaType: "image/png", width: 120, height: 80 },
     });
+    expect(issuerUnipersonalMention(snapshot)).toBe("Sociedad Unipersonal");
+    expect(issuerUnipersonalMention({ ...snapshot, soleShareholder: false })).toBeNull();
+    expect(issuerUnipersonalMention({ ...snapshot, legalName: "Coral Sociedad Unipersonal" })).toBeNull();
     expect(issuerAddressLines(snapshot)).toEqual([
       "Calle Ejemplo 1",
       "28001 Madrid",

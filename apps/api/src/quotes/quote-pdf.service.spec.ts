@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { QuotePdfService } from "./quote-pdf.service";
 
 describe("QuotePdfService", () => {
@@ -34,6 +35,8 @@ describe("QuotePdfService", () => {
           version: 1,
           source: "company_profile",
           legalName: "Empresa Ejemplo, S.L.",
+          soleShareholder: true,
+          documentFooter: "Pie personalizado",
           taxId: "B12345674",
           addressLine1: "Calle Ejemplo, 1",
           city: "Madrid",
@@ -52,6 +55,9 @@ describe("QuotePdfService", () => {
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pdf.length).toBeGreaterThan(5_000);
     expect(pdf.toString("latin1").match(/\/Type \/Page\b/g)?.length).toBe(4);
+    const text = spawnSync("pdftotext", ["-", "-"], { input: pdf });
+    expect(text.status).toBe(0);
+    expect(text.stdout.toString()).toContain("Sociedad Unipersonal");
   });
 });
 

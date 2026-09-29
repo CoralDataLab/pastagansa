@@ -12,6 +12,7 @@ import {
   issuerContactLines,
   issuerDisplayName,
   issuerLegalName,
+  issuerUnipersonalMention,
   issuerPrimaryColor,
   readIssuerSnapshot,
   truncatePdfText,
@@ -272,6 +273,7 @@ export class InvoicePdfService {
       .text(issuerLegalName(issuer), PAGE.left, top + 19, { width: 275 });
     const issuerDetails = [
       issuer.taxId ? `NIF: ${issuer.taxId}` : null,
+      issuerUnipersonalMention(issuer),
       ...issuerAddressLines(issuer),
       ...issuerContactLines(issuer),
     ].filter((value): value is string => Boolean(value));

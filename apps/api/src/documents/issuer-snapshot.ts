@@ -6,6 +6,7 @@ export type IssuerSnapshot = {
   version: number;
   source: "company_profile" | "legacy_backfill";
   legalName?: string;
+  soleShareholder?: boolean;
   taxId?: string;
   tradeName?: string | null;
   addressLine1?: string | null;
@@ -33,6 +34,7 @@ export type IssuerSnapshot = {
 
 type CompanyForIssuerSnapshot = {
   legalName: string;
+  soleShareholder?: boolean;
   taxId: string;
   documentProfile: {
     tradeName: string | null;
@@ -68,6 +70,7 @@ export function captureIssuerSnapshot(company: CompanyForIssuerSnapshot) {
     version: ISSUER_SNAPSHOT_VERSION,
     source: "company_profile",
     legalName: company.legalName,
+    soleShareholder: company.soleShareholder ?? false,
     taxId: company.taxId,
     tradeName: profile?.tradeName ?? null,
     addressLine1: profile?.addressLine1 ?? null,
@@ -126,6 +129,12 @@ export function issuerDisplayName(snapshot: IssuerSnapshot) {
 
 export function issuerLegalName(snapshot: IssuerSnapshot) {
   return snapshot.legalName || "Emisor no disponible";
+}
+
+export function issuerUnipersonalMention(snapshot: IssuerSnapshot) {
+  return snapshot.soleShareholder && !/sociedad unipersonal/i.test(issuerLegalName(snapshot))
+    ? "Sociedad Unipersonal"
+    : null;
 }
 
 export function issuerAddressLines(snapshot: IssuerSnapshot) {

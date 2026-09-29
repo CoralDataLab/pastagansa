@@ -23,6 +23,7 @@ export type CompanyDocumentProfile = {
 export type CompanySettings = {
   id: string;
   legalName: string;
+  soleShareholder: boolean;
   taxId: string;
   country: string;
   baseCurrency: string;
@@ -49,7 +50,7 @@ export type CompanySettings = {
 
 export type CompanySettingsInput = Pick<
   CompanySettings,
-  "legalName" | "baseCurrency" | "timezone" | "sifMode" | "aeatEnvironment"
+  "legalName" | "soleShareholder" | "baseCurrency" | "timezone" | "sifMode" | "aeatEnvironment"
   | "sifSoftwareProducerName" | "sifSoftwareProducerTaxId" | "sifSoftwareName"
   | "sifSoftwareId" | "sifSoftwareVersion" | "sifInstallationNumber"
 > & { documentProfile: CompanyDocumentProfile };
@@ -83,6 +84,7 @@ const documentProfileFields = Object.keys(emptyDocumentProfile) as Array<
 export function companySettingsInput(company: CompanySettings): CompanySettingsInput {
   return {
     legalName: company.legalName,
+    soleShareholder: company.soleShareholder ?? false,
     baseCurrency: company.baseCurrency,
     timezone: company.timezone,
     sifMode: company.sifMode,
@@ -100,6 +102,7 @@ export function companySettingsInput(company: CompanySettings): CompanySettingsI
 export function normalizeCompanySettings(input: CompanySettingsInput) {
   return {
     legalName: input.legalName.trim(),
+    soleShareholder: input.soleShareholder,
     baseCurrency: input.baseCurrency.trim().toUpperCase(),
     timezone: input.timezone.trim(),
     sifMode: input.sifMode,

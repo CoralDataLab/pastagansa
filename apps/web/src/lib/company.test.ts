@@ -8,6 +8,7 @@ import {
 const company: CompanySettings = {
   id: "company-1",
   legalName: "Coral Data Lab, S.L.",
+  soleShareholder: false,
   taxId: "B01876543",
   country: "ES",
   baseCurrency: "EUR",
@@ -30,6 +31,11 @@ describe("company settings helpers", () => {
       addressCountry: "ES",
       primaryColor: "#F71950",
     });
+  });
+
+  it("preserves the unipersonal declaration when saving", () => {
+    const input = companySettingsInput({ ...company, soleShareholder: true });
+    expect(normalizeCompanySettings(input).soleShareholder).toBe(true);
   });
 
   it("trims optional empty values before saving", () => {
