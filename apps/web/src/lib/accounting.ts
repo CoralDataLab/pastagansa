@@ -1,3 +1,28 @@
+import { z } from "zod";
+
+export const manualEntrySchema = z.object({
+  entryDate: z.iso.date(),
+  description: z.string().trim().min(1).max(1000),
+  lines: z.array(z.object({
+    accountId: z.uuid(),
+    debit: z.number().finite().min(0).multipleOf(0.01),
+    credit: z.number().finite().min(0).multipleOf(0.01),
+  })).min(2).max(500),
+}).superRefine((entry, context) => {
+  let debit = 0;
+  let credit = 0;
+  entry.lines.forEach((line, index) => {
+    if ((line.debit > 0) === (line.credit > 0))
+      context.addIssue({ code: "custom", path: ["lines", index], message: "Cada línea necesita un debe o un haber, no ambos" });
+    debit += Math.round(line.debit * 100);
+    credit += Math.round(line.credit * 100);
+  });
+  if (debit === 0 || debit !== credit)
+    context.addIssue({ code: "custom", path: ["lines"], message: "El debe y el haber deben cuadrar y ser mayores que cero" });
+});
+
+export type ManualEntryInput = z.infer<typeof manualEntrySchema>;
+
 export interface Account {
   id: string;
   code: string;

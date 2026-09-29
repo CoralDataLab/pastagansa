@@ -1,8 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { AppShell } from "@/components/app-shell";
+import { AppShell, type SessionView } from "@/components/app-shell";
+import { ManualEntryForm } from "./manual-entry-form";
 import { formatMoney } from "@/lib/catalog";
 import { formatInvoiceDate, todayIso } from "@/lib/invoices";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/lib/accounting";
 
 export function AccountingView() {
+  const queryClient = useQueryClient();
   const today = todayIso();
   const [from, setFrom] = useState(`${today.slice(0, 4)}-01-01`);
   const [to, setTo] = useState(today);
@@ -29,6 +31,10 @@ export function AccountingView() {
   const accounts = useQuery({
     queryKey: ["accounting-accounts"],
     queryFn: () => requestJson<Account[]>("/api/accounting/accounts"),
+  });
+  const session = useQuery({
+    queryKey: ["session"],
+    queryFn: () => requestJson<SessionView>("/api/auth/session"),
   });
   const ledger = useQuery({
     queryKey: ["general-ledger", accountId, from, to],
@@ -84,6 +90,16 @@ export function AccountingView() {
           </select>
         </label>
       </section>
+      {session.data?.membership.role.permissions.includes("journal_entry.create") && (
+        <ManualEntryForm accounts={accounts.data ?? []} onSaved={async (date) => {
+          if (date < from) setFrom(date);
+          if (date > to) setTo(date);
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["journal"] }),
+            queryClient.invalidateQueries({ queryKey: ["general-ledger"] }),
+          ]);
+        }} />
+      )}
       <section
         className="data-panel accounting-panel"
         aria-labelledby="journal-title"
