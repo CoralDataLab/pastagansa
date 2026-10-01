@@ -1,0 +1,46 @@
+.proposal-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+.proposal-form-grid label,
+.proposal-reason {
+  display: grid;
+  gap: 6px;
+}
+.proposal-form-grid input,
+.proposal-reason textarea,
+.proposal-fieldset select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #aab2c0;
+  border-radius: 6px;
+  background: white;
+  color: #172033;
+}
+.proposal-fieldset {
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid #aab2c0;
+  border-radius: 8px;
+}
+.proposal-fieldset label {
+  margin-bottom: 12px;
+}
+.proposal-json {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  background: #f1f3f7;
+  color: #172033;
+  border-radius: 6px;
+  max-height: 480px;
+  overflow: auto;
+}
+.proposal-reason {
+  margin: 16px 0;
+}
+.proposal-reason textarea {
+  min-height: 100px;
+}

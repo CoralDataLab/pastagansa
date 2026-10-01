@@ -69,6 +69,17 @@ export function AppShell({
     refetchInterval: 15_000,
   });
 
+  const proposalCapability = useQuery({
+    queryKey: ["purchase-proposal-capabilities", session.data?.membership.company.id],
+    enabled: !!session.data?.membership.role.permissions.includes("command_proposal.read"),
+    queryFn: async (): Promise<{ enabled: boolean }> => {
+      const response = await fetch("/api/purchase-proposals/capabilities", { cache: "no-store" });
+      if (!response.ok) throw new Error("No se pudo comprobar el piloto de propuestas.");
+      return response.json();
+    },
+    retry: false,
+  });
+
   useEffect(() => {
     if (session.error instanceof UnauthorizedError) router.replace("/acceso");
   }, [router, session.error]);
@@ -149,6 +160,9 @@ export function AppShell({
           <NavLink active={active === "compras"} href="/compras" number="07">
             Compras
           </NavLink>
+          {proposalCapability.data?.enabled && (
+            <Link href="/compras/propuestas">Revisar propuestas de compra</Link>
+          )}
           <NavLink
             active={active === "tesoreria"}
             href="/tesoreria"

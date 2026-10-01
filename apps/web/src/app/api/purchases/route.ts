@@ -23,7 +23,12 @@ export async function POST(request: Request) {
     );
   return forward("/v1/purchase-invoices", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(request.headers.get("idempotency-key")
+        ? { "idempotency-key": request.headers.get("idempotency-key")! }
+        : {}),
+    },
     body: JSON.stringify({
       ...input.data,
       dueDate: input.data.dueDate || undefined,
