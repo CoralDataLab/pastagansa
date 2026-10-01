@@ -110,6 +110,14 @@ Validación local:
 - Web: unitarias específicas de propuestas correctas; lint y build correctos.
 - Prisma schema validado con URL ficticia.
 
+## Corrección de pruebas en staging — 2026-10-01
+
+- `docker-compose.staging.yml` pasa `AI_NATIVE_ENABLED` a la API, apagado por defecto.
+- `POST /api/purchase-proposals` valida un contrato estricto y reenvía la creación a la API con tenant y actor de la sesión. No permite seleccionar handler, empresa o usuario.
+- Archivos afectados: Compose staging, ruta BFF, `purchase-proposals.ts` y sus tests.
+- No añade formulario UI ni conectores IA. Las pruebas deben crear propuestas por API, no con inserciones administrativas directas.
+- Validación: 7 unitarias web de propuestas correctas; lint y build web correctos. No se ejecutó integración PostgreSQL ni despliegue remoto para esta corrección.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

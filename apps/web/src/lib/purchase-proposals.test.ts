@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createProposalSchema,
   executeProposalSchema,
   payloadChanges,
   proposalPayloadSchema,
@@ -29,6 +30,12 @@ const payload = {
   ],
 };
 describe("supervised purchase review", () => {
+  it("validates proposal creation without accepting tenant or actor overrides", () => {
+    const input = { commandId: "staging-test", payload, provenance: { channel: "FRONTEND" } };
+    expect(createProposalSchema.parse(input).evidence).toEqual([]);
+    for (const extra of [{ userId: "actor" }, { companyId: "company" }, { name: "arbitrary" }])
+      expect(createProposalSchema.safeParse({ ...input, ...extra }).success).toBe(false);
+  });
   it("preserves the complete API payload, including currencies and fiscal fields", () => {
     expect(proposalPayloadSchema.parse(payload)).toEqual(payload);
     const nullable = {

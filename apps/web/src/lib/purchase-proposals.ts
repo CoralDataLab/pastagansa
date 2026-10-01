@@ -52,6 +52,20 @@ export const proposalPayloadSchema = z.strictObject({
     .min(1)
     .max(200),
 });
+export const createProposalSchema = z.strictObject({
+  commandId: z.string().min(1).max(128).regex(/^[\x21-\x7e](?:[\x20-\x7e]*[\x21-\x7e])?$/),
+  payload: proposalPayloadSchema,
+  evidence: z.array(z.strictObject({
+    reference: text(1000),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    description: z.string().max(240).optional(),
+  })).max(20).default([]),
+  provenance: z.strictObject({
+    channel: z.enum(["FRONTEND", "API", "EMAIL", "UPLOAD"]),
+    agentId: text(120).optional(),
+    agentVersion: text(120).optional(),
+  }),
+});
 export const proposalReasonSchema = text(1000).transform((value) =>
   value.trim(),
 );
