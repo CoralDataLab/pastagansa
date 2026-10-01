@@ -99,7 +99,7 @@ test("reviews corrections into a draft, rejects another proposal and preserves o
     .getByRole("link", { name: payload.supplierInvoiceNumber, exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Revisión y correcciones" }),
+    page.getByRole("heading", { name: "2. Revisa los datos propuestos" }),
   ).toBeVisible();
   await expectNoSeriousAccessibilityViolations(
     page,
@@ -123,7 +123,7 @@ test("reviews corrections into a draft, rejects another proposal and preserves o
     .fill("Document and tax treatment checked");
   await create.click();
   await expect(
-    page.getByRole("heading", { name: "Decisión conservada" }),
+    page.getByRole("heading", { name: "Resultado de la revisión" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Crear solo borrador" }),
@@ -141,7 +141,7 @@ test("reviews corrections into a draft, rejects another proposal and preserves o
   expect(draft.status).toBe("DRAFT");
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Decisión conservada" }),
+    page.getByRole("heading", { name: "Resultado de la revisión" }),
   ).toBeVisible();
 
   const rejected = await propose({
@@ -152,7 +152,7 @@ test("reviews corrections into a draft, rejects another proposal and preserves o
   await page.getByLabel("Motivo obligatorio").fill("Duplicate document");
   await page.getByRole("button", { name: "Rechazar propuesta" }).click();
   await expect(
-    page.getByRole("heading", { name: "Decisión conservada" }),
+    page.getByRole("heading", { name: "Resultado de la revisión" }),
   ).toBeVisible();
   const rejection = await (
     await page.request.get(`/api/purchase-proposals/${rejected.id}`)
@@ -173,15 +173,15 @@ test("reviews corrections into a draft, rejects another proposal and preserves o
     "supplier",
   );
   await expect(
-    page.getByRole("heading", { name: "Revisión y correcciones" }),
+    page.getByRole("heading", { name: "2. Revisa los datos propuestos" }),
   ).toBeVisible();
-  await page.getByLabel("ID del proveedor", { exact: false }).fill(supplier.id);
+  await page.getByLabel("Proveedor *", { exact: true }).selectOption(supplier.id);
   await expect(
     page.getByRole("checkbox", { name: /He contrastado/ }),
   ).not.toBeChecked();
   await page.getByRole("checkbox", { name: /He contrastado/ }).check();
   await page.getByRole("button", { name: "Crear solo borrador" }).click();
   await expect(
-    page.getByRole("heading", { name: "Decisión conservada" }),
+    page.getByRole("heading", { name: "Resultado de la revisión" }),
   ).toBeVisible();
 });

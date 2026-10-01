@@ -118,6 +118,18 @@ Validación local:
 - No añade formulario UI ni conectores IA. Las pruebas deben crear propuestas por API, no con inserciones administrativas directas.
 - Validación: 7 unitarias web de propuestas correctas; lint y build web correctos. No se ejecutó integración PostgreSQL ni despliegue remoto para esta corrección.
 
+## 2026-10-01 — Claridad de revisión y consistencia visual
+
+- Detalle organizado en documento/propuesta, revisión de datos y decisión, con explicación de los efectos de crear un borrador.
+- Selector de proveedores por nombre e identificación fiscal, paginado y aislado por empresa. Si un proveedor no está disponible, se conserva el UUID original.
+- JSON, hashes, eventos e historial técnico quedan en paneles plegados; los documentos permanecen accesibles.
+- Estilos consistentes para botones, campos, espaciados, foco y pantallas pequeñas en `proposals.css`.
+- Resultado explícito: creación de borrador no equivale a aprobación, contabilización ni envío a AEAT. No se atribuye generación automática a una IA.
+- La proyección se refresca después de decisiones y errores.
+- Archivos: detalle web, estilos y selectores de aceptación Chromium; documentación temática actualizada.
+- Validación: 52 unitarias web, lint y build correctos. Selectores E2E actualizados; no se ejecutó Chromium ni integración PostgreSQL en este avance.
+- Fuera de alcance: lector de documentos/LLM, totales fiscales estimados y cambios del flujo de aprobación.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

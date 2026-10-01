@@ -26,14 +26,11 @@ No cambia la fuente de verdad ni añade LLM, conectores, aprendizaje o aprobaci�
    no incorpora un formulario de creación de propuestas ni conecta documentos entrantes.
 2. Filtrar pendientes, borradores creados o rechazadas. Se muestran las últimas 100,
    sin paginación; hay actualización manual.
-3. Abrir la propuesta: original completo e inmutable, proponente/fecha, procedencia y
-   referencias de evidencia. La procedencia y los hashes son declaraciones no verificadas.
+3. Abrir la propuesta: resumen de proveedor/factura/fecha y documentos. El original completo e inmutable, proponente/fecha y procedencia se conservan en información técnica plegable. Los hashes de documentos custodiados se verifican; la procedencia y referencias externas son declarativas.
 4. Contrastar el documento en su fuente de confianza. Las referencias externas se muestran como texto y no se descargan ni abren automáticamente. Si un adaptador autorizado adjunta un PDF/PNG/JPEG custodiado, la bandeja permite descargarlo desde la propuesta tras comprobar su hash.
 5. Corregir campos de cabecera y líneas. Se conservan los campos fiscales de la API,
    incluidas monedas distintas de EUR, fechas de operación/deducción, catálogo, regla fiscal,
-   suplidos, servicios UE, cuentas de gasto, retención y deducibilidad. Los identificadores de
-   proveedor/regla/catálogo se editan por UUID en este piloto; los selectores de maestros
-   son una mejora pendiente. La asignación de expediente sí ofrece selector de usuarios activos.
+   suplidos, servicios UE, cuentas de gasto, retención y deducibilidad. Los proveedores se seleccionan por nombre e identificación fiscal; si no está disponible en el listado se conserva el identificador original. Regla/catálogo siguen editándose por UUID. La asignación de expediente ofrece selector de usuarios activos.
 6. Ver diferencias por ruta/campo frente al original. La propuesta puede asignarse a un usuario con membresía activa en la empresa, conservando historial de asignaciones y motivo. Añadir motivo obligatorio y marcar
    confirmación explícita de contraste. Editar de nuevo invalida esa confirmación.
 7. «Crear solo borrador» envía el payload completo revisado. Las validaciones fiscales y

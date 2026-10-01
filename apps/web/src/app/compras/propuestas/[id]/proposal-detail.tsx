@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
+import type { Contact, ContactPage } from "@/lib/contacts";
 import { AppShell, type SessionView } from "@/components/app-shell";
 import {
   assignProposalSchema,
@@ -24,7 +25,6 @@ type Field = {
   required?: boolean;
 };
 const headerFields: Field[] = [
-  { key: "supplierId", label: "ID del proveedor", required: true },
   {
     key: "supplierInvoiceNumber",
     label: "Número de factura del proveedor",
@@ -129,8 +129,8 @@ export function PurchaseProposalDetail({ id }: { id: string }) {
           <p className="eyebrow">Compras · Revisión supervisada</p>
           <h1>Revisar propuesta</h1>
           <p>
-            Contrasta la factura original antes de decidir. No se aprobará ni
-            contabilizará la compra.
+            Revisa el documento, comprueba los datos y decide si crear un borrador.
+            Este paso no aprueba gastos, no contabiliza ni envía a la AEAT.
           </p>
         </div>
         <Link href="/compras/propuestas" className="secondary-button">
@@ -208,6 +208,25 @@ function Review({
   const [validation, setValidation] = useState("");
   const [notice, setNotice] = useState("");
   const changes = payloadChanges(proposal.payload, payload);
+  const suppliers = useQuery({
+    queryKey: ["purchase-proposal-suppliers", companyId],
+    queryFn: async () => {
+      const contacts: Contact[] = [];
+      let cursor: string | null = null;
+      do {
+        const params = new URLSearchParams({ kind: "SUPPLIER", limit: "50" });
+        if (cursor) params.set("cursor", cursor);
+        const page = await proposalRequest<ContactPage>(`/api/contacts?${params}`);
+        contacts.push(...page.data);
+        cursor = page.nextCursor;
+      } while (cursor);
+      return contacts;
+    },
+    retry: false,
+  });
+  const supplierName = (id: string) =>
+    suppliers.data?.find((supplier) => supplier.id === id)?.legalName ??
+    (suppliers.isPending ? "Cargando proveedor…" : `Proveedor no disponible (${id})`);
   const projection = useQuery({
     queryKey: ["purchase-proposal-projection", companyId, proposal.id],
     queryFn: () =>
@@ -273,10 +292,16 @@ function Review({
         queryKey: ["purchase-proposals", companyId],
       });
       await client.invalidateQueries({ queryKey: ["purchases"] });
+      await client.invalidateQueries({
+        queryKey: ["purchase-proposal-projection", companyId, proposal.id],
+      });
     },
     onError: () => {
       void client.invalidateQueries({
         queryKey: ["purchase-proposal", companyId, proposal.id],
+      });
+      void client.invalidateQueries({
+        queryKey: ["purchase-proposal-projection", companyId, proposal.id],
       });
     },
   });
@@ -336,14 +361,33 @@ function Review({
     mutation.mutate({ action, body: result.data });
   }
   return (
-    <>
+    <div className="proposal-workspace">
+      <aside className="proposal-guide">
+        <strong>Cómo funciona esta revisión</strong>
+        <ol>
+          <li>Contrasta el documento original.</li>
+          <li>Revisa el proveedor y corrige los datos si hace falta.</li>
+          <li>Crea un borrador o rechaza la propuesta.</li>
+        </ol>
+        <p>Una propuesta no es una compra. Crear el borrador es el primer paso;
+          la aprobación y contabilización se realizan después en Compras.</p>
+        <p>La procedencia es declarada: esta pantalla no extrae datos automáticamente ni demuestra que una IA haya intervenido.</p>
+      </aside>
       {notice && (
         <p className="notice" role="status">
           {notice}
         </p>
       )}
       <section className="data-panel">
-        <h2>Propuesta original · {proposalStatusLabel(proposal.status)}</h2>
+        <h2>1. Documento y propuesta · {proposalStatusLabel(proposal.status)}</h2>
+        <dl className="proposal-summary">
+          <div><dt>Proveedor</dt><dd>{supplierName(proposal.payload.supplierId)}</dd></div>
+          <div><dt>Factura del proveedor</dt><dd>{proposal.payload.supplierInvoiceNumber}</dd></div>
+          <div><dt>Fecha de emisión</dt><dd>{proposal.payload.issueDate.slice(0, 10)}</dd></div>
+          <div><dt>Líneas propuestas</dt><dd>{proposal.payload.lines.length}</dd></div>
+        </dl>
+        <details className="proposal-technical">
+          <summary>Información técnica del original (solo lectura)</summary>
         <p>
           {proposal.commandId} · {proposal.name} v{proposal.version}
         </p>
@@ -356,13 +400,14 @@ function Review({
           {proposal.provenance.agentId ?? "No indicado"} · Versión:{" "}
           {proposal.provenance.agentVersion ?? "No indicada"}
         </p>
-        <details open>
+        <details>
           <summary>Datos originales inmutables</summary>
           <pre className="proposal-json">
             {JSON.stringify(proposal.payload, null, 2)}
           </pre>
         </details>
-        <h3>Evidencias declaradas</h3>
+        </details>
+        <h3>Referencias del documento</h3>
         <p>
           Las referencias externas son declarativas. Los documentos custodiados
           abajo sí se sirven desde esta propuesta tras comprobar su hash.
@@ -387,7 +432,7 @@ function Review({
             ))}
           </ul>
         )}
-        <h3>Documentos custodiados</h3>
+        <h3>Documento original adjunto</h3>
         {proposal.status === "PENDING_REVIEW" && canAttach && (
           <label className="secondary-button upload-button">
             {uploadMutation.isPending ? "Subiendo…" : "Adjuntar PDF/imagen"}
@@ -416,14 +461,16 @@ function Review({
                 >
                   {document.originalName}
                 </a>{" "}
-                · {(document.sizeBytes / 1024).toFixed(1)} KiB · SHA-256{" "}
-                {document.sha256}
+                · {(document.sizeBytes / 1024).toFixed(1)} KiB
+                <details><summary>Huella de integridad</summary><code>{document.sha256}</code></details>
               </li>
             ))}
           </ul>
         ) : (
           <p>Sin documentos custodiados en esta propuesta.</p>
         )}
+        <details className="proposal-technical">
+          <summary>Historial e información técnica (eventos e integridad)</summary>
         <h3>Proyección contrastada</h3>
         {projection.data ? (
           <div>
@@ -516,10 +563,14 @@ function Review({
         ) : (
           <p>Sin correcciones persistidas por campo.</p>
         )}
+        </details>
       </section>
       {proposal.review && (
         <section className="data-panel">
-          <h2>Decisión conservada</h2>
+          <h2>Resultado de la revisión</h2>
+          <p>{proposal.status === "EXECUTED"
+            ? "Se creó un borrador de compra con los datos aceptados. Esta revisión no aprobó el gasto ni lo contabilizó. Consulta la compra para ver su estado actual."
+            : "La propuesta fue rechazada. Esta decisión no creó ninguna compra."}</p>
           <p>
             {proposalStatusLabel(proposal.status)} · Revisor:{" "}
             {proposal.review.reviewedById} ·{" "}
@@ -528,10 +579,12 @@ function Review({
           <p>{proposal.review.reason}</p>
           {proposal.review.acceptedPayload && (
             <>
-              <h3>Payload aceptado</h3>
-              <pre className="proposal-json">
-                {JSON.stringify(proposal.review.acceptedPayload, null, 2)}
-              </pre>
+              <details className="proposal-technical">
+                <summary>Datos aceptados (información técnica)</summary>
+                <pre className="proposal-json">
+                  {JSON.stringify(proposal.review.acceptedPayload, null, 2)}
+                </pre>
+              </details>
               <Diff
                 before={proposal.payload}
                 after={proposal.review.acceptedPayload}
@@ -540,7 +593,7 @@ function Review({
           )}
           {proposal.execution?.result.id && (
             <Link
-              className="primary-link"
+              className="primary-button compact"
               href={`/compras/${proposal.execution.result.id}`}
             >
               Abrir compra creada (estado actual)
@@ -550,7 +603,7 @@ function Review({
       )}
       {proposal.status === "PENDING_REVIEW" && (
         <section className="data-panel">
-          <h2>Revisión y correcciones</h2>
+          <h2>2. Revisa los datos propuestos</h2>
           <p>
             Las correcciones se conservarán aparte del original. Las reglas
             fiscales definitivas se validan en el servidor al crear el borrador;
@@ -605,7 +658,25 @@ function Review({
               disabled={mutation.isPending}
               className="proposal-fieldset"
             >
-              <legend>Factura que se registrará</legend>
+              <legend>Datos del borrador de compra</legend>
+              <label className="proposal-supplier">
+                Proveedor *
+                <select
+                  value={payload.supplierId}
+                  disabled={suppliers.isPending || !!suppliers.error}
+                  onChange={(event) => edit("supplierId", event.target.value)}
+                >
+                  {!suppliers.data?.some((supplier) => supplier.id === payload.supplierId) && (
+                    <option value={payload.supplierId}>{supplierName(payload.supplierId)}</option>
+                  )}
+                  {suppliers.data?.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.legalName}{supplier.taxId ? ` · ${supplier.taxId}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {suppliers.error && <p role="alert">No se pudo cargar el nombre del proveedor. Los datos originales se conservan. {suppliers.error.message}</p>}
               <Fields
                 fields={headerFields}
                 value={payload}
@@ -694,6 +765,9 @@ function Review({
           )}
           {(canExecute || canReject) && (
             <>
+              <h3>3. Decide qué hacer</h3>
+              <p>Crear un borrador guarda una compra pendiente de su flujo habitual.
+                Rechazar conserva la propuesta, pero no crea ninguna compra.</p>
               <label className="proposal-reason">
                 Motivo obligatorio
                 <textarea
@@ -755,7 +829,7 @@ function Review({
           )}
         </section>
       )}
-    </>
+    </div>
   );
 }
 function Diff({

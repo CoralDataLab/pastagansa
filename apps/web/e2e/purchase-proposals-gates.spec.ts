@@ -115,6 +115,6 @@ test("requires read permissions and does not offer creation to a review-only act
     page.getByRole("button", { name: "Rechazar propuesta" }),
   ).toBeVisible();
   await expect(
-    page.getByLabel("ID del proveedor", { exact: false }),
+    page.getByLabel("Proveedor *", { exact: true }),
   ).toHaveCount(0);
 });
