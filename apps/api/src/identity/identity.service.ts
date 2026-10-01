@@ -41,6 +41,9 @@ export class IdentityService {
       });
       const permissions = await Promise.all(
         [
+          ["command_proposal.create", "Submit business command proposals"],
+          ["command_proposal.read", "Read business command proposals"],
+          ["command_proposal.review", "Review and execute business command proposals"],
           ["company.read", "Read company configuration"],
           ["company.update", "Update company configuration"],
           ["company.manage", "Manage companies"],

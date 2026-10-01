@@ -18,6 +18,10 @@ export class TenantContextService {
     return this.storage.run(context, callback);
   }
 
+  get current(): TenantContext | undefined {
+    return this.storage.getStore();
+  }
+
   get required(): TenantContext {
     const context = this.storage.getStore();
     if (!context)

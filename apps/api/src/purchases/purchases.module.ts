@@ -12,16 +12,25 @@ import { PurchaseOcrController } from "./purchase-ocr.controller";
 import { PurchaseOcrEngine } from "./purchase-ocr-engine.service";
 import { PurchaseOcrService } from "./purchase-ocr.service";
 import { PurchaseOcrWorker } from "./purchase-ocr.worker";
+import { PurchaseProposalDocumentsService } from "./purchase-proposal-documents.service";
+import { CommandsModule } from "../commands/commands.module";
+import { RegisterPurchaseCommandService } from "./register-purchase-command.service";
+import { PurchaseCommandProposalsService } from "./purchase-command-proposals.service";
+import { PurchaseCommandProposalsController } from "./purchase-command-proposals.controller";
 
 @Module({
-  imports: [AuditModule, TaxModule, AccountingModule],
+  imports: [AuditModule, TaxModule, AccountingModule, CommandsModule],
   controllers: [
     PurchasesController,
+    PurchaseCommandProposalsController,
     PurchaseApprovalPolicyController,
     PurchaseOcrController,
   ],
   providers: [
     PurchasesService,
+    RegisterPurchaseCommandService,
+    PurchaseCommandProposalsService,
+    PurchaseProposalDocumentsService,
     SupplierPaymentsService,
     PurchaseAttachmentsService,
     PurchaseApprovalPolicyService,

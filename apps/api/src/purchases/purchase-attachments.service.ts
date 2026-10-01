@@ -182,7 +182,7 @@ export class PurchaseAttachmentsService {
   }
 }
 
-function detectMediaType(content: Buffer) {
+export function detectMediaType(content: Buffer) {
   if (content.subarray(0, 5).equals(Buffer.from("%PDF-")))
     return "application/pdf";
   if (
@@ -203,13 +203,13 @@ function detectMediaType(content: Buffer) {
   return undefined;
 }
 
-function normalizeMediaType(mediaType: string) {
+export function normalizeMediaType(mediaType: string) {
   return mediaType.toLowerCase() === "image/jpg"
     ? "image/jpeg"
     : mediaType.toLowerCase();
 }
 
-function sanitizeFilename(value: string) {
+export function sanitizeFilename(value: string) {
   const basename = value.split(/[\\/]/).at(-1) ?? "";
   const sanitized = basename
     .replace(/[\u0000-\u001f\u007f]/g, "")

@@ -5,6 +5,7 @@ import { IdentityModule } from "../identity/identity.module";
 import { TenantContextInterceptor } from "./tenant-context.interceptor";
 import { TenantContextService } from "./tenant-context.service";
 import { TenantGuard } from "./tenant.guard";
+import { TenantTransactionService } from "./tenant-transaction.service";
 
 @Global()
 @Module({
@@ -12,9 +13,10 @@ import { TenantGuard } from "./tenant.guard";
   providers: [
     { provide: APP_GUARD, useClass: AuthenticationGuard },
     TenantContextService,
+    TenantTransactionService,
     { provide: APP_GUARD, useClass: TenantGuard },
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
   ],
-  exports: [TenantContextService],
+  exports: [TenantContextService, TenantTransactionService],
 })
 export class TenancyModule {}

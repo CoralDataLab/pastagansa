@@ -251,115 +251,129 @@ enum BankTransactionStatus {
 }
 
 model Organization {
-  id                    String                       @id @default(uuid()) @db.Uuid
-  name                  String
-  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  companies             Company[]
-  memberships           Membership[]
-  auditEvents           AuditEvent[]
-  contacts              Contact[]
-  quotes                Quote[]
-  contactAddresses      ContactAddress[]
-  catalogItems          CatalogItem[]
-  documentSequences     DocumentSequence[]
-  invoices              Invoice[]
-  documentDeliveries    DocumentDelivery[]
-  commercialEvents      CommercialDocumentEvent[]
-  invoiceInstallments   InvoiceInstallment[]
-  payments              Payment[]
-  paymentAllocations    PaymentAllocation[]
-  invoiceTaxLines       InvoiceTaxLine[]
-  taxLedgerEntries      TaxLedgerEntry[]
-  taxLedgerAmounts      TaxLedgerAmount[]
-  sifRecords            SifRecord[]
-  sifEvents             SifEventRecord[]
-  sifIntegrityAlarms    SifIntegrityAlarm[]
-  sifAeatSubmissions    SifAeatSubmission[]
-  purchaseInvoices      PurchaseInvoice[]
-  purchaseInvoiceLines  PurchaseInvoiceLine[]
-  purchaseTaxLines      PurchaseTaxLine[]
-  purchaseInstallments  PurchaseInvoiceInstallment[]
-  purchaseAttachments   PurchaseInvoiceAttachment[]
-  purchaseApprovalTiers PurchaseApprovalTier[]
-  purchaseApprovals     PurchaseInvoiceApproval[]
-  purchaseOcrJobs       PurchaseInvoiceOcrJob[]
-  supplierAllocations   SupplierPaymentAllocation[]
-  accounts              Account[]
-  fiscalYears           FiscalYear[]
-  accountingPeriods     AccountingPeriod[]
-  journalEntries        JournalEntry[]
-  journalLines          JournalLine[]
-  accountingRules       AccountingRule[]
-  supplierPayments      SupplierPayment[]
-  bankAccounts          BankAccount[]
-  bankTransactions      BankTransaction[]
-  bankReconciliations   BankReconciliation[]
-  companyDocumentProfiles CompanyDocumentProfile[]
-  companyDocumentLogos    CompanyDocumentLogo[]
+  id                         String                       @id @default(uuid()) @db.Uuid
+  name                       String
+  createdAt                  DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  companies                  Company[]
+  memberships                Membership[]
+  auditEvents                AuditEvent[]
+  contacts                   Contact[]
+  quotes                     Quote[]
+  contactAddresses           ContactAddress[]
+  catalogItems               CatalogItem[]
+  documentSequences          DocumentSequence[]
+  invoices                   Invoice[]
+  documentDeliveries         DocumentDelivery[]
+  commercialEvents           CommercialDocumentEvent[]
+  invoiceInstallments        InvoiceInstallment[]
+  payments                   Payment[]
+  paymentAllocations         PaymentAllocation[]
+  invoiceTaxLines            InvoiceTaxLine[]
+  taxLedgerEntries           TaxLedgerEntry[]
+  taxLedgerAmounts           TaxLedgerAmount[]
+  sifRecords                 SifRecord[]
+  sifEvents                  SifEventRecord[]
+  sifIntegrityAlarms         SifIntegrityAlarm[]
+  sifAeatSubmissions         SifAeatSubmission[]
+  purchaseInvoices           PurchaseInvoice[]
+  purchaseInvoiceLines       PurchaseInvoiceLine[]
+  purchaseTaxLines           PurchaseTaxLine[]
+  purchaseInstallments       PurchaseInvoiceInstallment[]
+  purchaseAttachments        PurchaseInvoiceAttachment[]
+  purchaseApprovalTiers      PurchaseApprovalTier[]
+  purchaseApprovals          PurchaseInvoiceApproval[]
+  purchaseOcrJobs            PurchaseInvoiceOcrJob[]
+  supplierAllocations        SupplierPaymentAllocation[]
+  accounts                   Account[]
+  fiscalYears                FiscalYear[]
+  accountingPeriods          AccountingPeriod[]
+  journalEntries             JournalEntry[]
+  journalLines               JournalLine[]
+  accountingRules            AccountingRule[]
+  supplierPayments           SupplierPayment[]
+  bankAccounts               BankAccount[]
+  bankTransactions           BankTransaction[]
+  bankReconciliations        BankReconciliation[]
+  companyDocumentProfiles    CompanyDocumentProfile[]
+  companyDocumentLogos       CompanyDocumentLogo[]
+  commandExecutions          CommandExecution[]
+  commandProposals           CommandProposal[]
+  commandProposalRevisions   CommandProposalRevision[]
+  commandProposalAssignments CommandProposalAssignment[]
+  commandProposalAttempts    CommandProposalAttempt[]
+  commandProposalEvents      CommandProposalEvent[]
+  commandReviews             CommandReview[]
 
   @@map("organizations")
 }
 
 model Company {
-  id                    String                       @id @default(uuid()) @db.Uuid
-  organizationId        String                       @map("organization_id") @db.Uuid
-  legalName             String                       @map("legal_name")
-  soleShareholder       Boolean                      @default(false) @map("sole_shareholder")
-  taxId                 String                       @map("tax_id") @db.VarChar(40)
-  country               String                       @default("ES") @db.Char(2)
-  baseCurrency          String                       @default("EUR") @map("base_currency") @db.Char(3)
-  timezone              String                       @default("Europe/Madrid") @db.VarChar(64)
-  sifMode               SifMode                      @default(DISABLED) @map("sif_mode")
-  aeatEnvironment       AeatEnvironment              @default(PRODUCTION) @map("aeat_environment")
-  sifSoftwareProducerName String?                    @map("sif_software_producer_name") @db.VarChar(240)
-  sifSoftwareProducerTaxId String?                   @map("sif_software_producer_tax_id") @db.VarChar(40)
-  sifSoftwareName       String?                      @map("sif_software_name") @db.VarChar(120)
-  sifSoftwareId         String?                      @map("sif_software_id") @db.VarChar(120)
-  sifSoftwareVersion    String?                      @map("sif_software_version") @db.VarChar(60)
-  sifInstallationNumber String?                      @map("sif_installation_number") @db.VarChar(120)
-  createdAt             DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization          Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  memberships           Membership[]
-  auditEvents           AuditEvent[]
-  contacts              Contact[]
-  quotes                Quote[]
-  contactAddresses      ContactAddress[]
-  catalogItems          CatalogItem[]
-  documentSequences     DocumentSequence[]
-  invoices              Invoice[]
-  documentDeliveries    DocumentDelivery[]
-  commercialEvents      CommercialDocumentEvent[]
-  invoiceInstallments   InvoiceInstallment[]
-  payments              Payment[]
-  paymentAllocations    PaymentAllocation[]
-  invoiceTaxLines       InvoiceTaxLine[]
-  taxLedgerEntries      TaxLedgerEntry[]
-  taxLedgerAmounts      TaxLedgerAmount[]
-  sifRecords            SifRecord[]
-  sifEvents             SifEventRecord[]
-  sifIntegrityAlarms    SifIntegrityAlarm[]
-  sifAeatSubmissions    SifAeatSubmission[]
-  purchaseInvoices      PurchaseInvoice[]
-  purchaseInvoiceLines  PurchaseInvoiceLine[]
-  purchaseTaxLines      PurchaseTaxLine[]
-  purchaseInstallments  PurchaseInvoiceInstallment[]
-  purchaseAttachments   PurchaseInvoiceAttachment[]
-  purchaseApprovalTiers PurchaseApprovalTier[]
-  purchaseApprovals     PurchaseInvoiceApproval[]
-  purchaseOcrJobs       PurchaseInvoiceOcrJob[]
-  supplierAllocations   SupplierPaymentAllocation[]
-  accounts              Account[]
-  fiscalYears           FiscalYear[]
-  accountingPeriods     AccountingPeriod[]
-  journalEntries        JournalEntry[]
-  journalLines          JournalLine[]
-  accountingRules       AccountingRule[]
-  supplierPayments      SupplierPayment[]
-  bankAccounts          BankAccount[]
-  bankTransactions      BankTransaction[]
-  bankReconciliations   BankReconciliation[]
-  documentProfile       CompanyDocumentProfile?
-  documentLogo          CompanyDocumentLogo?
+  id                         String                       @id @default(uuid()) @db.Uuid
+  organizationId             String                       @map("organization_id") @db.Uuid
+  legalName                  String                       @map("legal_name")
+  soleShareholder            Boolean                      @default(false) @map("sole_shareholder")
+  taxId                      String                       @map("tax_id") @db.VarChar(40)
+  country                    String                       @default("ES") @db.Char(2)
+  baseCurrency               String                       @default("EUR") @map("base_currency") @db.Char(3)
+  timezone                   String                       @default("Europe/Madrid") @db.VarChar(64)
+  sifMode                    SifMode                      @default(DISABLED) @map("sif_mode")
+  aeatEnvironment            AeatEnvironment              @default(PRODUCTION) @map("aeat_environment")
+  sifSoftwareProducerName    String?                      @map("sif_software_producer_name") @db.VarChar(240)
+  sifSoftwareProducerTaxId   String?                      @map("sif_software_producer_tax_id") @db.VarChar(40)
+  sifSoftwareName            String?                      @map("sif_software_name") @db.VarChar(120)
+  sifSoftwareId              String?                      @map("sif_software_id") @db.VarChar(120)
+  sifSoftwareVersion         String?                      @map("sif_software_version") @db.VarChar(60)
+  sifInstallationNumber      String?                      @map("sif_installation_number") @db.VarChar(120)
+  createdAt                  DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization               Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  memberships                Membership[]
+  auditEvents                AuditEvent[]
+  contacts                   Contact[]
+  quotes                     Quote[]
+  contactAddresses           ContactAddress[]
+  catalogItems               CatalogItem[]
+  documentSequences          DocumentSequence[]
+  invoices                   Invoice[]
+  documentDeliveries         DocumentDelivery[]
+  commercialEvents           CommercialDocumentEvent[]
+  invoiceInstallments        InvoiceInstallment[]
+  payments                   Payment[]
+  paymentAllocations         PaymentAllocation[]
+  invoiceTaxLines            InvoiceTaxLine[]
+  taxLedgerEntries           TaxLedgerEntry[]
+  taxLedgerAmounts           TaxLedgerAmount[]
+  sifRecords                 SifRecord[]
+  sifEvents                  SifEventRecord[]
+  sifIntegrityAlarms         SifIntegrityAlarm[]
+  sifAeatSubmissions         SifAeatSubmission[]
+  purchaseInvoices           PurchaseInvoice[]
+  purchaseInvoiceLines       PurchaseInvoiceLine[]
+  purchaseTaxLines           PurchaseTaxLine[]
+  purchaseInstallments       PurchaseInvoiceInstallment[]
+  purchaseAttachments        PurchaseInvoiceAttachment[]
+  purchaseApprovalTiers      PurchaseApprovalTier[]
+  purchaseApprovals          PurchaseInvoiceApproval[]
+  purchaseOcrJobs            PurchaseInvoiceOcrJob[]
+  supplierAllocations        SupplierPaymentAllocation[]
+  accounts                   Account[]
+  fiscalYears                FiscalYear[]
+  accountingPeriods          AccountingPeriod[]
+  journalEntries             JournalEntry[]
+  journalLines               JournalLine[]
+  accountingRules            AccountingRule[]
+  supplierPayments           SupplierPayment[]
+  bankAccounts               BankAccount[]
+  bankTransactions           BankTransaction[]
+  bankReconciliations        BankReconciliation[]
+  documentProfile            CompanyDocumentProfile?
+  documentLogo               CompanyDocumentLogo?
+  commandExecutions          CommandExecution[]
+  commandProposals           CommandProposal[]
+  commandProposalRevisions   CommandProposalRevision[]
+  commandProposalAssignments CommandProposalAssignment[]
+  commandProposalAttempts    CommandProposalAttempt[]
+  commandProposalEvents      CommandProposalEvent[]
+  commandReviews             CommandReview[]
 
   @@unique([organizationId, taxId])
   @@index([organizationId])
@@ -367,32 +381,32 @@ model Company {
 }
 
 model CompanyDocumentProfile {
-  id                  String       @id @default(uuid()) @db.Uuid
-  organizationId      String       @map("organization_id") @db.Uuid
-  companyId           String       @unique @map("company_id") @db.Uuid
-  tradeName           String?      @map("trade_name") @db.VarChar(240)
-  addressLine1        String?      @map("address_line_1") @db.VarChar(240)
-  addressLine2        String?      @map("address_line_2") @db.VarChar(240)
-  postalCode          String?      @map("postal_code") @db.VarChar(20)
-  city                String?      @db.VarChar(120)
-  province            String?      @db.VarChar(120)
-  addressCountry      String?      @map("address_country") @db.Char(2)
-  email               String?      @db.VarChar(320)
-  phone               String?      @db.VarChar(40)
-  website             String?      @db.VarChar(500)
-  bankIban            String?      @map("bank_iban") @db.VarChar(34)
-  paymentInstructions String?      @map("payment_instructions") @db.VarChar(2000)
-  paymentTerms        String?      @map("payment_terms") @db.VarChar(1000)
-  defaultNotes        String?      @map("default_notes") @db.VarChar(5000)
-  documentFooter      String?      @map("document_footer") @db.VarChar(1000)
-  primaryColor        String?      @map("primary_color") @db.Char(7)
-  invoiceEmailSubjectTemplate String? @map("invoice_email_subject_template") @db.VarChar(300)
-  quoteEmailSubjectTemplate   String? @map("quote_email_subject_template") @db.VarChar(300)
-  emailBodyTemplate           String? @map("email_body_template") @db.VarChar(2000)
-  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company             Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  id                          String       @id @default(uuid()) @db.Uuid
+  organizationId              String       @map("organization_id") @db.Uuid
+  companyId                   String       @unique @map("company_id") @db.Uuid
+  tradeName                   String?      @map("trade_name") @db.VarChar(240)
+  addressLine1                String?      @map("address_line_1") @db.VarChar(240)
+  addressLine2                String?      @map("address_line_2") @db.VarChar(240)
+  postalCode                  String?      @map("postal_code") @db.VarChar(20)
+  city                        String?      @db.VarChar(120)
+  province                    String?      @db.VarChar(120)
+  addressCountry              String?      @map("address_country") @db.Char(2)
+  email                       String?      @db.VarChar(320)
+  phone                       String?      @db.VarChar(40)
+  website                     String?      @db.VarChar(500)
+  bankIban                    String?      @map("bank_iban") @db.VarChar(34)
+  paymentInstructions         String?      @map("payment_instructions") @db.VarChar(2000)
+  paymentTerms                String?      @map("payment_terms") @db.VarChar(1000)
+  defaultNotes                String?      @map("default_notes") @db.VarChar(5000)
+  documentFooter              String?      @map("document_footer") @db.VarChar(1000)
+  primaryColor                String?      @map("primary_color") @db.Char(7)
+  invoiceEmailSubjectTemplate String?      @map("invoice_email_subject_template") @db.VarChar(300)
+  quoteEmailSubjectTemplate   String?      @map("quote_email_subject_template") @db.VarChar(300)
+  emailBodyTemplate           String?      @map("email_body_template") @db.VarChar(2000)
+  createdAt                   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization                Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company                     Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   @@index([organizationId])
   @@map("company_document_profiles")
@@ -503,69 +517,69 @@ model DocumentSequence {
 }
 
 model Invoice {
-  id                  String                 @id @default(uuid()) @db.Uuid
-  organizationId      String                 @map("organization_id") @db.Uuid
-  companyId           String                 @map("company_id") @db.Uuid
-  contactId           String                 @map("contact_id") @db.Uuid
-  sequenceId          String?                @map("sequence_id") @db.Uuid
-  originalInvoiceId   String?                @map("original_invoice_id") @db.Uuid
-  documentType        DocumentType           @default(INVOICE) @map("document_type")
-  sifInvoiceType      SifInvoiceType         @default(F1) @map("sif_invoice_type")
-  rectificationKind   RectificationKind?     @map("rectification_kind")
-  rectificationImpact RectificationImpact?   @map("rectification_impact")
-  rectificationReason String?                @map("rectification_reason") @db.VarChar(1000)
-  vatRecoveryReview   Json?                  @map("vat_recovery_review")
-  draftCode           String                 @default(cuid()) @map("draft_code") @db.VarChar(40)
-  series              String?                @db.VarChar(30)
-  number              BigInt?
-  fullNumber          String?                @map("full_number") @db.VarChar(80)
-  issuanceKey         String?                @map("issuance_key") @db.VarChar(128)
-  status              InvoiceStatus          @default(DRAFT)
-  issuerLegalName     String                 @map("issuer_legal_name") @db.VarChar(240)
-  issuerTaxId         String                 @map("issuer_tax_id") @db.VarChar(40)
-  issuerSnapshot      Json                   @default("{}") @map("issuer_snapshot")
-  issuerSnapshotVersion Int                  @default(1) @map("issuer_snapshot_version")
-  issuerLogoMediaType String?                @map("issuer_logo_media_type") @db.VarChar(100)
-  issuerLogoSha256    String?                @map("issuer_logo_sha256") @db.Char(64)
-  issuerLogoContent   Bytes?                 @map("issuer_logo_content")
-  sifMode             SifMode                @default(DISABLED) @map("sif_mode")
-  aeatEnvironment     AeatEnvironment        @default(PRODUCTION) @map("aeat_environment")
-  customerLegalName   String                 @map("customer_legal_name") @db.VarChar(240)
-  customerTaxId       String?                @map("customer_tax_id") @db.VarChar(40)
-  customerEmail       String?                @map("customer_email") @db.VarChar(320)
-  billingAddress      Json?                  @map("billing_address")
-  issueDate           DateTime               @map("issue_date") @db.Date
-  operationDate       DateTime?              @map("operation_date") @db.Date
-  dueDate             DateTime?              @map("due_date") @db.Date
-  currency            String                 @default("EUR") @db.Char(3)
-  notes               String?
-  subtotal            Decimal                @db.Decimal(14, 2)
-  discountTotal       Decimal                @map("discount_total") @db.Decimal(14, 2)
-  taxTotal            Decimal                @map("tax_total") @db.Decimal(14, 2)
-  total               Decimal                @db.Decimal(14, 2)
-  amountPaid          Decimal                @default(0) @map("amount_paid") @db.Decimal(14, 2)
-  creditedAmount      Decimal                @default(0) @map("credited_amount") @db.Decimal(14, 2)
-  amountDue           Decimal                @default(0) @map("amount_due") @db.Decimal(14, 2)
-  issuedAt            DateTime?              @map("issued_at") @db.Timestamptz(6)
-  cancelledAt         DateTime?              @map("cancelled_at") @db.Timestamptz(6)
-  cancellationReason  String?                @map("cancellation_reason") @db.VarChar(1000)
-  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization        Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company             Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  contact             Contact                @relation(fields: [contactId], references: [id], onDelete: Restrict)
-  sequence            DocumentSequence?      @relation(fields: [sequenceId], references: [id], onDelete: Restrict)
-  originalInvoice     Invoice?               @relation("InvoiceRectifications", fields: [originalInvoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
-  rectifications      Invoice[]              @relation("InvoiceRectifications")
-  lines               InvoiceLine[]
-  emailDeliveries     DocumentDelivery[]
-  commercialEvents    CommercialDocumentEvent[]
-  installments        InvoiceInstallment[]
-  paymentAllocations  PaymentAllocation[]
-  taxLines            InvoiceTaxLine[]
-  taxLedgerEntry      TaxLedgerEntry?
-  sifRecords          SifRecord[]
-  sourceQuote         Quote?
+  id                    String                    @id @default(uuid()) @db.Uuid
+  organizationId        String                    @map("organization_id") @db.Uuid
+  companyId             String                    @map("company_id") @db.Uuid
+  contactId             String                    @map("contact_id") @db.Uuid
+  sequenceId            String?                   @map("sequence_id") @db.Uuid
+  originalInvoiceId     String?                   @map("original_invoice_id") @db.Uuid
+  documentType          DocumentType              @default(INVOICE) @map("document_type")
+  sifInvoiceType        SifInvoiceType            @default(F1) @map("sif_invoice_type")
+  rectificationKind     RectificationKind?        @map("rectification_kind")
+  rectificationImpact   RectificationImpact?      @map("rectification_impact")
+  rectificationReason   String?                   @map("rectification_reason") @db.VarChar(1000)
+  vatRecoveryReview     Json?                     @map("vat_recovery_review")
+  draftCode             String                    @default(cuid()) @map("draft_code") @db.VarChar(40)
+  series                String?                   @db.VarChar(30)
+  number                BigInt?
+  fullNumber            String?                   @map("full_number") @db.VarChar(80)
+  issuanceKey           String?                   @map("issuance_key") @db.VarChar(128)
+  status                InvoiceStatus             @default(DRAFT)
+  issuerLegalName       String                    @map("issuer_legal_name") @db.VarChar(240)
+  issuerTaxId           String                    @map("issuer_tax_id") @db.VarChar(40)
+  issuerSnapshot        Json                      @default("{}") @map("issuer_snapshot")
+  issuerSnapshotVersion Int                       @default(1) @map("issuer_snapshot_version")
+  issuerLogoMediaType   String?                   @map("issuer_logo_media_type") @db.VarChar(100)
+  issuerLogoSha256      String?                   @map("issuer_logo_sha256") @db.Char(64)
+  issuerLogoContent     Bytes?                    @map("issuer_logo_content")
+  sifMode               SifMode                   @default(DISABLED) @map("sif_mode")
+  aeatEnvironment       AeatEnvironment           @default(PRODUCTION) @map("aeat_environment")
+  customerLegalName     String                    @map("customer_legal_name") @db.VarChar(240)
+  customerTaxId         String?                   @map("customer_tax_id") @db.VarChar(40)
+  customerEmail         String?                   @map("customer_email") @db.VarChar(320)
+  billingAddress        Json?                     @map("billing_address")
+  issueDate             DateTime                  @map("issue_date") @db.Date
+  operationDate         DateTime?                 @map("operation_date") @db.Date
+  dueDate               DateTime?                 @map("due_date") @db.Date
+  currency              String                    @default("EUR") @db.Char(3)
+  notes                 String?
+  subtotal              Decimal                   @db.Decimal(14, 2)
+  discountTotal         Decimal                   @map("discount_total") @db.Decimal(14, 2)
+  taxTotal              Decimal                   @map("tax_total") @db.Decimal(14, 2)
+  total                 Decimal                   @db.Decimal(14, 2)
+  amountPaid            Decimal                   @default(0) @map("amount_paid") @db.Decimal(14, 2)
+  creditedAmount        Decimal                   @default(0) @map("credited_amount") @db.Decimal(14, 2)
+  amountDue             Decimal                   @default(0) @map("amount_due") @db.Decimal(14, 2)
+  issuedAt              DateTime?                 @map("issued_at") @db.Timestamptz(6)
+  cancelledAt           DateTime?                 @map("cancelled_at") @db.Timestamptz(6)
+  cancellationReason    String?                   @map("cancellation_reason") @db.VarChar(1000)
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company               Company                   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  contact               Contact                   @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  sequence              DocumentSequence?         @relation(fields: [sequenceId], references: [id], onDelete: Restrict)
+  originalInvoice       Invoice?                  @relation("InvoiceRectifications", fields: [originalInvoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  rectifications        Invoice[]                 @relation("InvoiceRectifications")
+  lines                 InvoiceLine[]
+  emailDeliveries       DocumentDelivery[]
+  commercialEvents      CommercialDocumentEvent[]
+  installments          InvoiceInstallment[]
+  paymentAllocations    PaymentAllocation[]
+  taxLines              InvoiceTaxLine[]
+  taxLedgerEntry        TaxLedgerEntry?
+  sifRecords            SifRecord[]
+  sourceQuote           Quote?
 
   @@unique([companyId, draftCode])
   @@unique([companyId, series, number])
@@ -577,61 +591,61 @@ model Invoice {
 }
 
 model SifRecord {
-  id                   String        @id @default(uuid()) @db.Uuid
-  organizationId       String        @map("organization_id") @db.Uuid
-  companyId            String        @map("company_id") @db.Uuid
-  invoiceId            String        @map("invoice_id") @db.Uuid
-  recordType           SifRecordType @map("record_type")
-  chainPosition        BigInt        @map("chain_position")
-  issuerTaxId          String        @map("issuer_tax_id") @db.VarChar(40)
-  invoiceNumber        String        @map("invoice_number") @db.VarChar(80)
-  invoiceIssueDate     DateTime      @map("invoice_issue_date") @db.Date
-  invoiceType          String        @map("invoice_type") @db.VarChar(2)
-  taxTotal             Decimal       @map("tax_total") @db.Decimal(14, 2)
-  total                Decimal       @db.Decimal(14, 2)
-  generatedAt          DateTime      @map("generated_at") @db.Timestamptz(6)
-  previousRecordId     String?       @map("previous_record_id") @db.Uuid
-  previousRecordHash   String?       @map("previous_record_hash") @db.Char(64)
-  recordHash           String        @map("record_hash") @db.Char(64)
-  hashAlgorithm        String        @default("SHA-256") @map("hash_algorithm") @db.VarChar(20)
-  specificationVersion String        @default("AEAT-HASH-0.1.2") @map("specification_version") @db.VarChar(40)
+  id                   String              @id @default(uuid()) @db.Uuid
+  organizationId       String              @map("organization_id") @db.Uuid
+  companyId            String              @map("company_id") @db.Uuid
+  invoiceId            String              @map("invoice_id") @db.Uuid
+  recordType           SifRecordType       @map("record_type")
+  chainPosition        BigInt              @map("chain_position")
+  issuerTaxId          String              @map("issuer_tax_id") @db.VarChar(40)
+  invoiceNumber        String              @map("invoice_number") @db.VarChar(80)
+  invoiceIssueDate     DateTime            @map("invoice_issue_date") @db.Date
+  invoiceType          String              @map("invoice_type") @db.VarChar(2)
+  taxTotal             Decimal             @map("tax_total") @db.Decimal(14, 2)
+  total                Decimal             @db.Decimal(14, 2)
+  generatedAt          DateTime            @map("generated_at") @db.Timestamptz(6)
+  previousRecordId     String?             @map("previous_record_id") @db.Uuid
+  previousRecordHash   String?             @map("previous_record_hash") @db.Char(64)
+  recordHash           String              @map("record_hash") @db.Char(64)
+  hashAlgorithm        String              @default("SHA-256") @map("hash_algorithm") @db.VarChar(20)
+  specificationVersion String              @default("AEAT-HASH-0.1.2") @map("specification_version") @db.VarChar(40)
   payload              Json
-  softwareSnapshot     Json          @default("{}") @map("software_snapshot")
-  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization         Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company              Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  invoice              Invoice       @relation(fields: [invoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
-  previousRecord       SifRecord?    @relation("SifRecordChain", fields: [previousRecordId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
-  nextRecords          SifRecord[]   @relation("SifRecordChain")
+  softwareSnapshot     Json                @default("{}") @map("software_snapshot")
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company              Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  invoice              Invoice             @relation(fields: [invoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  previousRecord       SifRecord?          @relation("SifRecordChain", fields: [previousRecordId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  nextRecords          SifRecord[]         @relation("SifRecordChain")
   aeatSubmissions      SifAeatSubmission[]
 
-  @@index([companyId, invoiceId, recordType])
   @@unique([companyId, chainPosition])
   @@unique([previousRecordId])
   @@unique([id, organizationId, companyId])
+  @@index([companyId, invoiceId, recordType])
   @@index([companyId, generatedAt, id])
   @@map("sif_records")
 }
 
 model SifEventRecord {
-  id                   String          @id @default(uuid()) @db.Uuid
-  organizationId       String          @map("organization_id") @db.Uuid
-  companyId            String          @map("company_id") @db.Uuid
-  eventType            String          @map("event_type") @db.Char(2)
-  chainPosition        BigInt          @map("chain_position")
-  generatedAt          DateTime        @map("generated_at") @db.Timestamptz(6)
-  previousEventId      String?         @map("previous_event_id") @db.Uuid
-  previousEventHash    String?         @map("previous_event_hash") @db.Char(64)
-  eventHash            String          @map("event_hash") @db.Char(64)
-  hashInput            Json            @map("hash_input")
-  signedXml            String          @map("signed_xml") @db.Text
-  signedXmlSha256      String          @map("signed_xml_sha256") @db.Char(64)
-  softwareSnapshot     Json            @map("software_snapshot")
-  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization         Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company              Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  previousEvent        SifEventRecord? @relation("SifEventChain", fields: [previousEventId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
-  nextEvents           SifEventRecord[] @relation("SifEventChain")
+  id                String           @id @default(uuid()) @db.Uuid
+  organizationId    String           @map("organization_id") @db.Uuid
+  companyId         String           @map("company_id") @db.Uuid
+  eventType         String           @map("event_type") @db.Char(2)
+  chainPosition     BigInt           @map("chain_position")
+  generatedAt       DateTime         @map("generated_at") @db.Timestamptz(6)
+  previousEventId   String?          @map("previous_event_id") @db.Uuid
+  previousEventHash String?          @map("previous_event_hash") @db.Char(64)
+  eventHash         String           @map("event_hash") @db.Char(64)
+  hashInput         Json             @map("hash_input")
+  signedXml         String           @map("signed_xml") @db.Text
+  signedXmlSha256   String           @map("signed_xml_sha256") @db.Char(64)
+  softwareSnapshot  Json             @map("software_snapshot")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company           Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  previousEvent     SifEventRecord?  @relation("SifEventChain", fields: [previousEventId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  nextEvents        SifEventRecord[] @relation("SifEventChain")
 
   @@unique([companyId, chainPosition])
   @@unique([previousEventId])
@@ -641,18 +655,18 @@ model SifEventRecord {
 }
 
 model SifIntegrityAlarm {
-  id             String       @id @default(uuid()) @db.Uuid
-  organizationId String       @map("organization_id") @db.Uuid
-  companyId      String       @map("company_id") @db.Uuid
-  fingerprint    String       @db.Char(64)
-  source         String       @db.VarChar(20)
-  chainPosition  BigInt?      @map("chain_position")
-  reason         String       @db.VarChar(300)
-  firstDetectedAt DateTime    @default(now()) @map("first_detected_at") @db.Timestamptz(6)
-  lastDetectedAt DateTime     @default(now()) @map("last_detected_at") @db.Timestamptz(6)
-  resolvedAt     DateTime?    @map("resolved_at") @db.Timestamptz(6)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company        Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  companyId       String       @map("company_id") @db.Uuid
+  fingerprint     String       @db.Char(64)
+  source          String       @db.VarChar(20)
+  chainPosition   BigInt?      @map("chain_position")
+  reason          String       @db.VarChar(300)
+  firstDetectedAt DateTime     @default(now()) @map("first_detected_at") @db.Timestamptz(6)
+  lastDetectedAt  DateTime     @default(now()) @map("last_detected_at") @db.Timestamptz(6)
+  resolvedAt      DateTime?    @map("resolved_at") @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company         Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   @@unique([companyId, fingerprint])
   @@index([companyId, resolvedAt, lastDetectedAt])
@@ -660,35 +674,35 @@ model SifIntegrityAlarm {
 }
 
 model SifAeatSubmission {
-  id                 String                  @id @default(uuid()) @db.Uuid
-  organizationId     String                  @map("organization_id") @db.Uuid
-  companyId          String                  @map("company_id") @db.Uuid
-  recordId           String                  @map("record_id") @db.Uuid
-  status             SifAeatSubmissionStatus @default(PENDING)
-  attempts           Int                     @default(0)
-  availableAt        DateTime                @default(now()) @map("available_at") @db.Timestamptz(6)
-  lockedAt           DateTime?               @map("locked_at") @db.Timestamptz(6)
-  lastAttemptAt      DateTime?               @map("last_attempt_at") @db.Timestamptz(6)
-  completedAt        DateTime?               @map("completed_at") @db.Timestamptz(6)
-  requestSha256      String                  @map("request_sha256") @db.Char(64)
-  incident           Boolean                 @default(false)
-  lastAttemptedXml String?                   @map("last_attempted_xml") @db.Text
-  lastAttemptedSha256 String?                @map("last_attempted_sha256") @db.Char(64)
-  httpStatus         Int?                    @map("http_status")
-  globalStatus       String?                 @map("global_status") @db.VarChar(30)
-  recordStatus       String?                 @map("record_status") @db.VarChar(30)
-  csv                String?                 @db.VarChar(120)
-  errorCode          String?                 @map("error_code") @db.VarChar(20)
-  errorDescription   String?                 @map("error_description") @db.Text
-  waitSeconds        Int?                    @map("wait_seconds")
-  responseXml        String?                 @map("response_xml") @db.Text
-  reconciliationXml  String?                 @map("reconciliation_xml") @db.Text
-  lastError          String?                 @map("last_error") @db.Text
-  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company            Company                 @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  record             SifRecord               @relation(fields: [recordId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  id                  String                  @id @default(uuid()) @db.Uuid
+  organizationId      String                  @map("organization_id") @db.Uuid
+  companyId           String                  @map("company_id") @db.Uuid
+  recordId            String                  @map("record_id") @db.Uuid
+  status              SifAeatSubmissionStatus @default(PENDING)
+  attempts            Int                     @default(0)
+  availableAt         DateTime                @default(now()) @map("available_at") @db.Timestamptz(6)
+  lockedAt            DateTime?               @map("locked_at") @db.Timestamptz(6)
+  lastAttemptAt       DateTime?               @map("last_attempt_at") @db.Timestamptz(6)
+  completedAt         DateTime?               @map("completed_at") @db.Timestamptz(6)
+  requestSha256       String                  @map("request_sha256") @db.Char(64)
+  incident            Boolean                 @default(false)
+  lastAttemptedXml    String?                 @map("last_attempted_xml") @db.Text
+  lastAttemptedSha256 String?                 @map("last_attempted_sha256") @db.Char(64)
+  httpStatus          Int?                    @map("http_status")
+  globalStatus        String?                 @map("global_status") @db.VarChar(30)
+  recordStatus        String?                 @map("record_status") @db.VarChar(30)
+  csv                 String?                 @db.VarChar(120)
+  errorCode           String?                 @map("error_code") @db.VarChar(20)
+  errorDescription    String?                 @map("error_description") @db.Text
+  waitSeconds         Int?                    @map("wait_seconds")
+  responseXml         String?                 @map("response_xml") @db.Text
+  reconciliationXml   String?                 @map("reconciliation_xml") @db.Text
+  lastError           String?                 @map("last_error") @db.Text
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company             Company                 @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  record              SifRecord               @relation(fields: [recordId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
 
   @@unique([companyId, recordId])
   @@index([status, availableAt, createdAt])
@@ -996,7 +1010,7 @@ model SupplierPayment {
   currency          String                      @db.Char(3)
   paidAt            DateTime                    @map("paid_at") @db.Timestamptz(6)
   method            PaymentMethod
-  paidByShareholder Boolean            @default(false) @map("paid_by_shareholder")
+  paidByShareholder Boolean                     @default(false) @map("paid_by_shareholder")
   reference         String?                     @db.VarChar(240)
   notes             String?                     @db.VarChar(1000)
   createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1125,26 +1139,26 @@ model BankReconciliation {
 }
 
 model PurchaseInvoiceLine {
-  id                String            @id @default(uuid()) @db.Uuid
-  organizationId    String            @map("organization_id") @db.Uuid
-  companyId         String            @map("company_id") @db.Uuid
-  purchaseInvoiceId String            @map("purchase_invoice_id") @db.Uuid
-  catalogItemId     String?           @map("catalog_item_id") @db.Uuid
-  isDisbursement    Boolean           @default(false) @map("is_disbursement")
-  expenseAccountCode String           @default("600000") @map("expense_account_code") @db.VarChar(6)
-  position          Int
-  description       String
-  quantity          Decimal           @db.Decimal(14, 3)
-  unitPrice         Decimal           @map("unit_price") @db.Decimal(14, 2)
-  discountPct       Decimal           @default(0) @map("discount_pct") @db.Decimal(5, 2)
-  netAmount         Decimal           @map("net_amount") @db.Decimal(14, 2)
-  taxAmount         Decimal           @map("tax_amount") @db.Decimal(14, 2)
-  totalAmount       Decimal           @map("total_amount") @db.Decimal(14, 2)
-  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company           Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  purchaseInvoice   PurchaseInvoice   @relation(fields: [purchaseInvoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Cascade)
-  catalogItem       CatalogItem?      @relation(fields: [catalogItemId], references: [id], onDelete: Restrict)
-  taxLines          PurchaseTaxLine[]
+  id                 String            @id @default(uuid()) @db.Uuid
+  organizationId     String            @map("organization_id") @db.Uuid
+  companyId          String            @map("company_id") @db.Uuid
+  purchaseInvoiceId  String            @map("purchase_invoice_id") @db.Uuid
+  catalogItemId      String?           @map("catalog_item_id") @db.Uuid
+  isDisbursement     Boolean           @default(false) @map("is_disbursement")
+  expenseAccountCode String            @default("600000") @map("expense_account_code") @db.VarChar(6)
+  position           Int
+  description        String
+  quantity           Decimal           @db.Decimal(14, 3)
+  unitPrice          Decimal           @map("unit_price") @db.Decimal(14, 2)
+  discountPct        Decimal           @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  netAmount          Decimal           @map("net_amount") @db.Decimal(14, 2)
+  taxAmount          Decimal           @map("tax_amount") @db.Decimal(14, 2)
+  totalAmount        Decimal           @map("total_amount") @db.Decimal(14, 2)
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company            Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  purchaseInvoice    PurchaseInvoice   @relation(fields: [purchaseInvoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Cascade)
+  catalogItem        CatalogItem?      @relation(fields: [catalogItemId], references: [id], onDelete: Restrict)
+  taxLines           PurchaseTaxLine[]
 
   @@unique([purchaseInvoiceId, position])
   @@unique([id, purchaseInvoiceId, organizationId, companyId])
@@ -1356,20 +1370,20 @@ model InvoiceInstallment {
 }
 
 model Payment {
-  id             String              @id @default(uuid()) @db.Uuid
-  organizationId String              @map("organization_id") @db.Uuid
-  companyId      String              @map("company_id") @db.Uuid
-  idempotencyKey String              @map("idempotency_key") @db.VarChar(128)
-  amount         Decimal             @db.Decimal(14, 2)
-  currency       String              @db.Char(3)
-  paidAt         DateTime            @map("paid_at") @db.Timestamptz(6)
-  method         PaymentMethod
-  reference      String?             @db.VarChar(240)
-  notes          String?             @db.VarChar(1000)
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company        Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  allocations    PaymentAllocation[]
+  id               String                    @id @default(uuid()) @db.Uuid
+  organizationId   String                    @map("organization_id") @db.Uuid
+  companyId        String                    @map("company_id") @db.Uuid
+  idempotencyKey   String                    @map("idempotency_key") @db.VarChar(128)
+  amount           Decimal                   @db.Decimal(14, 2)
+  currency         String                    @db.Char(3)
+  paidAt           DateTime                  @map("paid_at") @db.Timestamptz(6)
+  method           PaymentMethod
+  reference        String?                   @db.VarChar(240)
+  notes            String?                   @db.VarChar(1000)
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company          Company                   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  allocations      PaymentAllocation[]
   commercialEvents CommercialDocumentEvent[]
 
   @@unique([companyId, idempotencyKey])
@@ -1399,33 +1413,33 @@ model PaymentAllocation {
 }
 
 model DocumentDelivery {
-  id             String             @id @default(uuid()) @db.Uuid
-  organizationId String             @map("organization_id") @db.Uuid
-  companyId      String             @map("company_id") @db.Uuid
-  documentType   DeliveryDocumentType @map("document_type")
-  purpose        DeliveryPurpose      @default(DOCUMENT_DELIVERY)
-  invoiceId      String?            @map("invoice_id") @db.Uuid
-  quoteId        String?            @map("quote_id") @db.Uuid
-  idempotencyKey String             @map("idempotency_key") @db.VarChar(128)
-  recipient      String             @db.VarChar(320)
-  subject        String             @db.VarChar(300)
-  bodyTemplate   String?            @map("body_template") @db.VarChar(2000)
-  templateParameters Json           @default("{}") @map("template_parameters")
-  templateVersion String             @default("v1") @map("template_version") @db.VarChar(40)
-  provider       String?            @db.VarChar(100)
-  providerMessageId String?         @map("provider_message_id") @db.VarChar(500)
-  status         InvoiceEmailStatus @default(PENDING)
-  attempts       Int                @default(0)
-  availableAt    DateTime           @default(now()) @map("available_at") @db.Timestamptz(6)
-  lockedAt       DateTime?          @map("locked_at") @db.Timestamptz(6)
-  sentAt         DateTime?          @map("sent_at") @db.Timestamptz(6)
-  lastError      String?            @map("last_error") @db.VarChar(1000)
-  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company        Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  invoice        Invoice?           @relation(fields: [invoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
-  quote          Quote?             @relation(fields: [quoteId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  id                 String               @id @default(uuid()) @db.Uuid
+  organizationId     String               @map("organization_id") @db.Uuid
+  companyId          String               @map("company_id") @db.Uuid
+  documentType       DeliveryDocumentType @map("document_type")
+  purpose            DeliveryPurpose      @default(DOCUMENT_DELIVERY)
+  invoiceId          String?              @map("invoice_id") @db.Uuid
+  quoteId            String?              @map("quote_id") @db.Uuid
+  idempotencyKey     String               @map("idempotency_key") @db.VarChar(128)
+  recipient          String               @db.VarChar(320)
+  subject            String               @db.VarChar(300)
+  bodyTemplate       String?              @map("body_template") @db.VarChar(2000)
+  templateParameters Json                 @default("{}") @map("template_parameters")
+  templateVersion    String               @default("v1") @map("template_version") @db.VarChar(40)
+  provider           String?              @db.VarChar(100)
+  providerMessageId  String?              @map("provider_message_id") @db.VarChar(500)
+  status             InvoiceEmailStatus   @default(PENDING)
+  attempts           Int                  @default(0)
+  availableAt        DateTime             @default(now()) @map("available_at") @db.Timestamptz(6)
+  lockedAt           DateTime?            @map("locked_at") @db.Timestamptz(6)
+  sentAt             DateTime?            @map("sent_at") @db.Timestamptz(6)
+  lastError          String?              @map("last_error") @db.VarChar(1000)
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company            Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  invoice            Invoice?             @relation(fields: [invoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  quote              Quote?               @relation(fields: [quoteId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
 
   @@unique([companyId, idempotencyKey])
   @@index([status, availableAt])
@@ -1489,43 +1503,43 @@ model InvoiceLine {
 }
 
 model Quote {
-  id                String       @id @default(uuid()) @db.Uuid
-  organizationId    String       @map("organization_id") @db.Uuid
-  companyId         String       @map("company_id") @db.Uuid
-  contactId         String       @map("contact_id") @db.Uuid
-  sequenceId        String?      @map("sequence_id") @db.Uuid
-  convertedInvoiceId String?     @map("converted_invoice_id") @db.Uuid
-  customerLegalName String       @map("customer_legal_name") @db.VarChar(240)
-  customerTaxId     String?      @map("customer_tax_id") @db.VarChar(40)
-  customerEmail     String?      @map("customer_email") @db.VarChar(320)
-  billingAddress    Json?        @map("billing_address")
-  issuerSnapshot    Json         @default("{}") @map("issuer_snapshot")
-  issuerSnapshotVersion Int       @default(1) @map("issuer_snapshot_version")
-  issuerLogoMediaType String?    @map("issuer_logo_media_type") @db.VarChar(100)
-  issuerLogoSha256  String?      @map("issuer_logo_sha256") @db.Char(64)
-  issuerLogoContent Bytes?       @map("issuer_logo_content")
-  code              String       @default(cuid()) @db.VarChar(40)
-  series            String?      @db.VarChar(30)
-  number            BigInt?
-  status            QuoteStatus  @default(DRAFT)
-  issueDate         DateTime     @map("issue_date") @db.Date
-  validUntil        DateTime?    @map("valid_until") @db.Date
-  currency          String       @default("EUR") @db.Char(3)
-  notes             String?
-  subtotal          Decimal      @db.Decimal(14, 2)
-  discountTotal     Decimal      @map("discount_total") @db.Decimal(14, 2)
-  taxTotal          Decimal      @map("tax_total") @db.Decimal(14, 2)
-  total             Decimal      @db.Decimal(14, 2)
-  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  company           Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  contact           Contact      @relation(fields: [contactId], references: [id], onDelete: Restrict)
-  sequence          DocumentSequence? @relation(fields: [sequenceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
-  convertedInvoice  Invoice?     @relation(fields: [convertedInvoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
-  lines             QuoteLine[]
-  emailDeliveries   DocumentDelivery[]
-  commercialEvents  CommercialDocumentEvent[]
+  id                    String                    @id @default(uuid()) @db.Uuid
+  organizationId        String                    @map("organization_id") @db.Uuid
+  companyId             String                    @map("company_id") @db.Uuid
+  contactId             String                    @map("contact_id") @db.Uuid
+  sequenceId            String?                   @map("sequence_id") @db.Uuid
+  convertedInvoiceId    String?                   @map("converted_invoice_id") @db.Uuid
+  customerLegalName     String                    @map("customer_legal_name") @db.VarChar(240)
+  customerTaxId         String?                   @map("customer_tax_id") @db.VarChar(40)
+  customerEmail         String?                   @map("customer_email") @db.VarChar(320)
+  billingAddress        Json?                     @map("billing_address")
+  issuerSnapshot        Json                      @default("{}") @map("issuer_snapshot")
+  issuerSnapshotVersion Int                       @default(1) @map("issuer_snapshot_version")
+  issuerLogoMediaType   String?                   @map("issuer_logo_media_type") @db.VarChar(100)
+  issuerLogoSha256      String?                   @map("issuer_logo_sha256") @db.Char(64)
+  issuerLogoContent     Bytes?                    @map("issuer_logo_content")
+  code                  String                    @default(cuid()) @db.VarChar(40)
+  series                String?                   @db.VarChar(30)
+  number                BigInt?
+  status                QuoteStatus               @default(DRAFT)
+  issueDate             DateTime                  @map("issue_date") @db.Date
+  validUntil            DateTime?                 @map("valid_until") @db.Date
+  currency              String                    @default("EUR") @db.Char(3)
+  notes                 String?
+  subtotal              Decimal                   @db.Decimal(14, 2)
+  discountTotal         Decimal                   @map("discount_total") @db.Decimal(14, 2)
+  taxTotal              Decimal                   @map("tax_total") @db.Decimal(14, 2)
+  total                 Decimal                   @db.Decimal(14, 2)
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company               Company                   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  contact               Contact                   @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  sequence              DocumentSequence?         @relation(fields: [sequenceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  convertedInvoice      Invoice?                  @relation(fields: [convertedInvoiceId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  lines                 QuoteLine[]
+  emailDeliveries       DocumentDelivery[]
+  commercialEvents      CommercialDocumentEvent[]
 
   @@unique([companyId, code])
   @@unique([companyId, series, number])
@@ -1583,19 +1597,28 @@ model ContactAddress {
 }
 
 model User {
-  id                   String                      @id @default(uuid()) @db.Uuid
-  email                String                      @unique @db.Citext
-  passwordHash         String?                     @map("password_hash")
-  status               UserStatus                  @default(ACTIVE)
-  createdAt            DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
-  memberships          Membership[]
-  auditEvents          AuditEvent[]                @relation("actor_audit_events")
-  sessions             Session[]
-  passwordResetTokens  PasswordResetToken[]
-  purchaseAttachments  PurchaseInvoiceAttachment[]
-  purchaseApprovals    PurchaseInvoiceApproval[]
-  requestedPurchaseOcr PurchaseInvoiceOcrJob[]     @relation("requested_purchase_ocr")
-  reviewedPurchaseOcr  PurchaseInvoiceOcrJob[]     @relation("reviewed_purchase_ocr")
+  id                        String                      @id @default(uuid()) @db.Uuid
+  email                     String                      @unique @db.Citext
+  passwordHash              String?                     @map("password_hash")
+  status                    UserStatus                  @default(ACTIVE)
+  createdAt                 DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  memberships               Membership[]
+  auditEvents               AuditEvent[]                @relation("actor_audit_events")
+  sessions                  Session[]
+  passwordResetTokens       PasswordResetToken[]
+  purchaseAttachments       PurchaseInvoiceAttachment[]
+  purchaseApprovals         PurchaseInvoiceApproval[]
+  requestedPurchaseOcr      PurchaseInvoiceOcrJob[]     @relation("requested_purchase_ocr")
+  reviewedPurchaseOcr       PurchaseInvoiceOcrJob[]     @relation("reviewed_purchase_ocr")
+  commandExecutions         CommandExecution[]
+  commandProposals          CommandProposal[]
+  commandProposalRevisions  CommandProposalRevision[]
+  assignedCommandProposals  CommandProposalAssignment[] @relation("assigned_command_proposals")
+  proposalAssignmentActions CommandProposalAssignment[] @relation("proposal_assignment_actor")
+  commandProposalAttempts   CommandProposalAttempt[]
+  commandProposalEvents     CommandProposalEvent[]
+  commandReviews            CommandReview[]
+  proposalDocuments         PurchaseProposalDocument[]
 
   @@map("users")
 }
@@ -1673,6 +1696,200 @@ model Membership {
   @@unique([organizationId, companyId, userId, roleId])
   @@index([userId, organizationId, companyId])
   @@map("memberships")
+}
+
+enum CommandProposalStatus {
+  PENDING_REVIEW
+  EXECUTED
+  REJECTED
+}
+
+enum CommandReviewDecision {
+  EXECUTE
+  REJECT
+}
+
+// Successful command receipts, not an event store or a replayable source of truth.
+model CommandExecution {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  companyId      String           @map("company_id") @db.Uuid
+  commandId      String           @map("command_id") @db.VarChar(128)
+  name           String           @db.VarChar(100)
+  version        Int
+  payloadHash    String           @map("payload_hash") @db.Char(64)
+  payload        Json
+  evidence       Json
+  result         Json
+  actorUserId    String           @map("actor_user_id") @db.Uuid
+  executedAt     DateTime         @default(now()) @map("executed_at") @db.Timestamptz(6)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  actor          User             @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  proposal       CommandProposal?
+
+  @@unique([companyId, commandId])
+  @@unique([id, organizationId, companyId])
+  @@index([companyId, executedAt], map: "command_executions_company_executed_idx")
+  @@map("command_executions")
+}
+
+model CommandProposal {
+  id             String                      @id @default(uuid()) @db.Uuid
+  organizationId String                      @map("organization_id") @db.Uuid
+  companyId      String                      @map("company_id") @db.Uuid
+  commandId      String                      @map("command_id") @db.VarChar(128)
+  name           String                      @db.VarChar(100)
+  version        Int
+  payloadHash    String                      @map("payload_hash") @db.Char(64)
+  payload        Json
+  evidence       Json
+  // Descriptive provenance supplied by the caller; never an authorization claim.
+  provenance     Json
+  proposedById   String                      @map("proposed_by_id") @db.Uuid
+  status         CommandProposalStatus       @default(PENDING_REVIEW)
+  executionId    String?                     @unique @map("execution_id") @db.Uuid
+  createdAt      DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company        Company                     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  proposedBy     User                        @relation(fields: [proposedById], references: [id], onDelete: Restrict)
+  execution      CommandExecution?           @relation(fields: [executionId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  review         CommandReview?
+  documents      PurchaseProposalDocument[]
+  revisions      CommandProposalRevision[]
+  assignments    CommandProposalAssignment[]
+  attempts       CommandProposalAttempt[]
+  events         CommandProposalEvent[]
+
+  @@unique([companyId, commandId])
+  @@unique([id, organizationId, companyId])
+  @@unique([executionId, organizationId, companyId])
+  @@index([companyId, status, createdAt], map: "command_proposals_company_status_created_idx")
+  @@map("command_proposals")
+}
+
+model PurchaseProposalDocument {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  companyId      String          @map("company_id") @db.Uuid
+  proposalId     String          @map("proposal_id") @db.Uuid
+  originalName   String          @map("original_name") @db.VarChar(240)
+  mediaType      String          @map("media_type") @db.VarChar(40)
+  sizeBytes      Int             @map("size_bytes")
+  sha256         String          @db.Char(64)
+  content        Bytes
+  createdById    String          @map("created_by_id") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  proposal       CommandProposal @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  createdBy      User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([proposalId, sha256])
+  @@index([companyId, proposalId, createdAt])
+  @@map("purchase_proposal_documents")
+}
+
+model CommandProposalRevision {
+  id               String          @id @default(uuid()) @db.Uuid
+  organizationId   String          @map("organization_id") @db.Uuid
+  companyId        String          @map("company_id") @db.Uuid
+  proposalId       String          @map("proposal_id") @db.Uuid
+  revisionNumber   Int             @map("revision_number")
+  previousPayload  Json            @map("previous_payload")
+  correctedPayload Json            @map("corrected_payload")
+  changes          Json
+  reason           String          @db.VarChar(1000)
+  createdById      String          @map("created_by_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company          Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  proposal         CommandProposal @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  createdBy        User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([proposalId, revisionNumber])
+  @@index([companyId, proposalId, createdAt], map: "command_proposal_revisions_company_proposal_created_idx")
+  @@map("command_proposal_revisions")
+}
+
+model CommandProposalAssignment {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  companyId      String          @map("company_id") @db.Uuid
+  proposalId     String          @map("proposal_id") @db.Uuid
+  assignedToId   String          @map("assigned_to_id") @db.Uuid
+  assignedById   String          @map("assigned_by_id") @db.Uuid
+  reason         String          @db.VarChar(1000)
+  assignedAt     DateTime        @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  proposal       CommandProposal @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  assignedTo     User            @relation("assigned_command_proposals", fields: [assignedToId], references: [id], onDelete: Restrict)
+  assignedBy     User            @relation("proposal_assignment_actor", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@index([companyId, proposalId, assignedAt], map: "command_proposal_assignments_company_proposal_assigned_idx")
+  @@map("command_proposal_assignments")
+}
+
+model CommandProposalAttempt {
+  id               String          @id @default(uuid()) @db.Uuid
+  organizationId   String          @map("organization_id") @db.Uuid
+  companyId        String          @map("company_id") @db.Uuid
+  proposalId       String          @map("proposal_id") @db.Uuid
+  attemptedPayload Json            @map("attempted_payload")
+  reason           String          @db.VarChar(1000)
+  errorCode        String          @map("error_code") @db.VarChar(80)
+  errorMessage     String          @map("error_message") @db.VarChar(2000)
+  attemptedById    String          @map("attempted_by_id") @db.Uuid
+  attemptedAt      DateTime        @default(now()) @map("attempted_at") @db.Timestamptz(6)
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company          Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  proposal         CommandProposal @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  attemptedBy      User            @relation(fields: [attemptedById], references: [id], onDelete: Restrict)
+
+  @@index([companyId, proposalId, attemptedAt], map: "command_proposal_attempts_company_proposal_attempted_idx")
+  @@map("command_proposal_attempts")
+}
+
+model CommandProposalEvent {
+  id                String          @id @default(uuid()) @db.Uuid
+  organizationId    String          @map("organization_id") @db.Uuid
+  companyId         String          @map("company_id") @db.Uuid
+  proposalId        String          @map("proposal_id") @db.Uuid
+  sequence          Int
+  type              String          @db.VarChar(80)
+  payload           Json
+  payloadHash       String          @map("payload_hash") @db.Char(64)
+  previousEventHash String?         @map("previous_event_hash") @db.Char(64)
+  eventHash         String          @map("event_hash") @db.Char(64)
+  actorUserId       String          @map("actor_user_id") @db.Uuid
+  occurredAt        DateTime        @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  proposal          CommandProposal @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  actor             User            @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([proposalId, sequence])
+  @@index([companyId, proposalId, sequence], map: "command_proposal_events_company_proposal_sequence_idx")
+  @@map("command_proposal_events")
+}
+
+model CommandReview {
+  id              String                @id @default(uuid()) @db.Uuid
+  organizationId  String                @map("organization_id") @db.Uuid
+  companyId       String                @map("company_id") @db.Uuid
+  proposalId      String                @unique @map("proposal_id") @db.Uuid
+  decision        CommandReviewDecision
+  acceptedPayload Json?                 @map("accepted_payload")
+  reason          String                @db.VarChar(1000)
+  reviewedById    String                @map("reviewed_by_id") @db.Uuid
+  reviewedAt      DateTime              @default(now()) @map("reviewed_at") @db.Timestamptz(6)
+  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company         Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  proposal        CommandProposal       @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  reviewedBy      User                  @relation(fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@unique([proposalId, organizationId, companyId])
+  @@map("command_reviews")
 }
 
 model AuditEvent {

@@ -63,6 +63,18 @@ Invoices and quotes share one email-delivery outbox with idempotency keys, recip
 
 Tenant selection headers (`x-organization-id`, `x-company-id`) are never authorization. They are only candidates validated against the database membership.
 
+## Supervised command pilot (opt-in)
+
+`AI_NATIVE_ENABLED=false` by default. When enabled, purchase draft creation uses the
+`registrar_factura_recibida` command handler and optionally accepts `Idempotency-Key`.
+`/v1/purchase-command-proposals` provides a proposal/review API with distinct permissions,
+immutable original proposals, corrected review payloads and successful execution receipts.
+Execution creates only a draft; purchase approval remains a separate operation.
+Apply `202610010001_command_foundation` before enabling. No LLM or event sourcing is
+introduced. See [pilot contract and activation](../../docs/24_base_comandos_ia_nativa.md).
+The frontend inbox at `/compras/propuestas` supports original/corrected comparisons,
+explicit review and rejection; see [frontend review](../../docs/25_bandeja_revision_compras.md).
+
 ## Database safety
 
 Tenant-protected requests run inside one database transaction. The request interceptor sets `app.organization_id` on that transaction before domain work starts, and the database forces row-level security even for the table owner. Domain writes and their audit event therefore commit or roll back together.

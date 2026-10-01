@@ -5,6 +5,9 @@ export function validateConfiguration(values: Record<string, unknown>) {
       throw new Error(`${name} is required`);
   if (String(values.JWT_SECRET).length < 32)
     throw new Error("JWT_SECRET must contain at least 32 characters");
+  if (values.AI_NATIVE_ENABLED !== undefined &&
+      !["true", "false"].includes(String(values.AI_NATIVE_ENABLED)))
+    throw new Error("AI_NATIVE_ENABLED must be true or false");
   positiveInteger(values, "ACCESS_TOKEN_TTL_SECONDS", 900);
   positiveInteger(values, "REFRESH_TOKEN_TTL_DAYS", 30);
   positiveInteger(values, "THROTTLE_LIMIT", 120);

@@ -32,6 +32,7 @@ import {
   UpdatePurchaseInvoiceDto,
 } from "./dto/purchase-invoice.dto";
 import { PurchasesService } from "./purchases.service";
+import { RegisterPurchaseCommandService } from "./register-purchase-command.service";
 import { SupplierPaymentsService } from "./supplier-payments.service";
 import {
   MAX_PURCHASE_ATTACHMENT_BYTES,
@@ -44,6 +45,7 @@ import {
 export class PurchasesController {
   constructor(
     private readonly purchases: PurchasesService,
+    private readonly purchaseCommands: RegisterPurchaseCommandService,
     private readonly supplierPayments: SupplierPaymentsService,
     private readonly attachments: PurchaseAttachmentsService,
   ) {}
@@ -68,8 +70,11 @@ export class PurchasesController {
 
   @Post()
   @RequirePermissions("purchase_invoice.create")
-  create(@Body() input: CreatePurchaseInvoiceDto) {
-    return this.purchases.create(input);
+  create(
+    @Body() input: CreatePurchaseInvoiceDto,
+    @Headers("idempotency-key") commandId: string | undefined,
+  ) {
+    return this.purchaseCommands.createDirect(input, commandId);
   }
 
   @Patch(":id")
