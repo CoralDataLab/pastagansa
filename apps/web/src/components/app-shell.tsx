@@ -161,7 +161,7 @@ export function AppShell({
             Compras
           </NavLink>
           {proposalCapability.data?.enabled && (
-            <Link href="/compras/propuestas">Revisar propuestas de compra</Link>
+            <Link href="/compras/propuestas">Revisar facturas recibidas</Link>
           )}
           <NavLink
             active={active === "tesoreria"}

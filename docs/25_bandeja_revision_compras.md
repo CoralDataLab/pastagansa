@@ -1,4 +1,8 @@
-# Bandeja supervisada de propuestas de compra
+# Revisión supervisada de facturas recibidas
+
+## Terminología visible
+
+La bandeja se presenta como «Revisión de facturas recibidas» y el detalle como «Revisar factura recibida». Una propuesta es una propuesta de registro de una factura recibida, no una solicitud de compra ni una autorización de gasto. Para entrada manual se mantiene el formulario habitual de Compras. Se conservan rutas `/compras/propuestas` y contratos técnicos `purchase-command-proposals` por compatibilidad.
 
 ## Segunda entrega
 

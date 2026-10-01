@@ -130,6 +130,14 @@ Validación local:
 - Validación: 52 unitarias web, lint y build correctos. Selectores E2E actualizados; no se ejecutó Chromium ni integración PostgreSQL en este avance.
 - Fuera de alcance: lector de documentos/LLM, totales fiscales estimados y cambios del flujo de aprobación.
 
+## 2026-10-01 — Terminología de facturas recibidas
+
+- Navegación «Revisar facturas recibidas», bandeja «Revisión de facturas recibidas» y detalle «Revisar factura recibida».
+- Se aclara que es una propuesta de registro, no una solicitud de compra ni aprobación de gasto, y que la entrada manual sigue en Compras.
+- Archivos: app-shell, lista/detalle web, selectores E2E y documentación temática 25.
+- Rutas, permisos, esquema y contratos API sin cambios; no incorpora extracción automática ni conectores IA.
+- Validación: 52 unitarias web, lint y build correctos. Chromium e integración PostgreSQL no ejecutados en este cambio.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

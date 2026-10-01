@@ -44,10 +44,10 @@ test("hides the pilot navigation and data requests when the API flag is off", as
   });
   await page.goto("/compras/propuestas");
   await expect(
-    page.getByText("El piloto de propuestas está desactivado en esta API."),
+    page.getByText("La revisión supervisada de facturas está desactivada en esta API."),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Revisar propuestas de compra" }),
+    page.getByRole("link", { name: "Revisar facturas recibidas" }),
   ).toHaveCount(0);
   expect(dataRequests).toBe(0);
 });

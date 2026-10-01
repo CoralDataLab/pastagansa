@@ -127,7 +127,7 @@ export function PurchaseProposalDetail({ id }: { id: string }) {
       <section className="page-heading">
         <div>
           <p className="eyebrow">Compras · Revisión supervisada</p>
-          <h1>Revisar propuesta</h1>
+          <h1>Revisar factura recibida</h1>
           <p>
             Revisa el documento, comprueba los datos y decide si crear un borrador.
             Este paso no aprueba gastos, no contabiliza ni envía a la AEAT.
@@ -367,9 +367,9 @@ function Review({
         <ol>
           <li>Contrasta el documento original.</li>
           <li>Revisa el proveedor y corrige los datos si hace falta.</li>
-          <li>Crea un borrador o rechaza la propuesta.</li>
+          <li>Crea un borrador o rechaza el registro propuesto.</li>
         </ol>
-        <p>Una propuesta no es una compra. Crear el borrador es el primer paso;
+        <p>Estos datos son una propuesta de registro de factura, no una solicitud de compra. Crear el borrador es el primer paso;
           la aprobación y contabilización se realizan después en Compras.</p>
         <p>La procedencia es declarada: esta pantalla no extrae datos automáticamente ni demuestra que una IA haya intervenido.</p>
       </aside>
@@ -379,7 +379,7 @@ function Review({
         </p>
       )}
       <section className="data-panel">
-        <h2>1. Documento y propuesta · {proposalStatusLabel(proposal.status)}</h2>
+        <h2>1. Factura y datos recibidos · {proposalStatusLabel(proposal.status)}</h2>
         <dl className="proposal-summary">
           <div><dt>Proveedor</dt><dd>{supplierName(proposal.payload.supplierId)}</dd></div>
           <div><dt>Factura del proveedor</dt><dd>{proposal.payload.supplierInvoiceNumber}</dd></div>
@@ -767,7 +767,7 @@ function Review({
             <>
               <h3>3. Decide qué hacer</h3>
               <p>Crear un borrador guarda una compra pendiente de su flujo habitual.
-                Rechazar conserva la propuesta, pero no crea ninguna compra.</p>
+                Rechazar conserva los datos recibidos y el motivo, pero no registra la factura como compra.</p>
               <label className="proposal-reason">
                 Motivo obligatorio
                 <textarea

@@ -93,7 +93,7 @@ test("reviews corrections into a draft, rejects another proposal and preserves o
   const proposed = await propose();
   await page.goto("/compras/propuestas");
   await expect(
-    page.getByRole("heading", { name: "Propuestas de compra" }),
+    page.getByRole("heading", { name: "Revisión de facturas recibidas" }),
   ).toBeVisible();
   await page
     .getByRole("link", { name: payload.supplierInvoiceNumber, exact: true })

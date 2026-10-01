@@ -44,10 +44,11 @@ export function PurchaseProposalsView() {
       <section className="page-heading">
         <div>
           <p className="eyebrow">Compras · Revisión supervisada</p>
-          <h1>Propuestas de compra</h1>
+          <h1>Revisión de facturas recibidas</h1>
           <p>
-            Revisar una propuesta crea solo un borrador. La aprobación de la
-            compra es un paso separado.
+            Comprueba los datos de facturas recibidas antes de registrarlas.
+            Aceptar los datos crea un borrador de compra, no aprueba un gasto.
+            Para introducir una factura manualmente, utiliza el formulario habitual de Compras.
           </p>
         </div>
         <Link href="/compras" className="secondary-button">
@@ -55,7 +56,7 @@ export function PurchaseProposalsView() {
         </Link>
       </section>
       {!canRead && session.data && (
-        <p role="alert">No tienes permiso para leer propuestas.</p>
+        <p role="alert">No tienes permiso para revisar registros de facturas recibidas.</p>
       )}
       {canRead && capability.isPending && (
         <p role="status">Comprobando disponibilidad…</p>
@@ -68,7 +69,7 @@ export function PurchaseProposalsView() {
       )}
       {capability.data?.enabled === false && (
         <p role="status">
-          El piloto de propuestas está desactivado en esta API.
+          La revisión supervisada de facturas está desactivada en esta API.
         </p>
       )}
       {capability.data?.enabled && (
@@ -77,7 +78,7 @@ export function PurchaseProposalsView() {
             <div>
               <h2 id="proposals-title">Bandeja de revisión</h2>
               <p>
-                Últimas 100 propuestas del filtro seleccionado; sin paginación.
+                Últimos 100 registros del filtro seleccionado; sin paginación.
               </p>
             </div>
             <label className="filter-field">
@@ -96,10 +97,10 @@ export function PurchaseProposalsView() {
             </label>
             <button onClick={() => void proposals.refetch()}>Actualizar</button>
           </div>
-          {proposals.isPending && <p role="status">Cargando propuestas…</p>}
+          {proposals.isPending && <p role="status">Cargando facturas para revisión…</p>}
           {proposals.error && <p role="alert">{proposals.error.message}</p>}
           {proposals.data?.length === 0 && (
-            <p>No hay propuestas en este estado.</p>
+            <p>No hay registros de facturas en este estado. Esta bandeja recibe datos propuestos por la API o adaptadores; no importa documentos automáticamente.</p>
           )}
           {!!proposals.data?.length && (
             <div className="table-scroll">
