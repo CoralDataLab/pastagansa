@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Get,
   HttpCode,
@@ -28,6 +29,8 @@ import {
   UploadedPurchaseAttachment,
 } from "./purchase-attachments.service";
 import { PurchaseProposalDocumentsService } from "./purchase-proposal-documents.service";
+import { PurchaseProposalIntakeService } from "./purchase-proposal-intake.service";
+import { LongTenantTransaction } from "../tenancy/long-tenant-transaction.decorator";
 
 @Controller("purchase-command-proposals")
 @TenantProtected()
@@ -36,12 +39,38 @@ export class PurchaseCommandProposalsController {
     private readonly proposals: PurchaseCommandProposalsService,
     private readonly documents: PurchaseProposalDocumentsService,
     private readonly config: ConfigService,
+    private readonly intake: PurchaseProposalIntakeService,
   ) {}
 
   @Get("capabilities")
   @RequirePermissions("command_proposal.read")
   capabilities() {
     return { enabled: this.config.get<string>("AI_NATIVE_ENABLED") === "true" };
+  }
+
+  @Post("ocr-preview")
+  @LongTenantTransaction()
+  @UseInterceptors(FileInterceptor("file", {
+    limits: { fileSize: MAX_PURCHASE_ATTACHMENT_BYTES, files: 1 },
+  }))
+  @RequirePermissions("command_proposal.create", "command_proposal.read", "purchase_invoice.ocr")
+  preview(@UploadedFile() file: UploadedPurchaseAttachment | undefined) {
+    return this.intake.preview(file);
+  }
+
+  @Post("from-document")
+  @UseInterceptors(FileInterceptor("file", {
+    limits: { fileSize: MAX_PURCHASE_ATTACHMENT_BYTES, files: 1, fieldSize: 1024 * 1024 },
+  }))
+  @RequirePermissions("command_proposal.create", "command_proposal.read")
+  fromDocument(
+    @Body("proposal") raw: string,
+    @UploadedFile() file: UploadedPurchaseAttachment | undefined,
+  ) {
+    let input: CreatePurchaseCommandProposalDto;
+    try { input = JSON.parse(raw) as CreatePurchaseCommandProposalDto; }
+    catch { throw new BadRequestException("A valid proposal JSON field is required"); }
+    return this.intake.create(input, file);
   }
 
   @Post()

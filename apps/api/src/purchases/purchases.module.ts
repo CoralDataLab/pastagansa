@@ -13,6 +13,7 @@ import { PurchaseOcrEngine } from "./purchase-ocr-engine.service";
 import { PurchaseOcrService } from "./purchase-ocr.service";
 import { PurchaseOcrWorker } from "./purchase-ocr.worker";
 import { PurchaseProposalDocumentsService } from "./purchase-proposal-documents.service";
+import { PurchaseProposalIntakeService } from "./purchase-proposal-intake.service";
 import { CommandsModule } from "../commands/commands.module";
 import { RegisterPurchaseCommandService } from "./register-purchase-command.service";
 import { PurchaseCommandProposalsService } from "./purchase-command-proposals.service";
@@ -31,6 +32,7 @@ import { PurchaseCommandProposalsController } from "./purchase-command-proposals
     RegisterPurchaseCommandService,
     PurchaseCommandProposalsService,
     PurchaseProposalDocumentsService,
+    PurchaseProposalIntakeService,
     SupplierPaymentsService,
     PurchaseAttachmentsService,
     PurchaseApprovalPolicyService,

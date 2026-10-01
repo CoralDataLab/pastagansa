@@ -4,6 +4,19 @@
 
 La bandeja se presenta como «Revisión de facturas recibidas» y el detalle como «Revisar factura recibida». Una propuesta es una propuesta de registro de una factura recibida, no una solicitud de compra ni una autorización de gasto. Para entrada manual se mantiene el formulario habitual de Compras. Se conservan rutas `/compras/propuestas` y contratos técnicos `purchase-command-proposals` por compatibilidad.
 
+## Entrada desde imagen con OCR local
+
+Desde `/compras/propuestas`, «Leer factura desde imagen» abre `/compras/propuestas/nueva`.
+
+1. Seleccionar PNG/JPEG (hasta 10 MiB, 8000 píxeles por lado y 20 megapíxeles). PDF no está disponible en este asistente.
+2. «Leer con OCR local» llama a `POST /v1/purchase-command-proposals/ocr-preview`. Tesseract usa el paquete de idioma español local; no se envía el documento a proveedores externos. Requiere `command_proposal.create`, `command_proposal.read` y `purchase_invoice.ocr`, además de la bandera del piloto.
+3. Comparar imagen original, texto reconocido y campos con su evidencia. Confianza OCR no equivale a exactitud ni a validación fiscal. La vista previa no se persiste; no constituye un expediente OCR auditable.
+4. Seleccionar proveedor y revisar número, fechas y una línea inicial. Base e IVA requieren entrada explícita. La línea empieza en EUR, cantidad 1, deducibilidad 100 %; facturas más complejas deben corregirse en la revisión posterior antes de crear el borrador.
+5. Confirmar y guardar: `POST /v1/purchase-command-proposals/from-document`, multipart `file` + `proposal` JSON, valida estrictamente y crea propuesta/documento en la misma transacción. El SHA-256 calculado por servidor entra en la evidencia de la propuesta para vincular su idempotencia al original. No crea una compra.
+6. Continuar por la revisión habitual y su confirmación independiente para crear el borrador.
+
+La vista previa es síncrona en este piloto (transacción máxima 120 s), con un único worker serializado y hasta tres trabajos admitidos; si está ocupado devuelve 503. No sustituye la cola persistida del OCR de compras existentes. Pendientes antes de producción: integración PostgreSQL de rollback real, prueba completa en staging con imagen y original descargable, soporte PDF y persistencia de la extracción bruta con su versión. La procedencia `UPLOAD` del formulario es declarativa, no demuestra que se haya ejecutado OCR.
+
 ## Segunda entrega
 
 Frontend en `/compras/propuestas`, con detalle `/compras/propuestas/:id`.

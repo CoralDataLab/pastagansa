@@ -138,6 +138,17 @@ Validación local:
 - Rutas, permisos, esquema y contratos API sin cambios; no incorpora extracción automática ni conectores IA.
 - Validación: 52 unitarias web, lint y build correctos. Chromium e integración PostgreSQL no ejecutados en este cambio.
 
+## 2026-10-01 — Entrada supervisada desde imagen con OCR local
+
+- Nueva pantalla `/compras/propuestas/nueva`: imagen, texto/campos extraídos, proveedor por nombre, datos revisados y confirmación invalidable al editar.
+- API/BFF `ocr-preview` usa Tesseract español local; `from-document` guarda propuesta y original bajo una transacción compartida con evidencia SHA-256 calculada por servidor.
+- Límites: 10 MiB, 8000 píxeles por lado, 20 megapíxeles; worker serializado y cola máxima de tres. Permisos y `AI_NATIVE_ENABLED` mantienen el piloto restringido.
+- Archivos: servicio/controlador de entrada, motor OCR y validador de dimensiones, página/bandeja, BFF y pruebas; documentación 25.
+- Validación: API 45 suites/217 tests, web 13 archivos/56 tests, lint y build de ambos correctos. Cuatro pruebas Chromium de entrada/permisos con API simulada pasaron en servidor web local sin DB. Prueba real de Tesseract sobre imagen sintética española reconoció número, fecha, base y total (confianza 95 %).
+- No se ha ejecutado integración PostgreSQL ni verificado el flujo completo en staging. Las pruebas mock de rollback solo comprueban propagación de errores y límite transaccional, no persistencia real.
+- Límites funcionales: PNG/JPEG, extracción bruta transitoria, línea inicial EUR/cantidad 1/deducción 100 % corregible en revisión. Sin PDF, desglose automático, decisiones fiscales, proveedor automático ni aprobación autónoma.
+- Sin cambios de esquema ni migraciones; no requiere proveedor externo ni credenciales OCR.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

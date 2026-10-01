@@ -662,6 +662,7 @@ function Review({
               <label className="proposal-supplier">
                 Proveedor *
                 <select
+                  aria-label="Proveedor *"
                   value={payload.supplierId}
                   disabled={suppliers.isPending || !!suppliers.error}
                   onChange={(event) => edit("supplierId", event.target.value)}

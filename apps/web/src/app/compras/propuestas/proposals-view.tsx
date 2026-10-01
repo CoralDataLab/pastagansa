@@ -51,6 +51,14 @@ export function PurchaseProposalsView() {
             Para introducir una factura manualmente, utiliza el formulario habitual de Compras.
           </p>
         </div>
+        {capability.data?.enabled &&
+          ["command_proposal.create", "command_proposal.read", "purchase_invoice.ocr"].every(
+            permission => session.data?.membership.role.permissions.includes(permission),
+          ) && (
+            <Link href="/compras/propuestas/nueva" className="primary-button compact">
+              Leer factura desde imagen
+            </Link>
+          )}
         <Link href="/compras" className="secondary-button">
           Volver a compras
         </Link>

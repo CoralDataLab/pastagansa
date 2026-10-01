@@ -73,6 +73,10 @@ test("requires read permissions and does not offer creation to a review-only act
     proposalRequests++;
     if (route.request().url().endsWith("/capabilities"))
       return route.fulfill({ json: { enabled: true } });
+    if (route.request().url().endsWith("/projection"))
+      return route.fulfill({ json: { chainValid: true, eventCount: 1, matchesCurrentState: true, discrepancies: [], projected: { status: "PENDING_REVIEW", currentAssigneeId: null, correctionCount: 0, failedAttemptCount: 0 } } });
+    if (route.request().url().endsWith("/assignees"))
+      return route.fulfill({ json: [] });
     return route.fulfill({
       json: {
         id: "11111111-1111-4111-8111-111111111111",
