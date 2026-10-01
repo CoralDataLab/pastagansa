@@ -58,6 +58,10 @@ jobs:
           E2E_SMTP_RECIPIENT: u6-acceptance@example.test
           E2E_MAILBOX_URL: http://127.0.0.1:2526/messages
         run: npm run test:e2e
+      - name: Run supervised purchase review acceptance (opt-in)
+        env:
+          AI_NATIVE_ENABLED: "true"
+        run: npm run test:e2e --workspace=@pastagansa/web -- purchase-proposals
       - run: npm audit --audit-level=high
       - name: Validate production deployment configuration
         run: |
