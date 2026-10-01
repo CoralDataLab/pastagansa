@@ -4,7 +4,6 @@ import { ConfigService } from "@nestjs/config";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import request = require("supertest");
-import { AppModule } from "../src/app.module";
 import { RegisterPurchaseCommandService } from "../src/purchases/register-purchase-command.service";
 import { AuditService } from "../src/audit/audit.service";
 
@@ -12,7 +11,12 @@ type Scope = { organizationId: string; companyId: string; userId: string };
 
 // Requires a disposable PostgreSQL database with all migrations applied and an
 // app-role DATABASE_URL (RLS must not be bypassed). Never run against production.
-describe("command foundation (PostgreSQL)", () => {
+const hasIntegrationDatabase = Boolean(
+  process.env.DATABASE_URL && process.env.DIRECT_DATABASE_URL,
+);
+const describeIntegration = hasIntegrationDatabase ? describe : describe.skip;
+
+describeIntegration("command foundation (PostgreSQL)", () => {
   let app: INestApplication;
   let scope: Scope;
   let secondScope: Scope;
@@ -22,13 +26,20 @@ describe("command foundation (PostgreSQL)", () => {
   let supplierId: string;
   const prisma = new PrismaClient();
   const admin = new PrismaClient({
-    datasources: { db: { url: process.env.DIRECT_DATABASE_URL } },
+    datasources: {
+      db: {
+        url:
+          process.env.DIRECT_DATABASE_URL ??
+          "postgresql://skip:skip@localhost:5432/skip",
+      },
+    },
   });
   const previousEnabled = process.env.AI_NATIVE_ENABLED;
   const prefix = randomUUID();
 
   beforeAll(async () => {
     process.env.AI_NATIVE_ENABLED = "true";
+    const { AppModule } = await import("../src/app.module");
     const module = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
