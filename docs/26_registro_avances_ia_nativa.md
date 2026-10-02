@@ -219,6 +219,12 @@ Validación local:
 - Nueva ruta BFF equivalente y uso en la bandeja para mostrar pendientes sin depender del listado limitado a 100.
 - Validación: unitarias API del servicio de aprendizaje, lint/build API y lint/build web correctos.
 
+## 2026-10-02 — Resumen visible en gestión de aprendizaje
+
+- La pantalla `/compras/propuestas/aprendizaje` muestra contadores de pendientes, aprobados y rechazados usando el endpoint de resumen.
+- El resumen se refresca junto con el listado tras aprobar/rechazar candidatos.
+- Validación: lint/build web correctos.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

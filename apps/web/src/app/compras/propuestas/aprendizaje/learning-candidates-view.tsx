@@ -8,6 +8,7 @@ import {
   proposalRequest,
   type LearningCandidateStatus,
   type PurchaseProposalLearningCandidate,
+  type PurchaseProposalLearningSummary,
 } from "@/lib/purchase-proposals";
 
 const statuses: Array<{ value: LearningCandidateStatus; label: string }> = [
@@ -36,6 +37,15 @@ export function LearningCandidatesView() {
     enabled: canReview,
     retry: false,
   });
+  const summary = useQuery({
+    queryKey: ["purchase-proposal-learning-summary", companyId],
+    queryFn: () =>
+      proposalRequest<PurchaseProposalLearningSummary>(
+        "/api/purchase-proposals/learning-candidates/summary",
+      ),
+    enabled: canReview && capability.data?.enabled === true,
+    retry: false,
+  });
   const candidates = useQuery({
     queryKey: ["purchase-proposal-learning", companyId, status],
     queryFn: () =>
@@ -57,6 +67,7 @@ export function LearningCandidatesView() {
       ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["purchase-proposal-learning", companyId] });
+      await queryClient.invalidateQueries({ queryKey: ["purchase-proposal-learning-summary", companyId] });
     },
   });
   return (
@@ -83,6 +94,14 @@ export function LearningCandidatesView() {
       )}
       {capability.data?.enabled && (
         <section className="data-panel">
+          {summary.data && (
+            <dl className="proposal-summary">
+              <div><dt>Pendientes</dt><dd>{summary.data.pendingReview}</dd></div>
+              <div><dt>Aprobados</dt><dd>{summary.data.approved}</dd></div>
+              <div><dt>Rechazados</dt><dd>{summary.data.rejected}</dd></div>
+            </dl>
+          )}
+          {summary.error && <p role="alert">No se pudo cargar el resumen: {summary.error.message}</p>}
           <div className="data-toolbar">
             <div>
               <h2>Correcciones candidatas</h2>
@@ -94,7 +113,7 @@ export function LearningCandidatesView() {
                 {statuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
               </select>
             </label>
-            <button onClick={() => void candidates.refetch()}>Actualizar</button>
+            <button onClick={() => { void candidates.refetch(); void summary.refetch(); }}>Actualizar</button>
           </div>
           {candidates.isPending && <p role="status">Cargando candidatos…</p>}
           {candidates.error && <p role="alert">{candidates.error.message}</p>}
