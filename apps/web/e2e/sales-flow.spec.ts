@@ -485,7 +485,7 @@ test("completes a purchase through payment and bank reconciliation", async ({
   await purchaseDialog
     .locator('select[name="supplierId"]')
     .selectOption({ label: "Proveedor E2E SL" });
-  await purchaseDialog.getByLabel("Número del proveedor").fill("PROV-E2E-001");
+  await purchaseDialog.getByLabel("Nº de factura del proveedor").fill("PROV-E2E-001");
   await purchaseDialog
     .getByLabel("Descripción")
     .fill("Servicio profesional E2E");
