@@ -199,7 +199,7 @@ no enmascara el error de negocio original.
 Cada candidato procede de una corrección revisada y conserva campo, valor original,
 valor corregido, propuesta, revisión y actor. Si ya existe un candidato pendiente o
 aprobado con el mismo campo y cambio, no se crea otro duplicado. Aprobarlo o rechazarlo registra una decisión
-humana auditada; no cambia reglas fiscales, prompts, OCR ni futuras propuestas.
+humana auditada y se añade a la cadena de eventos de la propuesta; no cambia reglas fiscales, prompts, OCR ni futuras propuestas.
 `GET /v1/purchase-command-proposals/:id/learning-hints` expone sugerencias de solo
 lectura cuando un candidato aprobado coincide exactamente con el valor actual de la
 propuesta; el revisor decide si corrige el payload. Cualquier automatización posterior

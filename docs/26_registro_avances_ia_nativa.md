@@ -231,6 +231,12 @@ Validación local:
 - Se evita que copiar una sugerencia aprobada y ejecutar una propuesta genere candidatos redundantes para el mismo aprendizaje.
 - Validación: unitarias API del servicio de aprendizaje, lint API y build API correctos.
 
+## 2026-10-02 — Decisiones de aprendizaje en cadena de eventos
+
+- Las aprobaciones y rechazos de candidatos de aprendizaje añaden eventos `command_learning_candidate.approved/rejected` a la cadena de la propuesta de origen.
+- La proyección materializada actualiza último hash/secuencia, pero no cambia estado ni contadores operativos de la propuesta.
+- Validación: unitarias API del servicio de aprendizaje, lint API y build API correctos.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:
