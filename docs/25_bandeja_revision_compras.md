@@ -72,7 +72,7 @@ No cambia la fuente de verdad ni añade LLM, conectores, aprendizaje o aprobaci�
 
 ## Rutas y código
 
-- `apps/web/src/app/compras/propuestas/`: lista, detalle/editor y estilos locales.
+- `apps/web/src/app/compras/propuestas/`: lista, detalle/editor, entrada OCR y candidatos de aprendizaje.
 - `apps/web/src/app/api/purchase-proposals/`: BFF de lectura, disponibilidad, documentos y decisiones.
   Solo admite UUID y acciones assign/execute/reject/documentos; no es un proxy de rutas arbitrarias.
 - `apps/web/src/lib/purchase-proposals.ts`: contrato completo, validación estricta y diff.
@@ -108,4 +108,4 @@ real se ejecutaron solo contra PostgreSQL 17 desechable; no se modificaron bases
 
 ## Siguiente entrega
 
-Correcciones por campo, asignación, intentos fallidos persistidos, eventos reconstruibles, proyección materializada, contraste bajo demanda y primer registro de candidatos de aprendizaje gobernado quedan implementados. Sigue pendiente el consumo operativo de esos candidatos bajo una política autorizada.
+Correcciones por campo, asignación, intentos fallidos persistidos, eventos reconstruibles, proyección materializada, contraste bajo demanda y gestión de candidatos de aprendizaje gobernado quedan implementados. Sigue pendiente el consumo operativo de esos candidatos bajo una política autorizada.

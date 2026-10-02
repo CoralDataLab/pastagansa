@@ -1450,6 +1450,17 @@ a {
   min-height: 40px;
   padding: 0.5rem 2rem 0.5rem 0.75rem;
 }
+.stacked-actions {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 180px;
+}
+.stacked-actions input {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  min-height: 38px;
+  padding: 0.45rem 0.65rem;
+}
 .invoice-form {
   display: grid;
   gap: 1.25rem;

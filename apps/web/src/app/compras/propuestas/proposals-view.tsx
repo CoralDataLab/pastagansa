@@ -59,6 +59,11 @@ export function PurchaseProposalsView() {
               Leer factura desde imagen
             </Link>
           )}
+        {capability.data?.enabled && session.data?.membership.role.permissions.includes("command_proposal.review") && (
+          <Link href="/compras/propuestas/aprendizaje" className="secondary-button">
+            Candidatos de aprendizaje
+          </Link>
+        )}
         <Link href="/compras" className="secondary-button">
           Volver a compras
         </Link>

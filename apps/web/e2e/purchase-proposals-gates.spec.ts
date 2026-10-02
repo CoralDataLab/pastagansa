@@ -122,3 +122,76 @@ test("requires read permissions and does not offer creation to a review-only act
     page.getByLabel("Proveedor *", { exact: true }),
   ).toHaveCount(0);
 });
+
+test("lets reviewers decide governed learning candidates without automatic application", async ({
+  page,
+}) => {
+  let decisionBody: unknown;
+  await page.route("**/api/auth/session", (route) =>
+    route.fulfill({
+      json: {
+        user: { id: "user", email: "review@example.com" },
+        membership: {
+          ...membership,
+          role: {
+            ...membership.role,
+            permissions: ["command_proposal.read", "command_proposal.review"],
+          },
+        },
+        memberships: [membership],
+      },
+    }),
+  );
+  await page.route("**/api/purchase-proposals/capabilities", (route) =>
+    route.fulfill({ json: { enabled: true } }),
+  );
+  await page.route("**/api/purchase-proposals/learning-candidates**", async (route) => {
+    if (route.request().method() === "POST") {
+      decisionBody = route.request().postDataJSON();
+      return route.fulfill({
+        json: {
+          id: "33333333-3333-4333-8333-333333333333",
+          proposalId: "11111111-1111-4111-8111-111111111111",
+          revisionId: "22222222-2222-4222-8222-222222222222",
+          commandName: "registrar_factura_recibida",
+          commandVersion: 1,
+          fieldPath: "supplierId",
+          originalValue: "old",
+          correctedValue: "new",
+          status: "APPROVED",
+          reviewReason: "Useful correction",
+          reviewedById: "user",
+          reviewedAt: "2026-10-02T10:00:00Z",
+          createdById: "user",
+          createdAt: "2026-10-02T09:00:00Z",
+        },
+      });
+    }
+    return route.fulfill({
+      json: [
+        {
+          id: "33333333-3333-4333-8333-333333333333",
+          proposalId: "11111111-1111-4111-8111-111111111111",
+          revisionId: "22222222-2222-4222-8222-222222222222",
+          commandName: "registrar_factura_recibida",
+          commandVersion: 1,
+          fieldPath: "supplierId",
+          originalValue: "old",
+          correctedValue: "new",
+          status: "PENDING_REVIEW",
+          reviewReason: null,
+          reviewedById: null,
+          reviewedAt: null,
+          createdById: "user",
+          createdAt: "2026-10-02T09:00:00Z",
+        },
+      ],
+    });
+  });
+  await page.goto("/compras/propuestas/aprendizaje");
+  await expect(page.getByRole("heading", { name: "Candidatos de aprendizaje" })).toBeVisible();
+  await expect(page.getByText("Aprobar un candidato no cambia reglas fiscales")).toBeVisible();
+  await page.getByLabel("Motivo para supplierId").fill("Useful correction");
+  await page.getByRole("button", { name: "Aprobar" }).click();
+  await expect.poll(() => decisionBody).toEqual({ reason: "Useful correction" });
+});

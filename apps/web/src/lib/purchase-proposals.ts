@@ -80,8 +80,28 @@ export const assignProposalSchema = z.strictObject({
   assignedToId: z.uuid(),
   reason: proposalReasonSchema,
 });
+export const learningCandidateReviewSchema = z.strictObject({
+  reason: proposalReasonSchema,
+});
 export type ProposalPayload = z.infer<typeof proposalPayloadSchema>;
 export type ProposalStatus = "PENDING_REVIEW" | "EXECUTED" | "REJECTED";
+export type LearningCandidateStatus = "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+export interface PurchaseProposalLearningCandidate {
+  id: string;
+  proposalId: string;
+  revisionId: string;
+  commandName: string;
+  commandVersion: number;
+  fieldPath: string;
+  originalValue: unknown;
+  correctedValue: unknown;
+  status: LearningCandidateStatus;
+  reviewReason: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  createdById: string;
+  createdAt: string;
+}
 export interface PurchaseProposalDocument {
   id: string;
   proposalId: string;

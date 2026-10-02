@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createProposalSchema,
   executeProposalSchema,
+  learningCandidateReviewSchema,
   payloadChanges,
   proposalPayloadSchema,
   rejectProposalSchema,
@@ -107,6 +108,14 @@ describe("supervised purchase review", () => {
     ]);
     expect(before).toEqual(payload);
     expect(payloadChanges(payload, structuredClone(payload))).toEqual([]);
+  });
+  it("requires explicit reasons for governed learning decisions", () => {
+    expect(learningCandidateReviewSchema.parse({ reason: "  Useful supplier correction " })).toEqual({ reason: "Useful supplier correction" });
+    for (const reason of ["", "   ", "x".repeat(1001)])
+      expect(learningCandidateReviewSchema.safeParse({ reason }).success).toBe(false);
+    expect(
+      learningCandidateReviewSchema.safeParse({ reason: "Reviewed", applyAutomatically: true }).success,
+    ).toBe(false);
   });
   it("does not describe execution as purchase approval", () => {
     expect(proposalStatusLabel("EXECUTED")).toBe("Borrador creado");

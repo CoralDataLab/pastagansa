@@ -175,7 +175,16 @@ Validación local:
 - No hay aplicación automática, cambios de reglas legales ni inferencias fiscales; el slice solo conserva conocimiento candidato con procedencia y decisión humana.
 - Archivos: migración, Prisma schema, servicios/controlador de propuestas y tests unitarios.
 - Validación: unitarias API específicas, lint API, build API y `prisma validate` con `DATABASE_URL` ficticia correctos.
-- Fuera de alcance: UI de gestión de candidatos y consumo operativo de candidatos aprobados.
+- Fuera de alcance en este slice: UI de gestión de candidatos y consumo operativo de candidatos aprobados.
+
+## 2026-10-02 — UI de candidatos de aprendizaje
+
+- Nueva ruta web `/compras/propuestas/aprendizaje` para listar candidatos pendientes/aprobados/rechazados.
+- Los revisores pueden aprobar o rechazar candidatos con motivo obligatorio desde BFF estricto; la API conserva la autorización real.
+- La bandeja de facturas recibidas enlaza a candidatos para usuarios con `command_proposal.review`.
+- Archivos: rutas BFF `learning-candidates`, página web, contrato `purchase-proposals.ts`, estilos globales y documentación.
+- Validación: unitarias web de contratos de propuestas, lint/build web correctos; gate Chromium mock añadido para decisión de candidato y lint correcto; unitarias/lint/build API y `prisma validate` correctos en el slice anterior.
+- Fuera de alcance: aplicar candidatos aprobados a futuras propuestas.
 
 ## Criterio a partir de ahora
 
