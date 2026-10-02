@@ -225,6 +225,12 @@ Validación local:
 - El resumen se refresca junto con el listado tras aprobar/rechazar candidatos.
 - Validación: lint/build web correctos.
 
+## 2026-10-02 — Deduplicación de candidatos de aprendizaje
+
+- La generación de candidatos omite cambios que ya tienen un candidato pendiente o aprobado con el mismo comando, versión, campo, valor original y valor corregido.
+- Se evita que copiar una sugerencia aprobada y ejecutar una propuesta genere candidatos redundantes para el mismo aprendizaje.
+- Validación: unitarias API del servicio de aprendizaje, lint API y build API correctos.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

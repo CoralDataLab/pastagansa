@@ -71,6 +71,17 @@ export class PurchaseProposalLearningService {
         WHERE r."id" = CAST(${revisionId} AS uuid)
           AND r."organization_id" = CAST(${scope.organizationId} AS uuid)
           AND r."company_id" = CAST(${scope.companyId} AS uuid)
+          AND NOT EXISTS (
+            SELECT 1 FROM "command_learning_candidates" existing
+            WHERE existing."organization_id" = r."organization_id"
+              AND existing."company_id" = r."company_id"
+              AND existing."command_name" = ${REGISTER_PURCHASE_COMMAND}
+              AND existing."command_version" = ${REGISTER_PURCHASE_COMMAND_VERSION}
+              AND existing."field_path" = ${change.path}
+              AND existing."original_value" = CAST(${JSON.stringify(change.before ?? null)} AS jsonb)
+              AND existing."corrected_value" = CAST(${JSON.stringify(change.after ?? null)} AS jsonb)
+              AND existing."status" IN ('PENDING_REVIEW', 'APPROVED')
+          )
         ON CONFLICT ("revision_id", "field_path") DO NOTHING
       `;
     }
