@@ -90,7 +90,9 @@ jobs:
           DATABASE_URL: postgresql://pastagansa_app:ci-staging-app-password@postgres:5432/pastagansa?schema=public
           DIRECT_DATABASE_URL: postgresql://pastagansa_admin:ci-staging-admin-password@postgres:5432/pastagansa?schema=public
           JWT_SECRET: ci-staging-secret-with-at-least-32-characters
-        run: docker compose --env-file .env.staging -f docker-compose.staging.yml down -v
+        run: |
+          touch .env.staging
+          docker compose --env-file .env.staging -f docker-compose.staging.yml down -v
       - name: Verify fresh production install and upgrade drill
         run: |
           cp .env.production.example .env.production
