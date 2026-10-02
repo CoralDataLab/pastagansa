@@ -104,6 +104,42 @@ export class PurchaseProposalLearningService {
     return this.review(id, "REJECTED", input);
   }
 
+  hintsForProposal(proposalId: string) {
+    return this.run(["command_proposal.read"], async () => {
+      const scope = this.scope();
+      const proposal = await this.tenant.db.commandProposal.findFirst({
+        where: { id: proposalId, ...scope },
+        select: { id: true, name: true, version: true, payload: true },
+      });
+      if (!proposal) throw new NotFoundException("Command proposal not found");
+      const rows = await this.tenant.db.$queryRaw<LearningCandidateRow[]>`
+        SELECT "id", "proposal_id", "revision_id", "command_name", "command_version",
+          "field_path", "original_value", "corrected_value", "status", "review_reason",
+          "reviewed_by_id", "reviewed_at", "created_by_id", "created_at"
+        FROM "command_learning_candidates"
+        WHERE "organization_id" = CAST(${scope.organizationId} AS uuid)
+          AND "company_id" = CAST(${scope.companyId} AS uuid)
+          AND "status" = 'APPROVED'
+          AND "command_name" = ${proposal.name}
+          AND "command_version" = ${proposal.version}
+        ORDER BY "reviewed_at" DESC NULLS LAST, "created_at" DESC
+        LIMIT 500
+      `;
+      return rows
+        .filter((row) =>
+          jsonEqual(valueAtPath(proposal.payload, row.field_path), row.original_value),
+        )
+        .slice(0, 50)
+        .map((row) => ({
+          candidate: toCandidate(row),
+          fieldPath: row.field_path,
+          currentValue: row.original_value,
+          suggestedValue: row.corrected_value,
+          reason: row.review_reason,
+        }));
+    });
+  }
+
   private review(
     id: string,
     decision: "APPROVED" | "REJECTED",
@@ -140,6 +176,21 @@ export class PurchaseProposalLearningService {
     if (!companyId) throw new ConflictException("Company context is required");
     return { organizationId, companyId };
   }
+}
+
+function valueAtPath(value: unknown, path: string) {
+  return path.split(".").reduce<unknown>((current, segment) => {
+    if (current === null || current === undefined) return undefined;
+    if (Array.isArray(current) && /^\d+$/.test(segment))
+      return current[Number(segment)];
+    if (typeof current === "object")
+      return (current as Record<string, unknown>)[segment];
+    return undefined;
+  }, value);
+}
+
+function jsonEqual(left: unknown, right: unknown) {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
 function toCandidate(row: LearningCandidateRow) {

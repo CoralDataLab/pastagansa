@@ -15,6 +15,7 @@ import {
   type ProposalPayload,
   type PurchaseProposal,
   type PurchaseProposalAssignee,
+  type PurchaseProposalLearningHint,
   type PurchaseProposalProjection,
 } from "@/lib/purchase-proposals";
 
@@ -232,6 +233,14 @@ function Review({
     queryFn: () =>
       proposalRequest<PurchaseProposalProjection>(
         `/api/purchase-proposals/${proposal.id}/projection`,
+      ),
+    retry: false,
+  });
+  const learningHints = useQuery({
+    queryKey: ["purchase-proposal-learning-hints", companyId, proposal.id],
+    queryFn: () =>
+      proposalRequest<PurchaseProposalLearningHint[]>(
+        `/api/purchase-proposals/${proposal.id}/learning-hints`,
       ),
     retry: false,
   });
@@ -468,6 +477,24 @@ function Review({
           </ul>
         ) : (
           <p>Sin documentos custodiados en esta propuesta.</p>
+        )}
+        <h3>Sugerencias gobernadas</h3>
+        <p>
+          Proceden de correcciones aprobadas previamente y son solo informativas; no se aplican automáticamente.
+        </p>
+        {learningHints.data?.length ? (
+          <ul>
+            {learningHints.data.map((hint) => (
+              <li key={hint.candidate.id}>
+                <strong>{hint.fieldPath}</strong>: {displayProposalValue(hint.currentValue)} → {displayProposalValue(hint.suggestedValue)}
+                {hint.reason ? <small>Motivo: {hint.reason}</small> : null}
+              </li>
+            ))}
+          </ul>
+        ) : learningHints.error ? (
+          <p role="alert">No se pudieron cargar sugerencias gobernadas: {learningHints.error.message}</p>
+        ) : (
+          <p>No hay sugerencias gobernadas aplicables a esta propuesta.</p>
         )}
         <details className="proposal-technical">
           <summary>Historial e información técnica (eventos e integridad)</summary>

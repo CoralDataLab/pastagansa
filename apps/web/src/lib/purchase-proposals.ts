@@ -102,6 +102,13 @@ export interface PurchaseProposalLearningCandidate {
   createdById: string;
   createdAt: string;
 }
+export interface PurchaseProposalLearningHint {
+  candidate: PurchaseProposalLearningCandidate;
+  fieldPath: string;
+  currentValue: unknown;
+  suggestedValue: unknown;
+  reason: string | null;
+}
 export interface PurchaseProposalDocument {
   id: string;
   proposalId: string;

@@ -197,8 +197,11 @@ no enmascara el error de negocio original.
 
 Cada candidato procede de una corrección revisada y conserva campo, valor original,
 valor corregido, propuesta, revisión y actor. Aprobarlo solo registra una decisión
-humana; no cambia reglas fiscales, prompts, OCR ni futuras propuestas. Cualquier uso
-operativo posterior requerirá una política autorizada y pruebas de conformidad.
+humana; no cambia reglas fiscales, prompts, OCR ni futuras propuestas.
+`GET /v1/purchase-command-proposals/:id/learning-hints` expone sugerencias de solo
+lectura cuando un candidato aprobado coincide exactamente con el valor actual de la
+propuesta; el revisor decide si corrige el payload. Cualquier automatización posterior
+requerirá una política autorizada y pruebas de conformidad.
 
 ### Rechazar
 

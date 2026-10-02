@@ -129,6 +129,12 @@ export class PurchaseCommandProposalsController {
     return this.proposals.projection(id);
   }
 
+  @Get(":id/learning-hints")
+  @RequirePermissions("command_proposal.read")
+  learningHints(@Param("id", ParseUUIDPipe) id: string) {
+    return this.learning.hintsForProposal(id);
+  }
+
   @Get(":id")
   @RequirePermissions("command_proposal.read")
   get(@Param("id", ParseUUIDPipe) id: string) {

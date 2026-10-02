@@ -24,6 +24,9 @@ function setup(enabled = true) {
   const db = {
     $executeRaw: jest.fn().mockResolvedValue(1),
     $queryRaw: jest.fn().mockResolvedValue([row]),
+    commandProposal: {
+      findFirst: jest.fn(),
+    },
   };
   const tenant = {
     required: { organizationId: "org", companyId: "company", userId: "reviewer" },
@@ -74,5 +77,24 @@ describe("purchase proposal learning candidates", () => {
       expect.objectContaining({ id: "candidate" }),
     );
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns read-only hints only when approved original values match the proposal", async () => {
+    const { service, db } = setup();
+    db.commandProposal = {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "proposal",
+        name: "registrar_factura_recibida",
+        version: 1,
+        payload: { supplierId: "old", supplierInvoiceNumber: "INV-1" },
+      }),
+    };
+    await expect(service.hintsForProposal("proposal")).resolves.toEqual([
+      expect.objectContaining({
+        fieldPath: "supplierId",
+        currentValue: "old",
+        suggestedValue: "new",
+      }),
+    ]);
   });
 });
