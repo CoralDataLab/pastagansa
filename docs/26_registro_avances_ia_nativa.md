@@ -201,6 +201,12 @@ Validación local:
 - La decisión sigue siendo inmutable y no aplica cambios automáticos.
 - Validación: unitarias API del servicio de aprendizaje, lint API y build API correctos.
 
+## 2026-10-02 — Indicador de candidatos pendientes
+
+- La bandeja de revisión muestra el número de candidatos de aprendizaje pendientes junto al enlace de gestión para revisores.
+- No cambia permisos ni aplicación automática; solo mejora visibilidad operativa.
+- Validación: lint/build web correctos.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

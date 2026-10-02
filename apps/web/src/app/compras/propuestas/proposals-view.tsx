@@ -6,8 +6,10 @@ import { AppShell, type SessionView } from "@/components/app-shell";
 import {
   proposalRequest,
   proposalStatusLabel,
+  type LearningCandidateStatus,
   type ProposalStatus,
   type PurchaseProposal,
+  type PurchaseProposalLearningCandidate,
 } from "@/lib/purchase-proposals";
 
 export function PurchaseProposalsView() {
@@ -30,6 +32,9 @@ export function PurchaseProposalsView() {
     enabled: canRead,
     retry: false,
   });
+  const canReview = !!session.data?.membership.role.permissions.includes(
+    "command_proposal.review",
+  );
   const proposals = useQuery({
     queryKey: ["purchase-proposals", companyId, status],
     queryFn: () =>
@@ -37,6 +42,15 @@ export function PurchaseProposalsView() {
         `/api/purchase-proposals?limit=100${status ? `&status=${status}` : ""}`,
       ),
     enabled: canRead && capability.data?.enabled === true,
+    retry: false,
+  });
+  const pendingLearning = useQuery({
+    queryKey: ["purchase-proposal-learning", companyId, "PENDING_REVIEW" satisfies LearningCandidateStatus],
+    queryFn: () =>
+      proposalRequest<PurchaseProposalLearningCandidate[]>(
+        "/api/purchase-proposals/learning-candidates?status=PENDING_REVIEW",
+      ),
+    enabled: canReview && capability.data?.enabled === true,
     retry: false,
   });
   return (
@@ -59,9 +73,9 @@ export function PurchaseProposalsView() {
               Leer factura desde imagen
             </Link>
           )}
-        {capability.data?.enabled && session.data?.membership.role.permissions.includes("command_proposal.review") && (
+        {capability.data?.enabled && canReview && (
           <Link href="/compras/propuestas/aprendizaje" className="secondary-button">
-            Candidatos de aprendizaje
+            Candidatos de aprendizaje{pendingLearning.data ? ` (${pendingLearning.data.length})` : ""}
           </Link>
         )}
         <Link href="/compras" className="secondary-button">
