@@ -247,6 +247,13 @@ Validación local:
 - Validación: Prisma Client regenerado; unitarias API de intake OCR correctas; lint y build de API y web correctos.
 - Fuera de alcance: OCR PDF, extracción asíncrona persistida, conectores externos y aplicación automática de datos.
 
+## 2026-10-02 — Rollback real del intake OCR y caída por imágenes ilegibles
+
+- Nueva integración `apps/api/test/purchase-proposal-intake.e2e-spec.ts` contra PostgreSQL con rol de aplicación y RLS: vista previa firmada real guardada con documento y evento `command_proposal.ocr_extraction_stored`; vista previa alterada rechazada sin crear filas; fallo inyectado (trigger temporal) en la inserción de la extracción revierte propuesta, documento, eventos y auditoría de la misma petición.
+- Corregido `PurchaseOcrEngine`: tesseract.js 7 relanza los trabajos fallidos desde su listener de mensajes si el worker no tiene `errorHandler`, lo que provocaba una excepción no capturada y la caída del proceso API con una imagen PNG/JPEG que no puede decodificar (p. ej. 1×1). Ahora se registra `errorHandler` y el error «Error attempting to read image» se devuelve como 400. Afecta también a la cola OCR de compras existente en `main`.
+- Validación: unitarias API de compras (53), integración del intake OCR (4) contra PostgreSQL local, `tsc` y lint API correctos; reproducido en local que la imagen 1×1 tumbaba el API antes del cambio y devuelve 400 después.
+- Fuera de alcance: prueba en staging, soporte PDF y ejecución automática de esta integración en CI (solo corre en PR o `main`).
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

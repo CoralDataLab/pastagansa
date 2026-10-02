@@ -1,3 +1,4 @@
+import { BadRequestException } from "@nestjs/common";
 import { createWorker } from "tesseract.js";
 import { PurchaseOcrEngine } from "./purchase-ocr-engine.service";
 
@@ -36,6 +37,20 @@ describe("local OCR engine", () => {
     await expect(engine.recognize(Buffer.from("1"))).rejects.toThrow("failed");
     (createWorker as jest.Mock).mockResolvedValueOnce({ recognize: jest.fn().mockResolvedValue({ data: { text: "ok", confidence: 80 } }), terminate: jest.fn() });
     await expect(engine.recognize(Buffer.from("2"))).resolves.toEqual({ text: "ok", confidence: 80 });
+    await engine.onModuleDestroy();
+  });
+
+  it("reports unreadable images as client errors and keeps the worker usable", async () => {
+    const recognize = jest.fn()
+      .mockRejectedValueOnce("Error: Error attempting to read image.")
+      .mockRejectedValueOnce(new Error("worker crashed"))
+      .mockResolvedValueOnce({ data: { text: "ok", confidence: 80 } });
+    (createWorker as jest.Mock).mockResolvedValueOnce({ recognize, terminate: jest.fn() });
+    const engine = new PurchaseOcrEngine();
+    await expect(engine.recognize(Buffer.from("1"))).rejects.toBeInstanceOf(BadRequestException);
+    await expect(engine.recognize(Buffer.from("2"))).rejects.toThrow("worker crashed");
+    await expect(engine.recognize(Buffer.from("3"))).resolves.toEqual({ text: "ok", confidence: 80 });
+    expect(createWorker).toHaveBeenLastCalledWith("spa", 1, expect.objectContaining({ errorHandler: expect.any(Function) }));
     await engine.onModuleDestroy();
   });
 });

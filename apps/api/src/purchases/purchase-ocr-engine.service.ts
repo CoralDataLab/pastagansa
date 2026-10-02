@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Injectable, OnModuleDestroy, ServiceUnavailableException } from "@nestjs/common";
 import { dirname, join } from "node:path";
 import { createWorker, OEM, Worker } from "tesseract.js";
 
@@ -17,7 +17,12 @@ export class PurchaseOcrEngine implements OnModuleDestroy {
         this.worker = undefined;
         throw error;
       }));
-      const result = await worker.recognize(content);
+      const result = await worker.recognize(content).catch((error: unknown) => {
+        // Tesseract rejects undecodable images (e.g. too small for Leptonica) with this message.
+        if (String(error).includes("Error attempting to read image"))
+          throw new BadRequestException("The image could not be read by OCR");
+        throw error;
+      });
       return { text: result.data.text, confidence: result.data.confidence };
     });
     const tracked = job.finally(() => { this.queued--; });
@@ -37,6 +42,9 @@ export class PurchaseOcrEngine implements OnModuleDestroy {
     return createWorker("spa", OEM.LSTM_ONLY, {
       langPath: join(packageRoot, "4.0.0"),
       cacheMethod: "none",
+      // Without a handler tesseract.js rethrows failed jobs from its message
+      // listener, crashing the process; the job promise already rejects.
+      errorHandler: () => undefined,
     });
   }
 }
