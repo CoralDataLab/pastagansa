@@ -1,4 +1,5 @@
 import { ConfigService } from "@nestjs/config";
+import { AuditService } from "../audit/audit.service";
 import { CommandAuthorizationService } from "../commands/command-authorization.service";
 import { TenantContextService } from "../tenancy/tenant-context.service";
 import { TenantTransactionService } from "../tenancy/tenant-transaction.service";
@@ -36,14 +37,16 @@ function setup(enabled = true) {
     run: jest.fn(async (_: unknown, work: () => Promise<unknown>) => work()),
   };
   const authorization = { require: jest.fn() };
+  const audit = { record: jest.fn() };
   const config = { get: jest.fn().mockReturnValue(enabled ? "true" : "false") };
   const service = new PurchaseProposalLearningService(
     tenant as unknown as TenantContextService,
     transactions as unknown as TenantTransactionService,
     authorization as unknown as CommandAuthorizationService,
+    audit as unknown as AuditService,
     config as unknown as ConfigService,
   );
-  return { service, db, authorization, transactions };
+  return { service, db, authorization, audit, transactions };
 }
 
 describe("purchase proposal learning candidates", () => {
@@ -72,11 +75,17 @@ describe("purchase proposal learning candidates", () => {
   });
 
   it("approves only through an explicit review decision", async () => {
-    const { service, db } = setup();
+    const { service, db, audit } = setup();
     await expect(service.approve("candidate", { reason: "Useful OCR hint" })).resolves.toEqual(
       expect.objectContaining({ id: "candidate" }),
     );
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(audit.record).toHaveBeenCalledWith(
+      "command_learning_candidate.approved",
+      "command_learning_candidate",
+      "candidate",
+      expect.objectContaining({ fieldPath: "supplierId", reason: "Useful OCR hint" }),
+    );
   });
 
   it("returns read-only hints only when approved original values match the proposal", async () => {

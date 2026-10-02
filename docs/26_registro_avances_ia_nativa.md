@@ -195,6 +195,12 @@ Validación local:
 - Validación: unitarias API del servicio de aprendizaje, lint/build API, unitarias web de contrato de propuestas y lint/build web correctos. Tras añadir copia manual: lint/build web correctos.
 - Fuera de alcance: automatización de correcciones a partir de candidatos aprobados.
 
+## 2026-10-02 — Auditoría de decisiones de aprendizaje
+
+- Las aprobaciones y rechazos de candidatos de aprendizaje registran `audit_events` con candidato, propuesta, revisión, campo y motivo.
+- La decisión sigue siendo inmutable y no aplica cambios automáticos.
+- Validación: unitarias API del servicio de aprendizaje, lint API y build API correctos.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

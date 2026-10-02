@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { AuditService } from "../audit/audit.service";
 import { CommandAuthorizationService } from "../commands/command-authorization.service";
 import { TenantContextService } from "../tenancy/tenant-context.service";
 import { TenantTransactionService } from "../tenancy/tenant-transaction.service";
@@ -38,6 +39,7 @@ export class PurchaseProposalLearningService {
     private readonly tenant: TenantContextService,
     private readonly transactions: TenantTransactionService,
     private readonly authorization: CommandAuthorizationService,
+    private readonly audit: AuditService,
     private readonly config: ConfigService,
   ) {}
 
@@ -167,7 +169,21 @@ export class PurchaseProposalLearningService {
       `;
       if (!rows.length)
         throw new ConflictException("Learning candidate is not pending review");
-      return toCandidate(rows[0]);
+      const candidate = toCandidate(rows[0]);
+      await this.audit.record(
+        decision === "APPROVED"
+          ? "command_learning_candidate.approved"
+          : "command_learning_candidate.rejected",
+        "command_learning_candidate",
+        candidate.id,
+        {
+          proposalId: candidate.proposalId,
+          revisionId: candidate.revisionId,
+          fieldPath: candidate.fieldPath,
+          reason: review.reason.trim(),
+        },
+      );
+      return candidate;
     });
   }
 
