@@ -191,7 +191,8 @@ Validación local:
 - Nuevo endpoint `GET /v1/purchase-command-proposals/:id/learning-hints` para devolver candidatos aprobados que coinciden exactamente con valores actuales de una propuesta.
 - Nueva ruta BFF `/api/purchase-proposals/:id/learning-hints` y visualización en el detalle de revisión como sugerencias gobernadas informativas.
 - No aplica cambios en el payload, no modifica reglas fiscales y no altera futuras propuestas de forma automática.
-- Validación: unitarias API del servicio de aprendizaje, lint/build API, unitarias web de contrato de propuestas y lint/build web correctos.
+- La UI permite copiar explícitamente una sugerencia al editor; invalida la confirmación y exige revisión/confirmación antes de ejecutar.
+- Validación: unitarias API del servicio de aprendizaje, lint/build API, unitarias web de contrato de propuestas y lint/build web correctos. Tras añadir copia manual: lint/build web correctos.
 - Fuera de alcance: automatización de correcciones a partir de candidatos aprobados.
 
 ## Criterio a partir de ahora

@@ -108,4 +108,4 @@ real se ejecutaron solo contra PostgreSQL 17 desechable; no se modificaron bases
 
 ## Siguiente entrega
 
-Correcciones por campo, asignación, intentos fallidos persistidos, eventos reconstruibles, proyección materializada, contraste bajo demanda, gestión de candidatos de aprendizaje gobernado y sugerencias de solo lectura quedan implementados. Sigue pendiente cualquier aplicación automática bajo una política autorizada.
+Correcciones por campo, asignación, intentos fallidos persistidos, eventos reconstruibles, proyección materializada, contraste bajo demanda, gestión de candidatos de aprendizaje gobernado y sugerencias reutilizables con copia manual al editor quedan implementados. Sigue pendiente cualquier aplicación automática bajo una política autorizada.
