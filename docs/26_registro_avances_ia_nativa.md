@@ -207,6 +207,12 @@ Validación local:
 - No cambia permisos ni aplicación automática; solo mejora visibilidad operativa.
 - Validación: lint/build web correctos.
 
+## 2026-10-02 — Helper probado para copiar sugerencias
+
+- La copia manual de sugerencias al payload usa `setProposalPayloadPath` compartido en `purchase-proposals.ts`.
+- Se añadió prueba unitaria para cambio anidado sin mutar el payload original ni inventar rutas inexistentes.
+- Validación: unitarias web de propuestas, lint web y build web correctos.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

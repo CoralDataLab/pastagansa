@@ -256,6 +256,27 @@ export function payloadChanges(
 export function displayProposalValue(value: unknown) {
   return value === undefined ? "Sin valor" : JSON.stringify(value);
 }
+export function setProposalPayloadPath(
+  payload: ProposalPayload,
+  path: string,
+  value: unknown,
+): ProposalPayload {
+  const segments = path.split(".").filter(Boolean);
+  if (!segments.length) return payload;
+  const copy = structuredClone(payload) as Record<string, unknown>;
+  let current: unknown = copy;
+  for (const segment of segments.slice(0, -1)) {
+    if (current === null || current === undefined) return payload;
+    current = Array.isArray(current) && /^\d+$/.test(segment)
+      ? current[Number(segment)]
+      : (current as Record<string, unknown>)[segment];
+  }
+  const last = segments.at(-1)!;
+  if (current === null || current === undefined) return payload;
+  if (Array.isArray(current) && /^\d+$/.test(last)) current[Number(last)] = value;
+  else (current as Record<string, unknown>)[last] = value;
+  return copy as ProposalPayload;
+}
 export class ProposalRequestError extends Error {
   constructor(
     message: string,

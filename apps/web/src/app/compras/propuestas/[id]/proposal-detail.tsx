@@ -12,6 +12,7 @@ import {
   proposalRequest,
   proposalStatusLabel,
   rejectProposalSchema,
+  setProposalPayloadPath,
   type ProposalPayload,
   type PurchaseProposal,
   type PurchaseProposalAssignee,
@@ -318,7 +319,7 @@ function Review({
     setConfirmed(false);
     setValidation("");
     mutation.reset();
-    setPayload((current) => setPayloadPath(current, path, value));
+    setPayload((current) => setProposalPayloadPath(current, path, value));
     setNotice("Sugerencia copiada al editor. Revisa y confirma antes de crear el borrador.");
   }
 
@@ -884,24 +885,6 @@ function Review({
     </div>
   );
 }
-function setPayloadPath(payload: ProposalPayload, path: string, value: unknown): ProposalPayload {
-  const segments = path.split(".");
-  if (!segments.length) return payload;
-  const copy = structuredClone(payload) as Record<string, unknown>;
-  let current: unknown = copy;
-  for (const segment of segments.slice(0, -1)) {
-    if (current === null || current === undefined) return payload;
-    current = Array.isArray(current) && /^\d+$/.test(segment)
-      ? current[Number(segment)]
-      : (current as Record<string, unknown>)[segment];
-  }
-  const last = segments.at(-1)!;
-  if (current === null || current === undefined) return payload;
-  if (Array.isArray(current) && /^\d+$/.test(last)) current[Number(last)] = value;
-  else (current as Record<string, unknown>)[last] = value;
-  return copy as ProposalPayload;
-}
-
 function Diff({
   before,
   after,

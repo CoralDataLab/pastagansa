@@ -6,6 +6,7 @@ import {
   payloadChanges,
   proposalPayloadSchema,
   rejectProposalSchema,
+  setProposalPayloadPath,
   proposalStatusLabel,
 } from "./purchase-proposals";
 const payload = {
@@ -108,6 +109,12 @@ describe("supervised purchase review", () => {
     ]);
     expect(before).toEqual(payload);
     expect(payloadChanges(payload, structuredClone(payload))).toEqual([]);
+  });
+  it("copies governed learning hint values by path without mutating the original", () => {
+    const updated = setProposalPayloadPath(payload, "lines.0.deductiblePct", 100);
+    expect(updated.lines[0].deductiblePct).toBe(100);
+    expect(payload.lines[0].deductiblePct).toBe(50);
+    expect(setProposalPayloadPath(payload, "lines.9.description", "Nope")).toBe(payload);
   });
   it("requires explicit reasons for governed learning decisions", () => {
     expect(learningCandidateReviewSchema.parse({ reason: "  Useful supplier correction " })).toEqual({ reason: "Useful supplier correction" });
