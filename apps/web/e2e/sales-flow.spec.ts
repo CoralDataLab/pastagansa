@@ -574,7 +574,9 @@ test("completes a purchase through payment and bank reconciliation", async ({
 
   await page.getByRole("button", { name: "Registrar pago" }).click();
   await expect(page.getByLabel("Importe")).toHaveValue("121.00");
-  await page.getByLabel("Referencia (opcional)").fill("E2E-PAGO-001");
+  await page
+    .getByLabel("Referencia del justificante (obligatoria si pagó el socio)")
+    .fill("E2E-PAGO-001");
   await page.getByRole("button", { name: "Confirmar pago" }).click();
   await expect(page.getByText("E2E-PAGO-001", { exact: true })).toBeVisible();
   await expect(
