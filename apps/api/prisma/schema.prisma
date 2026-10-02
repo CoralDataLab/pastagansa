@@ -1623,6 +1623,7 @@ model User {
   createdLearningCandidates CommandLearningCandidate[] @relation("created_learning_candidates")
   reviewedLearningCandidates CommandLearningCandidate[] @relation("reviewed_learning_candidates")
   proposalDocuments         PurchaseProposalDocument[]
+  proposalOcrExtractions   PurchaseProposalOcrExtraction[]
 
   @@map("users")
 }
@@ -1767,6 +1768,7 @@ model CommandProposal {
   execution      CommandExecution?           @relation(fields: [executionId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
   review         CommandReview?
   documents      PurchaseProposalDocument[]
+  ocrExtractions PurchaseProposalOcrExtraction[]
   revisions      CommandProposalRevision[]
   assignments    CommandProposalAssignment[]
   attempts       CommandProposalAttempt[]
@@ -1794,10 +1796,35 @@ model PurchaseProposalDocument {
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   proposal       CommandProposal @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
   createdBy      User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  ocrExtractions PurchaseProposalOcrExtraction[]
 
   @@unique([proposalId, sha256])
+  @@unique([id, organizationId, companyId])
   @@index([companyId, proposalId, createdAt])
   @@map("purchase_proposal_documents")
+}
+
+model PurchaseProposalOcrExtraction {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  companyId      String          @map("company_id") @db.Uuid
+  proposalId     String          @map("proposal_id") @db.Uuid
+  documentId     String          @map("document_id") @db.Uuid
+  documentSha256 String          @map("document_sha256") @db.Char(64)
+  engine         String          @db.VarChar(120)
+  engineVersion  String          @map("engine_version") @db.VarChar(120)
+  confidence     Decimal         @db.Decimal(5, 2)
+  rawText        String          @map("raw_text")
+  fields         Json            @default("{}")
+  createdById    String          @map("created_by_id") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  proposal       CommandProposal @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  document       PurchaseProposalDocument @relation(fields: [documentId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  createdBy      User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([documentId], map: "purchase_proposal_ocr_extractions_document_idx")
+  @@index([companyId, proposalId, createdAt], map: "purchase_proposal_ocr_extractions_company_proposal_created_idx")
+  @@map("purchase_proposal_ocr_extractions")
 }
 
 model CommandProposalRevision {

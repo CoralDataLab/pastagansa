@@ -13,7 +13,8 @@ const fieldLabels: Record<string, string> = {
   total: "Total", dueDate: "Vencimiento", iban: "IBAN",
 };
 type Preview = {
-  sha256: string; rawText: string; confidence: number;
+  sha256: string; rawText: string; confidence: number; engine: string; engineVersion: string;
+  issuedAt: string; signature: string;
   fields: Record<string, { value: string; confidence: number; evidence: string }>;
 };
 export function PurchaseDocumentIntake() {
@@ -63,6 +64,7 @@ function Intake({ companyId, permissions }: { companyId: string; permissions: st
       lines: [{ description, quantity: 1, unitPrice: Number(base), taxRate: Number(taxRate), deductiblePct: 100 }],
     }, evidence: [], provenance: { channel: "UPLOAD", agentId: "tesseract-spa-local", agentVersion: "1" } });
     const form = new FormData(); form.set("file", file); form.set("proposal", JSON.stringify(input));
+    form.set("ocrPreview", JSON.stringify(preview));
     return proposalRequest<PurchaseProposal>("/api/purchase-proposals/from-document", { method: "POST", body: form });
   }, onSuccess: (proposal) => router.push(`/compras/propuestas/${proposal.id}`) });
   const busy = read.isPending || save.isPending;

@@ -71,12 +71,13 @@ export class PurchaseCommandProposalsController {
   @RequirePermissions("command_proposal.create", "command_proposal.read")
   fromDocument(
     @Body("proposal") raw: string,
+    @Body("ocrPreview") rawOcrPreview: string | undefined,
     @UploadedFile() file: UploadedPurchaseAttachment | undefined,
   ) {
     let input: CreatePurchaseCommandProposalDto;
     try { input = JSON.parse(raw) as CreatePurchaseCommandProposalDto; }
     catch { throw new BadRequestException("A valid proposal JSON field is required"); }
-    return this.intake.create(input, file);
+    return this.intake.create(input, file, rawOcrPreview);
   }
 
   @Post()

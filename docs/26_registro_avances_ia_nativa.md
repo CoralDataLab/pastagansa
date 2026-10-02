@@ -237,6 +237,16 @@ Validación local:
 - La proyección materializada actualiza último hash/secuencia, pero no cambia estado ni contadores operativos de la propuesta.
 - Validación: unitarias API del servicio de aprendizaje, lint API y build API correctos.
 
+## 2026-10-02 — Persistencia de extracción OCR en propuestas
+
+- Nueva migración `202610020003_purchase_proposal_ocr_extractions` con tabla tenant-scoped e inmutable para texto bruto, campos, confianza, motor y versión del OCR vinculado al documento custodiado.
+- `ocr-preview` firma su resultado con HMAC-SHA256 (clave derivada de `JWT_SECRET` con separación de dominio) sobre organización, empresa, usuario, SHA-256, motor, versión, confianza, texto, campos e instante de emisión; `from-document` solo guarda la extracción si la firma es válida, no ha caducado (24 h) y el SHA-256 coincide con el archivo subido. El cliente ya no puede fabricar texto ni confianza custodiados.
+- La confianza se redondea a 2 decimales antes de firmar para que firma, fila y evento coincidan.
+- La persistencia de la extracción añade el evento `command_proposal.ocr_extraction_stored` a la cadena de la propuesta con identificador, documento, hash, motor, versión y confianza.
+- El detalle de revisión muestra la extracción custodiada junto al documento original, sin convertirla en validación fiscal ni aprobación automática.
+- Validación: Prisma Client regenerado; unitarias API de intake OCR correctas; lint y build de API y web correctos.
+- Fuera de alcance: OCR PDF, extracción asíncrona persistida, conectores externos y aplicación automática de datos.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

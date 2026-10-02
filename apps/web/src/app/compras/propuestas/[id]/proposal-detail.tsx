@@ -487,6 +487,19 @@ function Review({
         ) : (
           <p>Sin documentos custodiados en esta propuesta.</p>
         )}
+        {proposal.ocrExtractions?.length ? (
+          <details className="proposal-technical">
+            <summary>Extracción OCR custodiada</summary>
+            {proposal.ocrExtractions.map((extraction) => (
+              <div key={extraction.id}>
+                <p>
+                  Motor: {extraction.engine} {extraction.engineVersion} · Confianza: {Number(extraction.confidence).toFixed(1)} % · Documento {extraction.documentSha256}
+                </p>
+                <pre className="proposal-json">{extraction.rawText || "Sin texto reconocido."}</pre>
+              </div>
+            ))}
+          </details>
+        ) : null}
         <h3>Sugerencias gobernadas</h3>
         <p>
           Proceden de correcciones aprobadas previamente y son solo informativas; no se aplican automáticamente.

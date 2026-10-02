@@ -20,6 +20,13 @@ export async function forwardProposalIntake(request: Request, action: "ocr-previ
     if (!parsed.success)
       return NextResponse.json({ error: "Revisa proveedor, fechas y datos de factura." }, { status: 400 });
     body.set("proposal", JSON.stringify(parsed.data));
+    const ocrPreview = form.get("ocrPreview");
+    if (ocrPreview !== null) {
+      // Matches the API multipart fieldSize; the signed preview must arrive intact or not at all.
+      if (typeof ocrPreview !== "string" || new TextEncoder().encode(ocrPreview).length > 1024 * 1024)
+        return NextResponse.json({ error: "La lectura OCR no es válida; vuelve a leer la imagen." }, { status: 400 });
+      body.set("ocrPreview", ocrPreview);
+    }
   }
   return forwardPurchaseProposal(`/${action}`, { method: "POST", body });
 }

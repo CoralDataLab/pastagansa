@@ -11,7 +11,9 @@ test("reads locally, requires review, and uploads original with confirmed data",
   await fixtures(page, ["command_proposal.create", "command_proposal.read", "purchase_invoice.ocr"]);
   let saved = false;
   await page.route("**/api/purchase-proposals/ocr-preview", route => route.fulfill({ json: {
-    sha256: "a".repeat(64), confidence: 90, rawText: "FACTURA F-123 BASE 100,00", fields: {
+    sha256: "a".repeat(64), engine: "tesseract-spa-local", engineVersion: "1",
+    issuedAt: "2026-10-02T09:00:00.000Z", signature: "b".repeat(64),
+    confidence: 90, rawText: "FACTURA F-123 BASE 100,00", fields: {
       invoiceNumber: { value: "F-123", confidence: 90, evidence: "FACTURA F-123" },
       issueDate: { value: "2026-10-01", confidence: 90, evidence: "FECHA 01/10/2026" },
       taxableBase: { value: "100.00", confidence: 90, evidence: "BASE 100,00" },
@@ -22,6 +24,8 @@ test("reads locally, requires review, and uploads original with confirmed data",
     expect(body).toContain('filename="invoice.png"');
     expect(body).toContain('"supplierInvoiceNumber":"F-123"');
     expect(body).toContain('"taxRate":21');
+    expect(body).toContain('name="ocrPreview"');
+    expect(body).toContain(`"signature":"${"b".repeat(64)}"`);
     saved = true;
     return route.fulfill({ json: { id: "saved-proposal" } });
   });

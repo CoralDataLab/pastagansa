@@ -124,6 +124,19 @@ export interface PurchaseProposalDocument {
   createdById: string;
   createdAt: string;
 }
+export interface PurchaseProposalOcrExtraction {
+  id: string;
+  proposalId: string;
+  documentId: string;
+  documentSha256: string;
+  engine: string;
+  engineVersion: string;
+  confidence: number | string;
+  rawText: string;
+  fields: Record<string, unknown>;
+  createdById: string;
+  createdAt: string;
+}
 export interface PurchaseProposalAssignee {
   id: string;
   email: string;
@@ -206,6 +219,7 @@ export interface PurchaseProposal {
   evidence: Array<{ reference: string; description?: string; sha256?: string }>;
   provenance: { channel: string; agentId?: string; agentVersion?: string };
   documents?: PurchaseProposalDocument[];
+  ocrExtractions?: PurchaseProposalOcrExtraction[];
   revisions?: PurchaseProposalRevision[];
   assignments?: PurchaseProposalAssignment[];
   attempts?: PurchaseProposalAttempt[];

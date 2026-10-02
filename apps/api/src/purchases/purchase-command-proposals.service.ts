@@ -622,6 +622,22 @@ export class PurchaseCommandProposalsService {
           select: proposalDocumentMetadata,
           orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         },
+        ocrExtractions: {
+          select: {
+            id: true,
+            proposalId: true,
+            documentId: true,
+            documentSha256: true,
+            engine: true,
+            engineVersion: true,
+            confidence: true,
+            rawText: true,
+            fields: true,
+            createdById: true,
+            createdAt: true,
+          },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        },
       },
     });
     if (!proposal) throw new NotFoundException("Command proposal not found");
