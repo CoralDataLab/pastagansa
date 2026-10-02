@@ -191,6 +191,7 @@ no enmascara el error de negocio original.
 
 ### Candidatos de aprendizaje gobernado
 
+- `GET /v1/purchase-command-proposals/learning-candidates/summary`
 - `GET /v1/purchase-command-proposals/learning-candidates?status=PENDING_REVIEW`
 - `POST /v1/purchase-command-proposals/learning-candidates/:candidateId/approve`
 - `POST /v1/purchase-command-proposals/learning-candidates/:candidateId/reject`

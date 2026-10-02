@@ -102,6 +102,11 @@ export interface PurchaseProposalLearningCandidate {
   createdById: string;
   createdAt: string;
 }
+export interface PurchaseProposalLearningSummary {
+  pendingReview: number;
+  approved: number;
+  rejected: number;
+}
 export interface PurchaseProposalLearningHint {
   candidate: PurchaseProposalLearningCandidate;
   fieldPath: string;

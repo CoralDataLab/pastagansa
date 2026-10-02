@@ -74,6 +74,19 @@ describe("purchase proposal learning candidates", () => {
     expect(authorization.require).toHaveBeenCalledWith(["command_proposal.review"]);
   });
 
+  it("summarizes candidate counts by review status", async () => {
+    const { service, db } = setup();
+    db.$queryRaw.mockResolvedValueOnce([
+      { status: "PENDING_REVIEW", count: 2n },
+      { status: "APPROVED", count: 1n },
+    ]);
+    await expect(service.summary()).resolves.toEqual({
+      pendingReview: 2,
+      approved: 1,
+      rejected: 0,
+    });
+  });
+
   it("approves only through an explicit review decision", async () => {
     const { service, db, audit } = setup();
     await expect(service.approve("candidate", { reason: "Useful OCR hint" })).resolves.toEqual(

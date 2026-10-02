@@ -76,6 +76,29 @@ export class PurchaseProposalLearningService {
     }
   }
 
+  summary() {
+    return this.run(["command_proposal.review"], async () => {
+      const scope = this.scope();
+      const rows = await this.tenant.db.$queryRaw<
+        Array<{ status: string; count: bigint | number }>
+      >`
+        SELECT "status", count(*) AS "count"
+        FROM "command_learning_candidates"
+        WHERE "organization_id" = CAST(${scope.organizationId} AS uuid)
+          AND "company_id" = CAST(${scope.companyId} AS uuid)
+        GROUP BY "status"
+      `;
+      const counts = { pendingReview: 0, approved: 0, rejected: 0 };
+      for (const row of rows) {
+        const count = Number(row.count);
+        if (row.status === "PENDING_REVIEW") counts.pendingReview = count;
+        if (row.status === "APPROVED") counts.approved = count;
+        if (row.status === "REJECTED") counts.rejected = count;
+      }
+      return counts;
+    });
+  }
+
   list(query: ListPurchaseProposalLearningCandidatesDto) {
     return this.run(["command_proposal.review"], async () => {
       const input = await validateCommandInput(

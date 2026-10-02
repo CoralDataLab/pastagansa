@@ -213,6 +213,12 @@ Validación local:
 - Se añadió prueba unitaria para cambio anidado sin mutar el payload original ni inventar rutas inexistentes.
 - Validación: unitarias web de propuestas, lint web y build web correctos.
 
+## 2026-10-02 — Resumen de candidatos de aprendizaje
+
+- Nuevo endpoint `GET /v1/purchase-command-proposals/learning-candidates/summary` con recuentos por estado para revisores.
+- Nueva ruta BFF equivalente y uso en la bandeja para mostrar pendientes sin depender del listado limitado a 100.
+- Validación: unitarias API del servicio de aprendizaje, lint/build API y lint/build web correctos.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

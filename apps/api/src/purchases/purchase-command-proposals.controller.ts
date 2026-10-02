@@ -97,6 +97,12 @@ export class PurchaseCommandProposalsController {
     return this.proposals.assignees();
   }
 
+  @Get("learning-candidates/summary")
+  @RequirePermissions("command_proposal.review")
+  learningCandidateSummary() {
+    return this.learning.summary();
+  }
+
   @Get("learning-candidates")
   @RequirePermissions("command_proposal.review")
   learningCandidates(@Query() query: ListPurchaseProposalLearningCandidatesDto) {
