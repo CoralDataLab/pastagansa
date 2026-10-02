@@ -7,6 +7,7 @@ import { CommandAuthorizationService } from "../commands/command-authorization.s
 import { TenantContextService } from "../tenancy/tenant-context.service";
 import { TenantTransactionService } from "../tenancy/tenant-transaction.service";
 import { detectMediaType, normalizeMediaType, sanitizeFilename, MAX_PURCHASE_ATTACHMENT_BYTES, type UploadedPurchaseAttachment } from "./purchase-attachments.service";
+import { PurchaseCommandProposalEventsService } from "./purchase-command-proposal-events.service";
 
 export const proposalDocumentMetadata = {
   id: true, proposalId: true, originalName: true, mediaType: true, sizeBytes: true,
@@ -29,7 +30,8 @@ export function validateProposalDocument(file: UploadedPurchaseAttachment | unde
 @Injectable()
 export class PurchaseProposalDocumentsService {
   constructor(private readonly tenant: TenantContextService, private readonly transactions: TenantTransactionService,
-    private readonly authorization: CommandAuthorizationService, private readonly audit: AuditService, private readonly config: ConfigService) {}
+    private readonly authorization: CommandAuthorizationService, private readonly events: PurchaseCommandProposalEventsService,
+    private readonly audit: AuditService, private readonly config: ConfigService) {}
   private run<T>(permissions: string[], work: () => Promise<T>) {
     if (this.config.get<string>("AI_NATIVE_ENABLED") !== "true") throw new NotFoundException("Command proposal pilot is disabled");
     return this.transactions.run(this.tenant.required, async () => { await this.authorization.require(permissions); return work(); });
@@ -58,6 +60,12 @@ export class PurchaseProposalDocumentsService {
       const document = await this.tenant.db.purchaseProposalDocument.create({ data: {
         ...scope, proposalId, ...validated, sizeBytes: file!.size, content: file!.buffer, createdById: this.tenant.required.userId,
       }, select: proposalDocumentMetadata });
+      await this.events.record(proposalId, "command_proposal.document_uploaded", {
+        documentId: document.id,
+        sha256: validated.sha256,
+        mediaType: validated.mediaType,
+        sizeBytes: file!.size,
+      });
       await this.audit.record("command_proposal.document_uploaded", "purchase_proposal_document", document.id,
         { proposalId, sha256: validated.sha256, mediaType: validated.mediaType, sizeBytes: file!.size });
       return document;

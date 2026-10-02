@@ -485,7 +485,14 @@ function Review({
               Proyectado: {projection.data.projected.status} · Asignado: {" "}
               {projection.data.projected.currentAssigneeId ?? "Sin asignar"} · {" "}
               Correcciones: {projection.data.projected.correctionCount} · {" "}
+              Documentos: {projection.data.projected.documentCount} · {" "}
               Intentos fallidos: {projection.data.projected.failedAttemptCount}
+            </p>
+            <p>
+              Proyección materializada: {projection.data.materialized ? "disponible" : "no disponible"}
+              {projection.data.materialized
+                ? ` · secuencia ${projection.data.materialized.lastEventSequence}`
+                : ""}
             </p>
             {projection.data.discrepancies.length > 0 && (
               <ul>

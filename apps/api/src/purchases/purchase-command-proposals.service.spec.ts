@@ -7,6 +7,8 @@ import { commandHash } from "../commands/command-json";
 import { validateCommandInput } from "../commands/validate-command-input";
 import { RegisterPurchaseCommandService } from "./register-purchase-command.service";
 import { PurchaseCommandProposalsService } from "./purchase-command-proposals.service";
+import { PurchaseCommandProposalEventsService } from "./purchase-command-proposal-events.service";
+import { PurchaseProposalLearningService } from "./purchase-proposal-learning.service";
 import { CreatePurchaseCommandProposalDto } from "./dto/purchase-command-proposal.dto";
 
 const payload = {
@@ -87,6 +89,8 @@ function setup(enabled = true) {
   const transactions = {
     run: jest.fn(async (_: unknown, work: () => Promise<unknown>) => work()),
   };
+  const events = { record: jest.fn() };
+  const learning = { recordFromRevision: jest.fn() };
   const audit = { record: jest.fn() };
   const config = { get: jest.fn().mockReturnValue(enabled ? "true" : "false") };
   const service = new PurchaseCommandProposalsService(
@@ -94,6 +98,8 @@ function setup(enabled = true) {
     transactions as unknown as TenantTransactionService,
     authorization as unknown as CommandAuthorizationService,
     commands as unknown as RegisterPurchaseCommandService,
+    events as unknown as PurchaseCommandProposalEventsService,
+    learning as unknown as PurchaseProposalLearningService,
     audit as unknown as AuditService,
     config as unknown as ConfigService,
   );
@@ -181,6 +187,18 @@ describe("supervised purchase proposals", () => {
       payloadHash,
       previousEventHash: null,
     });
+    db.$queryRaw.mockResolvedValueOnce([
+      {
+        status: "PENDING_REVIEW",
+        current_assignee_id: null,
+        correction_count: 0,
+        failed_attempt_count: 0,
+        document_count: 0,
+        execution_id: null,
+        last_event_sequence: 1,
+        last_event_hash: eventHash,
+      },
+    ]);
     db.commandProposal.findFirst.mockResolvedValueOnce({
       ...original,
       events: [
@@ -200,6 +218,7 @@ describe("supervised purchase proposals", () => {
       assignments: [],
       attempts: [],
       revisions: [],
+      documents: [],
       executionId: null,
     });
     await expect(service.projection("proposal")).resolves.toMatchObject({

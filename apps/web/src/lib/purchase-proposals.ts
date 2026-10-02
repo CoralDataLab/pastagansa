@@ -111,6 +111,7 @@ export interface PurchaseProposalProjectionState {
   currentAssigneeId: string | null;
   correctionCount: number;
   failedAttemptCount: number;
+  documentCount: number;
   executionId: string | null;
 }
 export interface PurchaseProposalProjection {
@@ -119,8 +120,11 @@ export interface PurchaseProposalProjection {
   matchesCurrentState: boolean;
   discrepancies: string[];
   projected: PurchaseProposalProjectionState;
+  materialized: (PurchaseProposalProjectionState & {
+    lastEventSequence: number;
+    lastEventHash: string;
+  }) | null;
   actual: PurchaseProposalProjectionState & {
-    documentCount: number;
     reviewDecision: "EXECUTE" | "REJECT" | null;
     terminal: boolean;
   };

@@ -69,7 +69,8 @@ Tenant selection headers (`x-organization-id`, `x-company-id`) are never authori
 `registrar_factura_recibida` command handler and optionally accepts `Idempotency-Key`.
 `/v1/purchase-command-proposals` provides a proposal/review API with distinct permissions,
 immutable original proposals, corrected review payloads and successful execution receipts.
-Execution creates only a draft; purchase approval remains a separate operation.
+Corrected proposals can create governed learning candidates that require explicit
+approval/rejection and are never applied automatically. Execution creates only a draft; purchase approval remains a separate operation.
 Apply `202610010001_command_foundation` before enabling. No LLM or event sourcing is
 introduced. See [pilot contract and activation](../../docs/24_base_comandos_ia_nativa.md).
 The frontend inbox at `/compras/propuestas` supports original/corrected comparisons,

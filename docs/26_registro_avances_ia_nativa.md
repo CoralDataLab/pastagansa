@@ -149,6 +149,34 @@ Validación local:
 - Límites funcionales: PNG/JPEG, extracción bruta transitoria, línea inicial EUR/cantidad 1/deducción 100 % corregible en revisión. Sin PDF, desglose automático, decisiones fiscales, proveedor automático ni aprobación autónoma.
 - Sin cambios de esquema ni migraciones; no requiere proveedor externo ni credenciales OCR.
 
+## 2026-10-02 — Documentos custodiados en cadena de eventos
+
+- La escritura de eventos de propuestas queda centralizada en `PurchaseCommandProposalEventsService` para reutilizarla desde varios adaptadores internos.
+- Las subidas nuevas de documentos custodiados emiten `command_proposal.document_uploaded` con documento, hash, tipo y tamaño.
+- La proyección operativa incorpora y contrasta el recuento de documentos reconstruido desde la cadena frente a las tablas actuales.
+- Archivos: servicios de propuestas/documentos, módulo de compras y documentación de base.
+- Validación: unitarias API específicas de propuestas y documentos correctas: `npm test --workspace=@pastagansa/api -- purchase-command-proposals.service.spec.ts purchase-proposal-documents.service.spec.ts --runInBand`; builds API y web correctos.
+- Fuera de alcance: migración retroactiva de eventos para documentos ya existentes.
+
+## 2026-10-02 — Proyección materializada de propuestas
+
+- Nueva migración `202610020001_command_proposal_projections` con tabla `command_proposal_projections`, RLS, aislamiento por empresa, FK tenant y backfill desde propuestas/eventos existentes.
+- Cada evento nuevo actualiza la proyección materializada con estado, asignación actual, contadores, ejecución y último hash/secuencia.
+- El endpoint de proyección sigue reconstruyendo desde la cadena y ahora contrasta también contra la proyección materializada.
+- La bandeja muestra disponibilidad y secuencia de la proyección materializada.
+- Validación: unitarias API específicas de propuestas/documentos, lint y builds API/web, y `prisma validate` con `DATABASE_URL` ficticia correctos.
+- Fuera de alcance: usar la proyección materializada como fuente de verdad o replay operativo; las tablas de negocio y la cadena siguen siendo las referencias de contraste.
+
+## 2026-10-02 — Candidatos de aprendizaje gobernado
+
+- Nueva migración `202610020002_command_learning_candidates` con tabla `command_learning_candidates`, estado pendiente/aprobado/rechazado, RLS e inmutabilidad de decisiones.
+- Al ejecutar una propuesta corregida se crean candidatos por campo corregido con valor original, valor corregido, propuesta, revisión, comando y actor.
+- Endpoints API para listar candidatos y aprobar/rechazar explícitamente bajo `command_proposal.review`.
+- No hay aplicación automática, cambios de reglas legales ni inferencias fiscales; el slice solo conserva conocimiento candidato con procedencia y decisión humana.
+- Archivos: migración, Prisma schema, servicios/controlador de propuestas y tests unitarios.
+- Validación: unitarias API específicas, lint API, build API y `prisma validate` con `DATABASE_URL` ficticia correctos.
+- Fuera de alcance: UI de gestión de candidatos y consumo operativo de candidatos aprobados.
+
 ## Criterio a partir de ahora
 
 Para cada avance nuevo:

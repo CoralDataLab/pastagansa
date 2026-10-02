@@ -22,6 +22,8 @@ import {
   RejectPurchaseCommandProposalDto,
 } from "./dto/purchase-command-proposal.dto";
 import { proposalDocumentMetadata, proposalDocumentEvidence } from "./purchase-proposal-documents.service";
+import { PurchaseCommandProposalEventsService } from "./purchase-command-proposal-events.service";
+import { PurchaseProposalLearningService } from "./purchase-proposal-learning.service";
 import { CreatePurchaseInvoiceDto } from "./dto/purchase-invoice.dto";
 import {
   REGISTER_PURCHASE_COMMAND,
@@ -80,6 +82,8 @@ export class PurchaseCommandProposalsService {
     private readonly transactions: TenantTransactionService,
     private readonly authorization: CommandAuthorizationService,
     private readonly commands: RegisterPurchaseCommandService,
+    private readonly events: PurchaseCommandProposalEventsService,
+    private readonly learning: PurchaseProposalLearningService,
     private readonly audit: AuditService,
     private readonly config: ConfigService,
   ) {}
@@ -138,7 +142,7 @@ export class PurchaseCommandProposalsService {
           proposedById: this.tenant.required.userId,
         },
       });
-      await this.recordEvent(proposal.id, "command_proposal.created", {
+      await this.events.record(proposal.id, "command_proposal.created", {
         commandId: proposal.commandId,
         name: proposal.name,
         version: proposal.version,
@@ -198,6 +202,7 @@ export class PurchaseCommandProposalsService {
         currentAssigneeId: null as string | null,
         correctionCount: 0,
         failedAttemptCount: 0,
+        documentCount: 0,
         executionId: null as string | null,
       };
       for (const event of events) {
@@ -223,6 +228,8 @@ export class PurchaseCommandProposalsService {
           projected.correctionCount += 1;
         if (event.type === "command_proposal.execution_failed")
           projected.failedAttemptCount += 1;
+        if (event.type === "command_proposal.document_uploaded")
+          projected.documentCount += 1;
         if (event.type === "command_proposal.executed") {
           projected.status = "EXECUTED";
           projected.executionId = String(payload.executionId ?? "") || null;
@@ -241,6 +248,67 @@ export class PurchaseCommandProposalsService {
         reviewDecision: proposal.review?.decision ?? null,
         terminal: proposal.status !== "PENDING_REVIEW",
       };
+      const [materializedRow] = await this.tenant.db.$queryRaw<
+        Array<{
+          status: string;
+          current_assignee_id: string | null;
+          correction_count: number;
+          failed_attempt_count: number;
+          document_count: number;
+          execution_id: string | null;
+          last_event_sequence: number;
+          last_event_hash: string;
+        }>
+      >`
+        SELECT "status", "current_assignee_id", "correction_count",
+          "failed_attempt_count", "document_count", "execution_id",
+          "last_event_sequence", "last_event_hash"
+        FROM "command_proposal_projections"
+        WHERE "proposal_id" = CAST(${id} AS uuid)
+          AND "organization_id" = CAST(${this.scope().organizationId} AS uuid)
+          AND "company_id" = CAST(${this.scope().companyId} AS uuid)
+      `;
+      const materialized = materializedRow
+        ? {
+            status: materializedRow.status,
+            currentAssigneeId: materializedRow.current_assignee_id,
+            correctionCount: materializedRow.correction_count,
+            failedAttemptCount: materializedRow.failed_attempt_count,
+            documentCount: materializedRow.document_count,
+            executionId: materializedRow.execution_id,
+            lastEventSequence: materializedRow.last_event_sequence,
+            lastEventHash: materializedRow.last_event_hash,
+          }
+        : null;
+      const lastEvent = events.at(-1);
+      const materializedDiscrepancies = materialized
+        ? [
+            materialized.status === projected.status
+              ? null
+              : `materialized status: ${materialized.status}, projected ${projected.status}`,
+            materialized.currentAssigneeId === projected.currentAssigneeId
+              ? null
+              : `materialized assignee: ${materialized.currentAssigneeId ?? "none"}, projected ${projected.currentAssigneeId ?? "none"}`,
+            materialized.correctionCount === projected.correctionCount
+              ? null
+              : `materialized corrections: ${materialized.correctionCount}, projected ${projected.correctionCount}`,
+            materialized.failedAttemptCount === projected.failedAttemptCount
+              ? null
+              : `materialized failed attempts: ${materialized.failedAttemptCount}, projected ${projected.failedAttemptCount}`,
+            materialized.documentCount === projected.documentCount
+              ? null
+              : `materialized documents: ${materialized.documentCount}, projected ${projected.documentCount}`,
+            materialized.executionId === projected.executionId
+              ? null
+              : `materialized execution: ${materialized.executionId ?? "none"}, projected ${projected.executionId ?? "none"}`,
+            materialized.lastEventSequence === lastEvent?.sequence
+              ? null
+              : `materialized sequence: ${materialized.lastEventSequence}, last event ${lastEvent?.sequence ?? "none"}`,
+            materialized.lastEventHash === previousEventHash
+              ? null
+              : `materialized hash: ${materialized.lastEventHash}, last event ${previousEventHash ?? "none"}`,
+          ]
+        : ["materialized projection: missing"];
       const discrepancies = [
         projected.status === actual.status
           ? null
@@ -257,12 +325,17 @@ export class PurchaseCommandProposalsService {
         projected.executionId === actual.executionId
           ? null
           : `execution: projected ${projected.executionId ?? "none"}, actual ${actual.executionId ?? "none"}`,
+        projected.documentCount === actual.documentCount
+          ? null
+          : `documents: projected ${projected.documentCount}, actual ${actual.documentCount}`,
+        ...materializedDiscrepancies,
       ].filter((item): item is string => item !== null);
       return {
         chainValid,
         eventCount: events.length,
         projected,
         actual,
+        materialized,
         discrepancies,
         matchesCurrentState: chainValid && discrepancies.length === 0,
       };
@@ -351,10 +424,12 @@ export class PurchaseCommandProposalsService {
               createdById: this.tenant.required.userId,
             },
           });
-          await this.recordEvent(id, "command_proposal.corrected", {
+          const changes = payloadChanges(originalPayload, payload);
+          await this.events.record(id, "command_proposal.corrected", {
             revisionId: revision.id,
-            changes: payloadChanges(originalPayload, payload),
+            changes,
           });
+          await this.learning.recordFromRevision(revision.id, changes);
         }
         await this.tenant.db.commandReview.create({
           data: {
@@ -370,7 +445,7 @@ export class PurchaseCommandProposalsService {
           where: { id },
           data: { status: "EXECUTED", executionId: receipt.execution.id },
         });
-        await this.recordEvent(id, "command_proposal.executed", {
+        await this.events.record(id, "command_proposal.executed", {
           executionId: receipt.execution.id,
           corrected,
         });
@@ -423,7 +498,7 @@ export class PurchaseCommandProposalsService {
             attemptedById: this.tenant.required.userId,
           },
         });
-        await this.recordEvent(id, "command_proposal.execution_failed", {
+        await this.events.record(id, "command_proposal.execution_failed", {
           attemptId: attempt.id,
           errorCode: errorCode(error),
         });
@@ -467,7 +542,7 @@ export class PurchaseCommandProposalsService {
           reason: assignment.reason.trim(),
         },
       });
-      await this.recordEvent(id, "command_proposal.assigned", {
+      await this.events.record(id, "command_proposal.assigned", {
         assignmentId: created.id,
         assignedToId: assignment.assignedToId,
       });
@@ -509,7 +584,7 @@ export class PurchaseCommandProposalsService {
         where: { id },
         data: { status: "REJECTED" },
       });
-      await this.recordEvent(id, "command_proposal.rejected", { reason });
+      await this.events.record(id, "command_proposal.rejected", { reason });
       await this.audit.record(
         "command_proposal.rejected",
         "command_proposal",
@@ -553,49 +628,6 @@ export class PurchaseCommandProposalsService {
     return proposal;
   }
 
-  private async recordEvent(id: string, type: string, payload: unknown) {
-    const scope = this.scope();
-    await this.tenant.db.$queryRaw`
-      SELECT pg_advisory_xact_lock(hashtextextended(${`proposal-events:${scope.companyId}:${id}`}, 0))::text
-    `;
-    const [last] = await this.tenant.db.$queryRaw<
-      Array<{ sequence: number; event_hash: string }>
-    >`
-      SELECT "sequence", "event_hash" FROM "command_proposal_events"
-      WHERE "proposal_id" = CAST(${id} AS uuid)
-        AND "organization_id" = CAST(${scope.organizationId} AS uuid)
-        AND "company_id" = CAST(${scope.companyId} AS uuid)
-      ORDER BY "sequence" DESC
-      LIMIT 1
-      FOR UPDATE
-    `;
-    const previousEventHash =
-      typeof last?.event_hash === "string" ? last.event_hash : null;
-    const sequence = typeof last?.sequence === "number" ? last.sequence + 1 : 1;
-    const normalizedPayload = commandJson(payload);
-    const payloadHash = commandHash(normalizedPayload);
-    const eventHash = commandHash({
-      proposalId: id,
-      sequence,
-      type,
-      payload: normalizedPayload,
-      payloadHash,
-      previousEventHash,
-    });
-    await this.tenant.db.commandProposalEvent.create({
-      data: {
-        ...scope,
-        proposalId: id,
-        sequence,
-        type,
-        payload: normalizedPayload,
-        payloadHash,
-        previousEventHash,
-        eventHash,
-        actorUserId: this.tenant.required.userId,
-      },
-    });
-  }
 
   private scope() {
     const { organizationId, companyId } = this.tenant.required;

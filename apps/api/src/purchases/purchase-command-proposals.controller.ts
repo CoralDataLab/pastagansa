@@ -30,6 +30,11 @@ import {
 } from "./purchase-attachments.service";
 import { PurchaseProposalDocumentsService } from "./purchase-proposal-documents.service";
 import { PurchaseProposalIntakeService } from "./purchase-proposal-intake.service";
+import { PurchaseProposalLearningService } from "./purchase-proposal-learning.service";
+import {
+  ListPurchaseProposalLearningCandidatesDto,
+  ReviewPurchaseProposalLearningCandidateDto,
+} from "./dto/purchase-proposal-learning.dto";
 import { LongTenantTransaction } from "../tenancy/long-tenant-transaction.decorator";
 
 @Controller("purchase-command-proposals")
@@ -40,6 +45,7 @@ export class PurchaseCommandProposalsController {
     private readonly documents: PurchaseProposalDocumentsService,
     private readonly config: ConfigService,
     private readonly intake: PurchaseProposalIntakeService,
+    private readonly learning: PurchaseProposalLearningService,
   ) {}
 
   @Get("capabilities")
@@ -89,6 +95,32 @@ export class PurchaseCommandProposalsController {
   @RequirePermissions("command_proposal.review")
   assignees() {
     return this.proposals.assignees();
+  }
+
+  @Get("learning-candidates")
+  @RequirePermissions("command_proposal.review")
+  learningCandidates(@Query() query: ListPurchaseProposalLearningCandidatesDto) {
+    return this.learning.list(query);
+  }
+
+  @Post("learning-candidates/:candidateId/approve")
+  @HttpCode(200)
+  @RequirePermissions("command_proposal.review")
+  approveLearningCandidate(
+    @Param("candidateId", ParseUUIDPipe) candidateId: string,
+    @Body() input: ReviewPurchaseProposalLearningCandidateDto,
+  ) {
+    return this.learning.approve(candidateId, input);
+  }
+
+  @Post("learning-candidates/:candidateId/reject")
+  @HttpCode(200)
+  @RequirePermissions("command_proposal.review")
+  rejectLearningCandidate(
+    @Param("candidateId", ParseUUIDPipe) candidateId: string,
+    @Body() input: ReviewPurchaseProposalLearningCandidateDto,
+  ) {
+    return this.learning.reject(candidateId, input);
   }
 
   @Get(":id/projection")

@@ -17,6 +17,8 @@ import { PurchaseProposalIntakeService } from "./purchase-proposal-intake.servic
 import { CommandsModule } from "../commands/commands.module";
 import { RegisterPurchaseCommandService } from "./register-purchase-command.service";
 import { PurchaseCommandProposalsService } from "./purchase-command-proposals.service";
+import { PurchaseCommandProposalEventsService } from "./purchase-command-proposal-events.service";
+import { PurchaseProposalLearningService } from "./purchase-proposal-learning.service";
 import { PurchaseCommandProposalsController } from "./purchase-command-proposals.controller";
 
 @Module({
@@ -31,6 +33,8 @@ import { PurchaseCommandProposalsController } from "./purchase-command-proposals
     PurchasesService,
     RegisterPurchaseCommandService,
     PurchaseCommandProposalsService,
+    PurchaseCommandProposalEventsService,
+    PurchaseProposalLearningService,
     PurchaseProposalDocumentsService,
     PurchaseProposalIntakeService,
     SupplierPaymentsService,

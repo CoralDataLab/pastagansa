@@ -189,6 +189,17 @@ se devuelve al caller y se registra en `command_proposal_attempts` en una transa
 con payload intentado, motivo, actor, código estructurado y mensaje de error. Si el registro del intento falla,
 no enmascara el error de negocio original.
 
+### Candidatos de aprendizaje gobernado
+
+- `GET /v1/purchase-command-proposals/learning-candidates?status=PENDING_REVIEW`
+- `POST /v1/purchase-command-proposals/learning-candidates/:candidateId/approve`
+- `POST /v1/purchase-command-proposals/learning-candidates/:candidateId/reject`
+
+Cada candidato procede de una corrección revisada y conserva campo, valor original,
+valor corregido, propuesta, revisión y actor. Aprobarlo solo registra una decisión
+humana; no cambia reglas fiscales, prompts, OCR ni futuras propuestas. Cualquier uso
+operativo posterior requerirá una política autorizada y pruebas de conformidad.
+
 ### Rechazar
 
 `POST /v1/purchase-command-proposals/:id/reject`
@@ -215,13 +226,15 @@ con misma clave se rechaza. El cliente directo no envía evidencias en esta entr
 - `PurchaseProposalDocument`: PDF/PNG/JPEG custodiado opcional, hash SHA-256 y metadatos; no se puede modificar ni borrar.
 - `CommandReview`: una decisión final por propuesta, aceptado/rechazado, motivo/actor/fecha.
 - `CommandExecution`: un éxito por empresa/commandId, contrato/hash/resultado/actor/fecha. En ejecuciones desde propuesta, el recibo incorpora también evidencias de documentos custodiados.
-- `CommandProposalEvent`: cadena append-only por propuesta con secuencia, hash del payload, hash propio y hash anterior para reconstruir el expediente supervisado.
-- `GET /v1/purchase-command-proposals/:id/projection` reconstruye una proyección operativa desde la cadena y la contrasta con las tablas actuales, devolviendo discrepancias explícitas.
+- `CommandProposalEvent`: cadena append-only por propuesta con secuencia, hash del payload, hash propio y hash anterior para reconstruir el expediente supervisado, incluidos documentos custodiados añadidos a la propuesta.
+- `command_proposal_projections` mantiene una proyección materializada operativa por propuesta, actualizada al añadir eventos y reconstruible desde la cadena.
+- `GET /v1/purchase-command-proposals/:id/projection` reconstruye una proyección operativa desde la cadena y la contrasta con la proyección materializada y las tablas actuales, devolviendo discrepancias explícitas, incluido el recuento de documentos custodiados.
 - SQL impide borrar propuestas, modificar originales, reabrir estados terminales o
   mutar recibos/decisiones. La consistencia propuesta–decisión–recibo se comprueba al commit.
 - FK tenant entre propuesta/decisión/recibo; comprobación de empresa/organización.
 - RLS para las tres tablas exige **organización y empresa**, además de filtros de servicio.
-- No hay replay operativo ni outbox nuevo; los eventos de propuesta documentan el expediente y no sustituyen las tablas de negocio ni activan ejecución fiscal automática o aprendizaje.
+- No hay replay operativo ni outbox nuevo; los eventos de propuesta documentan el expediente y no sustituyen las tablas de negocio ni activan ejecución fiscal automática.
+- Las correcciones pueden generar candidatos de aprendizaje gobernado en `command_learning_candidates`; quedan pendientes hasta aprobación/rechazo humano y no modifican reglas legales ni se aplican automáticamente.
 - Los borradores de compra siguen editándose/borrándose por el flujo existente. El recibo
   conserva la respuesta de creación incluso si después el borrador cambia o se retira.
 
@@ -256,6 +269,6 @@ con misma clave se rechaza. El cliente directo no envía evidencias en esta entr
 2. **Implementado posteriormente:** custodia de documentos de entrada independiente de una compra ya creada.
 3. **Implementado:** versiones/correcciones por campo al ejecutar una propuesta corregida y asignación del expediente.
 4. **Implementado:** intentos fallidos persistidos fuera del rollback de negocio.
-5. **Implementado:** eventos reconstruibles encadenados y proyección operativa contrastada bajo demanda para propuestas de comando; quedan pendientes proyecciones materializadas.
-6. Conocimiento aprendido con procedencia y aprobación; nunca modificar invariantes legales
+5. **Implementado:** eventos reconstruibles encadenados, proyección materializada y contraste bajo demanda para propuestas de comando.
+6. **Primer slice implementado:** candidatos de aprendizaje con procedencia desde correcciones y aprobación/rechazo explícitos; pendiente consumo operativo posterior bajo política autorizada. Nunca modificar invariantes legales
    a partir de una corrección sin política autorizada.

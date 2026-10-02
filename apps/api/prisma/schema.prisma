@@ -302,6 +302,7 @@ model Organization {
   commandProposalAssignments CommandProposalAssignment[]
   commandProposalAttempts    CommandProposalAttempt[]
   commandProposalEvents      CommandProposalEvent[]
+  commandLearningCandidates  CommandLearningCandidate[]
   commandReviews             CommandReview[]
 
   @@map("organizations")
@@ -373,6 +374,7 @@ model Company {
   commandProposalAssignments CommandProposalAssignment[]
   commandProposalAttempts    CommandProposalAttempt[]
   commandProposalEvents      CommandProposalEvent[]
+  commandLearningCandidates  CommandLearningCandidate[]
   commandReviews             CommandReview[]
 
   @@unique([organizationId, taxId])
@@ -1618,6 +1620,8 @@ model User {
   commandProposalAttempts   CommandProposalAttempt[]
   commandProposalEvents     CommandProposalEvent[]
   commandReviews            CommandReview[]
+  createdLearningCandidates CommandLearningCandidate[] @relation("created_learning_candidates")
+  reviewedLearningCandidates CommandLearningCandidate[] @relation("reviewed_learning_candidates")
   proposalDocuments         PurchaseProposalDocument[]
 
   @@map("users")
@@ -1709,6 +1713,12 @@ enum CommandReviewDecision {
   REJECT
 }
 
+enum CommandLearningCandidateStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
 // Successful command receipts, not an event store or a replayable source of truth.
 model CommandExecution {
   id             String           @id @default(uuid()) @db.Uuid
@@ -1761,6 +1771,7 @@ model CommandProposal {
   assignments    CommandProposalAssignment[]
   attempts       CommandProposalAttempt[]
   events         CommandProposalEvent[]
+  learningCandidates CommandLearningCandidate[]
 
   @@unique([companyId, commandId])
   @@unique([id, organizationId, companyId])
@@ -1805,8 +1816,10 @@ model CommandProposalRevision {
   company          Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   proposal         CommandProposal @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
   createdBy        User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  learningCandidates CommandLearningCandidate[]
 
   @@unique([proposalId, revisionNumber])
+  @@unique([id, organizationId, companyId])
   @@index([companyId, proposalId, createdAt], map: "command_proposal_revisions_company_proposal_created_idx")
   @@map("command_proposal_revisions")
 }
@@ -1871,6 +1884,36 @@ model CommandProposalEvent {
   @@unique([proposalId, sequence])
   @@index([companyId, proposalId, sequence], map: "command_proposal_events_company_proposal_sequence_idx")
   @@map("command_proposal_events")
+}
+
+model CommandLearningCandidate {
+  id             String                         @id @default(uuid()) @db.Uuid
+  organizationId String                         @map("organization_id") @db.Uuid
+  companyId      String                         @map("company_id") @db.Uuid
+  proposalId     String                         @map("proposal_id") @db.Uuid
+  revisionId     String                         @map("revision_id") @db.Uuid
+  commandName    String                         @map("command_name") @db.VarChar(100)
+  commandVersion Int                            @map("command_version")
+  fieldPath      String                         @map("field_path") @db.VarChar(240)
+  originalValue  Json                           @map("original_value")
+  correctedValue Json                           @map("corrected_value")
+  status         CommandLearningCandidateStatus @default(PENDING_REVIEW)
+  reviewReason   String?                        @map("review_reason") @db.VarChar(1000)
+  reviewedById   String?                        @map("reviewed_by_id") @db.Uuid
+  reviewedAt     DateTime?                      @map("reviewed_at") @db.Timestamptz(6)
+  createdById    String                         @map("created_by_id") @db.Uuid
+  createdAt      DateTime                       @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization                   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company        Company                        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  proposal       CommandProposal                @relation(fields: [proposalId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  revision       CommandProposalRevision        @relation(fields: [revisionId, organizationId, companyId], references: [id, organizationId, companyId], onDelete: Restrict)
+  reviewedBy     User?                          @relation("reviewed_learning_candidates", fields: [reviewedById], references: [id], onDelete: Restrict)
+  createdBy      User                           @relation("created_learning_candidates", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([revisionId, fieldPath], map: "command_learning_candidates_revision_field_idx")
+  @@index([companyId, status, createdAt], map: "command_learning_candidates_company_status_created_idx")
+  @@index([companyId, commandName, commandVersion, fieldPath], map: "command_learning_candidates_company_field_idx")
+  @@map("command_learning_candidates")
 }
 
 model CommandReview {
