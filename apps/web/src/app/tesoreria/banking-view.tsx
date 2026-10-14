@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import type { Account } from "@/lib/accounting";
 import type {
@@ -9,8 +9,12 @@ import type {
   BankTransaction,
   BankTransactionPage,
   ReconciliationSuggestion,
+  StatementAccountPreview,
+  StatementImportResult,
+  StatementMovement,
+  StatementPreview,
 } from "@/lib/banking";
-import { maskedIban } from "@/lib/banking";
+import { maskedIban, statementImportNotice } from "@/lib/banking";
 import { formatMoney } from "@/lib/catalog";
 import { formatInvoiceDate, todayIso } from "@/lib/invoices";
 
@@ -156,6 +160,19 @@ export function BankingView() {
               </select>
             </label>
           </section>
+          <StatementImport
+            accounts={accounts.data ?? []}
+            onImported={async (result) => {
+              setStatus("UNMATCHED");
+              setSelectedId("");
+              if (result.accounts.length === 1)
+                setAccountId(result.accounts[0].bankAccountId);
+              await queryClient.invalidateQueries({
+                queryKey: ["bank-transactions"],
+              });
+              setNotice(statementImportNotice(result));
+            }}
+          />
           <ImportTransaction
             accountId={effectiveAccountId}
             pending={importTransaction.isPending}
@@ -267,6 +284,241 @@ function BankAccountSetup({
       </form>
     </section>
   );
+}
+
+type StatementRequest = {
+  file: File;
+  bankAccountId?: string;
+  fileSha256?: string;
+};
+
+const movementLabels: Record<StatementMovement["status"], string> = {
+  NEW: "Nuevo",
+  DUPLICATE: "Ya importado",
+  SKIPPED: "Omitido (importe cero)",
+};
+const PREVIEW_ROWS = 50;
+
+function StatementImport({
+  accounts,
+  onImported,
+}: {
+  accounts: BankAccount[];
+  onImported: (result: StatementImportResult) => Promise<void>;
+}) {
+  const form = useRef<HTMLFormElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [targetId, setTargetId] = useState("");
+  // Kept while a new target re-runs the preview, so the table does not flicker.
+  const [statement, setStatement] = useState<StatementPreview | null>(null);
+  const preview = useMutation({
+    mutationFn: (input: StatementRequest) =>
+      requestJson<StatementPreview>("/api/banking/statements/norma43/preview", {
+        method: "POST",
+        body: statementForm(input),
+      }),
+    onSuccess: setStatement,
+  });
+  const confirm = useMutation({
+    mutationFn: (input: StatementRequest) =>
+      requestJson<StatementImportResult>(
+        "/api/banking/statements/norma43/import",
+        { method: "POST", body: statementForm(input) },
+      ),
+    onSuccess: async (result) => {
+      preview.reset();
+      setStatement(null);
+      setFile(null);
+      setTargetId("");
+      form.current?.reset();
+      await onImported(result);
+    },
+  });
+  const unlinked = statement?.accounts.some((account) => !account.bankAccount);
+  const newCount =
+    statement?.accounts.reduce((total, account) => total + account.newCount, 0) ??
+    0;
+  const withoutIban = accounts.filter((account) => !account.iban);
+  const canChooseTarget =
+    statement?.accounts.length === 1 &&
+    withoutIban.length > 0 &&
+    (unlinked || Boolean(targetId));
+  return (
+    <details className="bank-import">
+      <summary>Importar extracto bancario (Norma 43)</summary>
+      <form
+        ref={form}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (file) preview.mutate({ file, bankAccountId: targetId || undefined });
+        }}
+      >
+        <label className="field wide">
+          <span>Fichero Norma 43 del banco</span>
+          <input
+            name="file"
+            type="file"
+            required
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null);
+              setTargetId("");
+              setStatement(null);
+              preview.reset();
+              confirm.reset();
+            }}
+          />
+        </label>
+        {preview.error && (
+          <p className="form-error wide" role="alert">
+            {preview.error.message}
+          </p>
+        )}
+        <button
+          className="primary-button compact"
+          disabled={!file || preview.isPending}
+        >
+          {preview.isPending ? "Revisando…" : "Revisar extracto"}
+        </button>
+      </form>
+      {statement && file && (
+        <>
+          {statement.accounts.map((account) => (
+            <StatementAccount
+              key={`${account.iban}-${account.startDate}`}
+              account={account}
+            />
+          ))}
+          <div className="dialog-actions">
+            {canChooseTarget && (
+              <label className="field">
+                <span>Importar en la cuenta</span>
+                <select
+                  value={targetId}
+                  onChange={(event) => {
+                    setTargetId(event.target.value);
+                    preview.mutate({
+                      file,
+                      bankAccountId: event.target.value || undefined,
+                    });
+                  }}
+                >
+                  <option value="">Selecciona una cuenta sin IBAN</option>
+                  {withoutIban.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {confirm.error && (
+              <p className="form-error" role="alert">
+                {confirm.error.message}
+              </p>
+            )}
+            <button
+              className="primary-button compact"
+              disabled={
+                unlinked ||
+                newCount === 0 ||
+                preview.isPending ||
+                confirm.isPending
+              }
+              onClick={() =>
+                confirm.mutate({
+                  file,
+                  fileSha256: statement.fileSha256,
+                  bankAccountId: targetId || undefined,
+                })
+              }
+            >
+              {confirm.isPending
+                ? "Importando…"
+                : newCount === 0
+                  ? "No hay movimientos nuevos"
+                  : `Importar ${newCount} ${newCount === 1 ? "movimiento" : "movimientos"}`}
+            </button>
+          </div>
+        </>
+      )}
+    </details>
+  );
+}
+
+function StatementAccount({ account }: { account: StatementAccountPreview }) {
+  const shown = account.movements.slice(0, PREVIEW_ROWS);
+  return (
+    <section aria-label={`Extracto de la cuenta ${maskedIban(account.iban)}`}>
+      <div className="data-toolbar">
+        <div>
+          <h2>
+            {maskedIban(account.iban)}
+            {account.holderName && ` · ${account.holderName}`}
+          </h2>
+          <p>
+            Del {formatInvoiceDate(account.startDate)} al{" "}
+            {formatInvoiceDate(account.endDate)} · Saldo inicial{" "}
+            {formatMoney(account.openingBalance, account.currency)} · Saldo
+            final {formatMoney(account.closingBalance, account.currency)}
+          </p>
+        </div>
+      </div>
+      {account.bankAccount ? (
+        <p className="dialog-helper">
+          Se importará en {account.bankAccount.name}: {account.newCount} nuevos
+          · {account.duplicateCount} ya importados
+          {account.skippedCount > 0 &&
+            ` · ${account.skippedCount} con importe cero que se omiten`}
+          .
+        </p>
+      ) : (
+        <p className="form-error" role="alert">
+          Ninguna cuenta bancaria tiene el IBAN {account.iban ?? "del extracto"}.
+          Créala con ese IBAN o elige una cuenta sin IBAN.
+        </p>
+      )}
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Concepto</th>
+              <th>Importe</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((movement) => (
+              <tr key={movement.externalId}>
+                <td>{formatInvoiceDate(movement.bookingDate)}</td>
+                <td>
+                  {movement.description}
+                  {movement.reference && <small>{movement.reference}</small>}
+                </td>
+                <td className="money-cell">
+                  {formatMoney(movement.amount, account.currency)}
+                </td>
+                <td>{movementLabels[movement.status]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {account.movements.length > shown.length && (
+        <p className="dialog-helper">
+          Y {account.movements.length - shown.length} movimientos más.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function statementForm({ file, bankAccountId, fileSha256 }: StatementRequest) {
+  const body = new FormData();
+  body.set("file", file, file.name);
+  if (bankAccountId) body.set("bankAccountId", bankAccountId);
+  if (fileSha256) body.set("fileSha256", fileSha256);
+  return body;
 }
 
 function ImportTransaction({

@@ -7,17 +7,27 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { RequirePermissions } from "../authorization/permissions.decorator";
 import { TenantProtected } from "../tenancy/tenant.decorator";
-import { BankingService } from "./banking.service";
+import { BankingService, UploadedStatementFile } from "./banking.service";
 import {
   CreateBankAccountDto,
   ImportBankTransactionsDto,
+  ImportNorma43Dto,
   ListBankTransactionsDto,
+  PreviewNorma43Dto,
   ReconcileBankTransactionDto,
   SuggestReconciliationsDto,
 } from "./dto/banking.dto";
+import { MAX_NORMA43_BYTES } from "./norma43";
+
+const norma43Upload = FileInterceptor("file", {
+  limits: { fileSize: MAX_NORMA43_BYTES, files: 1 },
+});
 
 @Controller("banking")
 @TenantProtected()
@@ -46,6 +56,27 @@ export class BankingController {
   @RequirePermissions("bank_transaction.import")
   importTransactions(@Body() input: ImportBankTransactionsDto) {
     return this.banking.importTransactions(input);
+  }
+
+  @Post("statements/norma43/preview")
+  @HttpCode(200)
+  @RequirePermissions("bank_transaction.import")
+  @UseInterceptors(norma43Upload)
+  previewNorma43(
+    @UploadedFile() file: UploadedStatementFile | undefined,
+    @Body() input: PreviewNorma43Dto,
+  ) {
+    return this.banking.previewNorma43(file, input);
+  }
+
+  @Post("statements/norma43/import")
+  @RequirePermissions("bank_transaction.import")
+  @UseInterceptors(norma43Upload)
+  importNorma43(
+    @UploadedFile() file: UploadedStatementFile | undefined,
+    @Body() input: ImportNorma43Dto,
+  ) {
+    return this.banking.importNorma43(file, input);
   }
 
   @Get("transactions/:id/suggestions")
