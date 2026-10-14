@@ -1,6 +1,21 @@
 # Revisión SIF antes de producción
 
-Estado a 2026-09-18: **no hay certificación final del producto**. Una alta F1
+## Estado actual
+
+Confirmado por el titular el 14/10/2026:
+
+- **VERI\*FACTU está habilitado en producción** y la declaración responsable de la versión desplegada está suscrita. La declaración suscrita no está en este repositorio.
+- **NO VERI\*FACTU no está habilitado en producción.** `scripts/production-common.sh` solo admite una superposición SIF (`none`, `verifactu` o `no-verifactu`) y `docker-compose.production.yml` fija `SIF_NO_SIGNING_ENABLED=false`. Sus bloqueos N-01 a N-03 del [manual de conformidad](17_manual_evidencias_conformidad_sif.md) siguen abiertos.
+- La puerta de producción está vinculada a **una sola empresa** (`SIF_PRODUCTION_RELEASE_COMPANY_ID` y `AEAT_PRODUCTION_COMPANY_ID`). Ninguna otra empresa de la instalación puede remitir a producción sin cambiar esa configuración.
+- Siguen vigentes en producción las limitaciones descritas abajo: sin XML para inversión del sujeto pasivo ni tipos de IVA fuera de `0`, `4`, `10`, `21`; R2/R3 sujetos a la [revisión fiscal por caso](18_revision_fiscal_r2_r3.md); R5 y la sustitución `S` pendientes.
+- **Pendiente:** `/api/company/sif-declaration` sigue generando el borrador. La declaración suscrita solo se monta como `SIF_PRODUCTION_DECLARATION_PATH` para la puerta de producción y no se ofrece a los usuarios dentro del sistema, como exige el art. 13 del RD 1007/2023.
+- Cada nueva versión que se despliegue necesita su propia declaración suscrita (apartado 1.c).
+
+El resto del documento conserva los antecedentes previos a la activación.
+
+## Antecedentes hasta el 22/09/2026
+
+Estado a 2026-09-18: **no había certificación final del producto**. Una alta F1
 ordinaria fue aceptada sin errores por el servicio AEAT de pruebas, con cadena
 local verificada y CSV visible en staging
 ([acta](14_aceptacion_aeat_pruebas.md)). Esta prueba no demuestra conformidad
@@ -43,13 +58,13 @@ El endpoint autenticado `GET /v1/sif/records/transition-audit` ofrece el mismo i
 
 Para inspeccionarlo sin gestionar tokens en la terminal, la sesión web ofrece **Configuración → Inventario histórico SIF**. La ruta web `GET /api/sif/records/transition-audit` reenvía la consulta con el usuario y la empresa seleccionada; no expone la API privada ni permite mutaciones.
 
-Ambas modalidades admiten una configuración técnica de producción vinculada a una empresa y al SHA-256 de una declaración revisada. `VERIFACTU` usa un remitente AEAT y un certificado separados por entorno; `NO_VERIFACTU` exige el firmante local. La instalación mantiene `PRODUCTION_SIF_OVERLAY=none` por defecto. Esta capacidad técnica no libera los bloqueos de revisión, evidencia y declaración del [manual de conformidad](17_manual_evidencias_conformidad_sif.md).
+Ambas modalidades admiten una configuración técnica de producción vinculada a una empresa y al SHA-256 de una declaración revisada. `VERIFACTU` usa un remitente AEAT y un certificado separados por entorno; `NO_VERIFACTU` exige el firmante local. La instalación mantiene `PRODUCTION_SIF_OVERLAY=none` por defecto. Esta capacidad técnica no libera los bloqueos de revisión, evidencia y declaración del [manual de conformidad](17_manual_evidencias_conformidad_sif.md). Desde la activación de VERI\*FACTU, producción usa la superposición `verifactu` (ver [Estado actual](#estado-actual)).
 
 ## Identificador del producto
 
 `PG` figura en los XML de staging de PastaGansa. La [AEAT indica que el productor elige el código](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/preguntas-frecuentes/certificacion-sistemas-informaticos-declaracion-responsable.html): dos letras mayúsculas o dígitos, estable en el tiempo y no reutilizado para otro producto del mismo productor. La adopción formal de `PG` debe constar en la declaración responsable de la versión correspondiente; los datos de prueba y la configuración de una empresa no constituyen esa decisión.
 
-La descarga `/api/company/sif-declaration` genera expresamente un **borrador**, no una declaración firmada. No retirar esa advertencia ni suscribirlo hasta completar revisión técnica y normativa. El [modo no VERI*FACTU exige firma de registros y registro de eventos](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/cuestiones-generales/modalidades-cumplimiento-obligaciones.html). La firma XAdES-EPES y la cadena de eventos están incorporadas, pero faltan validación independiente, pruebas de restauración e inspección de la instalación real. Los XML de `NO_VERIFACTU` no se remiten. Los de `VERIFACTU` se envían al servicio del entorno fijado en la factura cuando se cumplen las puertas de configuración; la integración no certifica el producto.
+La descarga `/api/company/sif-declaration` genera expresamente un **borrador**, no una declaración firmada. No retirar esa advertencia del borrador generado. La declaración suscrita de la versión en producción existe aparte y todavía debe ofrecerse a los usuarios desde el sistema (ver [Estado actual](#estado-actual)). El [modo no VERI*FACTU exige firma de registros y registro de eventos](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/cuestiones-generales/modalidades-cumplimiento-obligaciones.html). La firma XAdES-EPES y la cadena de eventos están incorporadas, pero faltan validación independiente, pruebas de restauración e inspección de la instalación real. Los XML de `NO_VERIFACTU` no se remiten. Los de `VERIFACTU` se envían al servicio del entorno fijado en la factura cuando se cumplen las puertas de configuración; la integración no certifica el producto.
 
 Para registros nuevos, el XML de alta F1 estándar o de anulación que se pueda construir queda congelado en el `payload` append-only en la misma transacción que el registro. La descarga usa ese XML, no reconstruye los datos fiscales en una versión futura del software. Si la factura no pertenece al subconjunto soportado, queda guardada la razón de indisponibilidad y la descarga no la reinterpreta. Los registros históricos anteriores a este cambio continúan con el exportador de compatibilidad. Una respuesta de pruebas `VERIFACTU` **no** amplía la cobertura fiscal ni constituye certificación AEAT.
 
@@ -80,3 +95,5 @@ El [manual de evidencias para ambas modalidades](17_manual_evidencias_conformida
 - Realizar revisión independiente de cumplimiento y formalizar la declaración responsable de cada versión por el productor.
 - Cerrar el inventario y la decisión documentada sobre los registros históricos afectados.
 - Solo entonces evaluar una activación SIF para uso real. Las pruebas de staging no levantan esta puerta.
+
+Estado al 14/10/2026: la puerta se superó para **VERI\*FACTU** (declaración suscrita y remisión habilitada en producción, confirmado por el titular). Sigue vigente para NO VERI\*FACTU y para cada nueva versión, que requiere su propia declaración suscrita.

@@ -1,5 +1,7 @@
 # DECLARACIÓN RESPONSABLE DEL SISTEMA INFORMÁTICO DE FACTURACIÓN
 
+> **Estado al 14/10/2026:** la declaración de la versión en producción ya está suscrita (confirmado por el titular) y no está en este repositorio. Este archivo sigue siendo un borrador de trabajo y **no** es la declaración vigente.
+
 **BORRADOR NO SUSCRITO — NO CERTIFICA CONFORMIDAD.** Texto de trabajo para completar tras la [revisión de requisitos y evidencias](19_preparacion_declaracion_responsable_sif.md). Los apartados siguen el orden 1.a–1.l del [art. 15 de la Orden HAC/1177/2024](https://www.boe.es/buscar/act.php?id=BOE-A-2024-22138). Antes de firmar, sustituir cada dato pendiente y revisar los rótulos frente al texto oficial y el [ejemplo de la AEAT](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu/informacion-tecnica/ejemplo-declaracion-responsable.html).
 
 **1.a) Denominación del sistema informático al que se refiere esta declaración:** PastaGansa. Confirmar denominación definitiva.
