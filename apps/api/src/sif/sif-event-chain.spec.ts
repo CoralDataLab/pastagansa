@@ -1,27 +1,11 @@
-import { X509Certificate, createHash } from "node:crypto";
-import * as forge from "node-forge";
+import { createHash } from "node:crypto";
 import { verifySifEventChain, verifySifEventTail } from "./sif-event-chain";
 import { renderSifBasicEventXml } from "./sif-event-xml";
 import { signSifRecordXml } from "./sif-xades";
+import { createTestPkcs12Identity } from "../../test/support/test-pkcs12";
 
 async function fixtures() {
-  const keys = forge.pki.rsa.generateKeyPair(2048);
-  const cert = forge.pki.createCertificate();
-  cert.publicKey = keys.publicKey;
-  cert.serialNumber = "02";
-  cert.validity.notBefore = new Date(Date.now() - 86_400_000);
-  cert.validity.notAfter = new Date(Date.now() + 86_400_000);
-  cert.setSubject([{ name: "commonName", value: "Event test signer" }]);
-  cert.setIssuer([{ name: "commonName", value: "Event test signer" }]);
-  cert.sign(keys.privateKey, forge.md.sha256.create());
-  const p12 = forge.pkcs12.toPkcs12Asn1(keys.privateKey, cert, "test-pass", { algorithm: "3des" });
-  const identity = {
-    p12: Buffer.from(forge.asn1.toDer(p12).getBytes(), "binary"),
-    passphrase: "test-pass",
-    expectedCertificateSha256: new X509Certificate(Buffer.from(
-      forge.asn1.toDer(forge.pki.certificateToAsn1(cert)).getBytes(), "binary",
-    )).fingerprint256.replaceAll(":", "").toLowerCase(),
-  };
+  const identity = createTestPkcs12Identity();
   const common = {
     producerName: "Test Producer", producerTaxId: "B12345674",
     softwareName: "PastaGansa", softwareId: "PG", softwareVersion: "0.1.0",

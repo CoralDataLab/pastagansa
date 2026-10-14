@@ -191,7 +191,7 @@ export function CompanySettingsView() {
             </div>
             {form.sifMode === "NO_VERIFACTU" && <p className="notice" role="status">Exige certificado de firma vinculado a esta empresa, registro de eventos y revisión de conformidad de la instalación antes de facturar realmente. Las facturas nuevas incluirán un QR fiscal de 34 mm; las ya emitidas no se modifican.</p>}
             {form.sifMode === "VERIFACTU" && <p className="notice" role="status">Las facturas emitidas se remiten al entorno AEAT seleccionado. La producción solo debe activarse tras revisar la cadena histórica, el certificado, la declaración del productor y las pruebas de la instalación. Consulta abajo cada respuesta e incidencia.</p>}
-            <a className="secondary-button" href="/api/company/sif-declaration">Descargar borrador de declaración responsable</a>
+            <a className="secondary-button" href="/api/company/sif-declaration">{company.data.sifDeclarationSigned ? "Descargar declaración responsable" : "Descargar borrador de declaración responsable"}</a>
           </section>
           {session.data?.membership.role.permissions.includes("sif_record.read") && (
             <>

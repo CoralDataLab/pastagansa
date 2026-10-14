@@ -36,6 +36,7 @@ export type CompanySettings = {
   sifSoftwareId: string | null;
   sifSoftwareVersion: string | null;
   sifInstallationNumber: string | null;
+  sifDeclarationSigned: boolean;
   documentProfile: CompanyDocumentProfile | null;
   documentLogo: {
     id: string;

@@ -1,6 +1,9 @@
-import { createPrivateKey, createPublicKey, X509Certificate, webcrypto } from "node:crypto";
+import { createPrivateKey, createPublicKey, type KeyObject, X509Certificate, webcrypto } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { DOMImplementation, DOMParser, XMLSerializer } from "@xmldom/xmldom";
-import * as forge from "node-forge";
 import * as xadesjs from "xadesjs";
 import { SignedXml as XmlSignedXml, XmlDsigExcC14NTransform, type Signature } from "xmldsigjs";
 import * as xpath from "xpath";
@@ -59,8 +62,7 @@ export async function signSifRecordXml(xml: string, identity: SifSigningIdentity
   // namespaces before and after the signed record is placed in its AEAT batch.
   recordDocument.documentElement.setAttribute("xmlns:sfLR", AEAT_SIF_LR_NAMESPACE);
   recordDocument.documentElement.setAttribute("xmlns:sf", AEAT_SIF_INFO_NAMESPACE);
-  const pkcs8 = createPrivateKey(forge.pki.privateKeyToPem(privateKey))
-    .export({ format: "der", type: "pkcs8" });
+  const pkcs8 = privateKey.export({ format: "der", type: "pkcs8" });
   const key = await webcrypto.subtle.importKey(
     "pkcs8", new Uint8Array(pkcs8),
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"],
@@ -147,28 +149,16 @@ export async function verifySifRecordSignature(xml: string): Promise<boolean> {
   }
 }
 
-function openIdentity(identity: SifSigningIdentity) {
+function openIdentity(identity: SifSigningIdentity): { privateKey: KeyObject; certificate: X509Certificate } {
   if (!/^[0-9a-f]{64}$/i.test(identity.expectedCertificateSha256))
     throw new Error("Expected signing certificate SHA-256 fingerprint is required");
-  let pfx: forge.pkcs12.Pkcs12Pfx;
-  try {
-    const asn1 = forge.asn1.fromDer(forge.util.createBuffer(identity.p12.toString("binary")));
-    pfx = forge.pkcs12.pkcs12FromAsn1(asn1, false, identity.passphrase);
-  } catch {
-    throw new Error("Unable to unlock SIF signing certificate");
-  }
-  const bags = pfx.safeContents.flatMap((part) => part.safeBags);
-  const keys = bags.flatMap((bag) => bag.key ? [bag.key] : []);
-  if (keys.length !== 1) throw new Error("SIF signing P12 must contain one private key");
-  const privateKey = createPrivateKey(forge.pki.privateKeyToPem(keys[0]));
+  const { privateKey, certificates } = extractPkcs12(identity.p12, identity.passphrase);
   if (privateKey.asymmetricKeyType !== "rsa")
     throw new Error("AEAT SIF signing requires an RSA certificate");
   const publicKey = createPublicKey(privateKey).export({ format: "der", type: "spki" });
-  const matches = bags.flatMap((bag) => bag.cert ? [bag.cert] : [])
-    .map((cert) => new X509Certificate(Buffer.from(
-      forge.asn1.toDer(forge.pki.certificateToAsn1(cert)).getBytes(), "binary",
-    )))
-    .filter((cert) => cert.publicKey.export({ format: "der", type: "spki" }).equals(publicKey));
+  const matches = certificates.filter((cert) =>
+    cert.publicKey.export({ format: "der", type: "spki" }).equals(publicKey),
+  );
   if (matches.length !== 1) throw new Error("SIF signing P12 has no unique matching certificate");
   const certificate = matches[0];
   if (certificate.fingerprint256.replaceAll(":", "").toLowerCase() !==
@@ -182,5 +172,31 @@ function openIdentity(identity: SifSigningIdentity) {
   const now = Date.now();
   if (now < Date.parse(certificate.validFrom) || now >= Date.parse(certificate.validTo))
     throw new Error("SIF signing certificate is outside its validity period");
-  return { privateKey: keys[0], certificate };
+  return { privateKey, certificate };
+}
+
+function extractPkcs12(p12: Buffer, passphrase: string): { privateKey: KeyObject; certificates: X509Certificate[] } {
+  const dir = mkdtempSync(join(tmpdir(), "pastagansa-sif-"));
+  try {
+    const p12Path = join(dir, "identity.p12");
+    writeFileSync(p12Path, p12);
+    const env = { ...process.env, SIF_P12_PASSWORD: passphrase };
+    const keyResult = spawnSync("openssl", ["pkcs12", "-in", p12Path, "-passin", "env:SIF_P12_PASSWORD", "-nocerts", "-nodes"], { encoding: "utf8", env });
+    const certResult = spawnSync("openssl", ["pkcs12", "-in", p12Path, "-passin", "env:SIF_P12_PASSWORD", "-clcerts", "-nokeys"], { encoding: "utf8", env });
+    if (keyResult.status !== 0 || certResult.status !== 0)
+      throw new Error("Unable to unlock SIF signing certificate");
+    const privateKeys = keyResult.stdout.match(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]+?-----END [A-Z ]*PRIVATE KEY-----/g) ?? [];
+    if (privateKeys.length !== 1) throw new Error("SIF signing P12 must contain one private key");
+    const certs = certResult.stdout.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) ?? [];
+    if (!certs.length) throw new Error("SIF signing P12 must contain a certificate");
+    return {
+      privateKey: createPrivateKey(privateKeys[0]),
+      certificates: certs.map((cert) => new X509Certificate(cert)),
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("SIF signing")) throw error;
+    throw new Error("Unable to unlock SIF signing certificate");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }

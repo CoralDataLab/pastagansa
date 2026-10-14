@@ -21,6 +21,7 @@ const company: CompanySettings = {
   sifSoftwareId: null,
   sifSoftwareVersion: null,
   sifInstallationNumber: null,
+  sifDeclarationSigned: false,
   documentProfile: null,
   documentLogo: null,
 };

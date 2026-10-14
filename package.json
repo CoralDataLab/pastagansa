@@ -24,10 +24,10 @@
   },
   "dependencies": {
     "@nestjs/platform-express": "11.2.3",
-    "multer": "2.3.0"
+    "multer": "2.4.0"
   },
   "devDependencies": {
-    "concurrently": "10.0.5"
+    "concurrently": "10.0.6"
   },
   "engines": {
     "node": ">=22.0.0"

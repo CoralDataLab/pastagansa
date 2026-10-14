@@ -1,36 +1,12 @@
-import { X509Certificate } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import * as forge from "node-forge";
 import { renderSifBasicEventXml } from "./sif-event-xml";
 import { AEAT_SIF_INFO_NAMESPACE, AEAT_SIF_LR_NAMESPACE, renderSifAeatXml } from "./sif-xml";
 import { signSifRecordXml, verifySifRecordSignature } from "./sif-xades";
-
-function testIdentity() {
-  const pair = forge.pki.rsa.generateKeyPair(2048);
-  const certificate = forge.pki.createCertificate();
-  certificate.publicKey = pair.publicKey;
-  certificate.serialNumber = "01";
-  certificate.validity.notBefore = new Date(Date.now() - 86_400_000);
-  certificate.validity.notAfter = new Date(Date.now() + 86_400_000);
-  certificate.setSubject([{ name: "commonName", value: "SIF test signer" }]);
-  certificate.setIssuer([{ name: "commonName", value: "SIF test signer" }]);
-  certificate.sign(pair.privateKey, forge.md.sha256.create());
-  const certDer = Buffer.from(forge.asn1.toDer(
-    forge.pki.certificateToAsn1(certificate),
-  ).getBytes(), "binary");
-  const p12Asn1 = forge.pkcs12.toPkcs12Asn1(pair.privateKey, certificate, "test-pass", {
-    algorithm: "3des",
-  });
-  return {
-    p12: Buffer.from(forge.asn1.toDer(p12Asn1).getBytes(), "binary"),
-    passphrase: "test-pass",
-    expectedCertificateSha256: new X509Certificate(certDer).fingerprint256.replaceAll(":", "").toLowerCase(),
-  };
-}
+import { createTestPkcs12Identity } from "../../test/support/test-pkcs12";
 
 describe("AEAT NO VERI*FACTU XAdES-EPES", () => {
-  const identity = testIdentity();
+  const identity = createTestPkcs12Identity();
   const xml = `<?xml version="1.0" encoding="UTF-8"?>` +
     `<sfLR:RegFactuSistemaFacturacion xmlns:sfLR="${AEAT_SIF_LR_NAMESPACE}" xmlns:sf="${AEAT_SIF_INFO_NAMESPACE}">` +
     `<sfLR:Cabecera><sf:ObligadoEmision><sf:NIF>B12345674</sf:NIF></sf:ObligadoEmision></sfLR:Cabecera>` +

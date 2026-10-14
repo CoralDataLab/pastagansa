@@ -62,7 +62,8 @@ jobs:
         env:
           AI_NATIVE_ENABLED: "true"
         run: npm run test:e2e --workspace=@pastagansa/web -- purchase-proposals
-      - run: npm audit --audit-level=high
+      - name: Audit dependencies (high and critical, reviewed exceptions in the script)
+        run: node scripts/npm-audit.mjs
       - name: Validate production deployment configuration
         run: |
           bash -n scripts/production-common.sh scripts/production-up.sh scripts/production-backup.sh scripts/production-restore-drill.sh scripts/production-first-use-check.sh
@@ -94,7 +95,9 @@ jobs:
           DATABASE_URL: postgresql://pastagansa_app:ci-staging-app-password@postgres:5432/pastagansa?schema=public
           DIRECT_DATABASE_URL: postgresql://pastagansa_admin:ci-staging-admin-password@postgres:5432/pastagansa?schema=public
           JWT_SECRET: ci-staging-secret-with-at-least-32-characters
-        run: docker compose --env-file .env.staging -f docker-compose.staging.yml down -v
+        run: |
+          touch .env.staging
+          docker compose --env-file .env.staging -f docker-compose.staging.yml down -v
       - name: Verify fresh production install and upgrade drill
         run: |
           cp .env.production.example .env.production

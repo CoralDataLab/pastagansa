@@ -56,9 +56,19 @@ volumen automáticamente: investigar el estado antes de reintentar. Solo
 después se registra la empresa real y se verifica su configuración fiscal.
 
 Antes de la primera factura real: comprobar HTTPS, usuario/empresa correctos,
-serie y numeración, PDF, `DISABLED` como modo SIF transitorio, base sin datos
-de prueba, envío de backups cifrados fuera de la VM y ensayo de restauración.
-La puesta en marcha técnica no equivale a una certificación fiscal del producto.
+serie y numeración, PDF, `DISABLED` como modo SIF transitorio hasta activar una
+superposición SIF (ver la [configuración de salida](17_manual_evidencias_conformidad_sif.md#configuración-de-salida-tras-la-revisión)),
+base sin datos de prueba, envío de backups cifrados fuera de la VM y ensayo de
+restauración. La puesta en marcha técnica no equivale a una certificación fiscal
+del producto.
+
+Estado al 14/10/2026: producción tiene VERI\*FACTU habilitado con la
+superposición `verifactu` y declaración suscrita, confirmado por el titular
+(ver el [estado actual](10_revision_sif_para_produccion.md#estado-actual)). Al
+actualizar a una versión nueva, `production-up.sh upgrade` mantiene la misma
+declaración montada. Antes de desplegarla, suscribir la declaración de esa
+versión y actualizar `SIF_PRODUCTION_DECLARATION_HOST_PATH` y
+`SIF_PRODUCTION_DECLARATION_SHA256`.
 
 ## Backup, restauración de ensayo y actualizaciones
 

@@ -20,7 +20,10 @@ import {
 } from "./company-logo";
 import { SifDeclarationPdfService } from "../sif/sif-declaration-pdf.service";
 import { SifNoEventService } from "../sif/sif-no-event.service";
-import { sifProductionReleaseMatches } from "../sif/sif-production-gate";
+import {
+  sifProductionReleaseMatches,
+  verifiedProductionDeclaration,
+} from "../sif/sif-production-gate";
 
 export type UploadedCompanyLogo = {
   buffer: Buffer;
@@ -130,13 +133,25 @@ export class CompaniesService {
         ...(profileData ? Object.keys(profileData).map((key) => `documentProfile.${key}`) : []),
       ],
     });
-    return this.current();
+    return this.settings();
   }
 
+  /** Company plus whether users can download the signed declaration instead of the draft. */
+  async settings() {
+    return {
+      ...(await this.current()),
+      sifDeclarationSigned: verifiedProductionDeclaration(this.config) !== undefined,
+    };
+  }
+
+  /** The signed declaration covers the deployed version, so every company of the installation gets it. */
   async downloadSifDeclaration() {
     const company = await this.current();
+    const suffix = safeFilename(company.sifSoftwareId ?? company.id);
+    const signed = verifiedProductionDeclaration(this.config);
+    if (signed) return { filename: `declaracion-responsable-sif-${suffix}.pdf`, content: signed };
     return {
-      filename: `borrador-declaracion-responsable-sif-${safeFilename(company.sifSoftwareId ?? company.id)}.pdf`,
+      filename: `borrador-declaracion-responsable-sif-${suffix}.pdf`,
       content: await this.sifDeclaration.render({ company }),
     };
   }

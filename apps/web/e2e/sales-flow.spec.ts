@@ -485,7 +485,7 @@ test("completes a purchase through payment and bank reconciliation", async ({
   await purchaseDialog
     .locator('select[name="supplierId"]')
     .selectOption({ label: "Proveedor E2E SL" });
-  await purchaseDialog.getByLabel("Número del proveedor").fill("PROV-E2E-001");
+  await purchaseDialog.getByLabel("Nº de factura del proveedor").fill("PROV-E2E-001");
   await purchaseDialog
     .getByLabel("Descripción")
     .fill("Servicio profesional E2E");
@@ -574,7 +574,9 @@ test("completes a purchase through payment and bank reconciliation", async ({
 
   await page.getByRole("button", { name: "Registrar pago" }).click();
   await expect(page.getByLabel("Importe")).toHaveValue("121.00");
-  await page.getByLabel("Referencia (opcional)").fill("E2E-PAGO-001");
+  await page
+    .getByLabel("Referencia del justificante (obligatoria si pagó el socio)")
+    .fill("E2E-PAGO-001");
   await page.getByRole("button", { name: "Confirmar pago" }).click();
   await expect(page.getByText("E2E-PAGO-001", { exact: true })).toBeVisible();
   await expect(
