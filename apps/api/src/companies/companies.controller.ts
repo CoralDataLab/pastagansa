@@ -28,7 +28,7 @@ export class CompaniesController {
   @Get()
   @RequirePermissions("company.read")
   current() {
-    return this.companies.current();
+    return this.companies.settings();
   }
 
   @Patch()
