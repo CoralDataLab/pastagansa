@@ -58,7 +58,8 @@ jobs:
           E2E_SMTP_RECIPIENT: u6-acceptance@example.test
           E2E_MAILBOX_URL: http://127.0.0.1:2526/messages
         run: npm run test:e2e
-      - run: npm audit --audit-level=high
+      - name: Audit dependencies (high and critical, reviewed exceptions in the script)
+        run: node scripts/npm-audit.mjs
       - name: Validate production deployment configuration
         run: |
           bash -n scripts/production-common.sh scripts/production-up.sh scripts/production-backup.sh scripts/production-restore-drill.sh scripts/production-first-use-check.sh
