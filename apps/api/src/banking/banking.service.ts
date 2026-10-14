@@ -6,11 +6,13 @@ import {
 } from "@nestjs/common";
 import {
   AccountingRole,
+  BankAccount,
   BankTransactionStatus,
   JournalEntryStatus,
   Prisma,
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { createHash } from "crypto";
 import { AuditService } from "../audit/audit.service";
 import { decodeCursor, encodeCursor } from "../common/cursor";
 import { isValidIban, normalizeIban } from "../common/iban";
@@ -18,10 +20,20 @@ import { TenantContextService } from "../tenancy/tenant-context.service";
 import {
   CreateBankAccountDto,
   ImportBankTransactionsDto,
+  ImportNorma43Dto,
   ListBankTransactionsDto,
+  PreviewNorma43Dto,
   ReconcileBankTransactionDto,
   SuggestReconciliationsDto,
 } from "./dto/banking.dto";
+import {
+  Norma43Account,
+  Norma43FormatError,
+  Norma43Movement,
+  parseNorma43,
+} from "./norma43";
+
+export type UploadedStatementFile = { buffer: Buffer; size?: number };
 
 @Injectable()
 export class BankingService {
@@ -168,6 +180,138 @@ export class BankingService {
     return imported;
   }
 
+  async previewNorma43(
+    file: UploadedStatementFile | undefined,
+    input: PreviewNorma43Dto,
+  ) {
+    const statement = await this.analyzeNorma43(file, input.bankAccountId);
+    return {
+      fileSha256: statement.fileSha256,
+      accounts: statement.accounts.map(({ account, bankAccount, existing }) => {
+        const movements = account.movements.map((movement) => ({
+          externalId: movement.externalId,
+          bookingDate: movement.operationDate,
+          valueDate: movement.valueDate,
+          amount: centsToAmount(movement.amountCents),
+          description: movement.description,
+          reference: movement.reference,
+          status: movementStatus(movement, existing),
+        }));
+        const total = (status: string) =>
+          movements.filter((movement) => movement.status === status).length;
+        return {
+          iban: account.iban,
+          holderName: account.holderName,
+          currency: account.currency,
+          startDate: account.startDate,
+          endDate: account.endDate,
+          openingBalance: centsToAmount(account.openingBalanceCents),
+          closingBalance: centsToAmount(account.closingBalanceCents),
+          bankAccount: bankAccount && {
+            id: bankAccount.id,
+            name: bankAccount.name,
+            iban: bankAccount.iban,
+          },
+          newCount: total("NEW"),
+          duplicateCount: total("DUPLICATE"),
+          skippedCount: total("SKIPPED"),
+          movements,
+        };
+      }),
+    };
+  }
+
+  /** Imports only movements not yet imported, all statement accounts at once. */
+  async importNorma43(
+    file: UploadedStatementFile | undefined,
+    input: ImportNorma43Dto,
+  ) {
+    const statement = await this.analyzeNorma43(file, input.bankAccountId);
+    if (statement.fileSha256 !== input.fileSha256.toLowerCase())
+      throw new ConflictException(
+        "The statement file differs from the previewed one",
+      );
+    const unlinked = statement.accounts.find(({ bankAccount }) => !bankAccount);
+    if (unlinked)
+      throw new BadRequestException(
+        `Statement account ${unlinked.account.iban ?? unlinked.account.accountNumber} is not linked to an active bank account`,
+      );
+    const scope = this.scope();
+    const accounts: Array<{
+      bankAccountId: string;
+      iban: string | null;
+      imported: number;
+      duplicates: number;
+      skipped: number;
+    }> = [];
+    for (const { account, bankAccount, existing } of statement.accounts) {
+      const linked = bankAccount!;
+      const statuses = account.movements.map((movement) =>
+        movementStatus(movement, existing),
+      );
+      const fresh = account.movements.filter(
+        (_, index) => statuses[index] === "NEW",
+      );
+      try {
+        await this.tenant.db.bankTransaction.createMany({
+          data: fresh.map((movement) => ({
+            ...scope,
+            bankAccountId: linked.id,
+            externalId: movement.externalId,
+            bookingDate: new Date(movement.operationDate),
+            valueDate: new Date(movement.valueDate),
+            amount: new Decimal(centsToAmount(movement.amountCents)),
+            currency: linked.currency,
+            description: movement.description,
+            reference: movement.reference,
+          })),
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        )
+          throw new ConflictException(
+            "Bank transactions were imported concurrently; preview the statement again",
+          );
+        throw error;
+      }
+      const summary = {
+        bankAccountId: linked.id,
+        iban: account.iban,
+        imported: fresh.length,
+        duplicates: statuses.filter((status) => status === "DUPLICATE").length,
+        skipped: statuses.filter((status) => status === "SKIPPED").length,
+      };
+      await this.audit.record(
+        "bank_statement.imported",
+        "bank_account",
+        linked.id,
+        {
+          format: "NORMA43",
+          fileSha256: statement.fileSha256,
+          startDate: account.startDate,
+          endDate: account.endDate,
+          openingBalance: centsToAmount(account.openingBalanceCents),
+          closingBalance: centsToAmount(account.closingBalanceCents),
+          imported: summary.imported,
+          duplicates: summary.duplicates,
+          skipped: summary.skipped,
+        },
+      );
+      accounts.push(summary);
+    }
+    const sum = (field: "imported" | "duplicates" | "skipped") =>
+      accounts.reduce((total, summary) => total + summary[field], 0);
+    return {
+      fileSha256: statement.fileSha256,
+      imported: sum("imported"),
+      duplicates: sum("duplicates"),
+      skipped: sum("skipped"),
+      accounts,
+    };
+  }
+
   async listTransactions(query: ListBankTransactionsDto) {
     const filter = `${query.bankAccountId ?? ""}:${query.status ?? ""}`;
     const cursor = query.cursor
@@ -305,6 +449,74 @@ export class BankingService {
     return reconciliation;
   }
 
+  /** Parses the statement, links each account by IBAN and flags already imported movements. */
+  private async analyzeNorma43(
+    file: UploadedStatementFile | undefined,
+    bankAccountId?: string,
+  ) {
+    if (!file?.buffer?.length)
+      throw new BadRequestException("A Norma 43 file is required");
+    if (file.size !== undefined && file.size !== file.buffer.length)
+      throw new BadRequestException("The Norma 43 upload is incomplete");
+    let accounts: Norma43Account[];
+    try {
+      accounts = parseNorma43(file.buffer);
+    } catch (error) {
+      if (error instanceof Norma43FormatError)
+        throw new BadRequestException(`Invalid Norma 43 file. ${error.message}`);
+      throw error;
+    }
+    const scope = this.scope();
+    const bankAccounts = await this.tenant.db.bankAccount.findMany({
+      where: { ...scope, active: true },
+    });
+    let target: BankAccount | undefined;
+    if (bankAccountId) {
+      if (accounts.length !== 1)
+        throw new BadRequestException(
+          "A target bank account can only be chosen for a single-account statement",
+        );
+      target = bankAccounts.find(({ id }) => id === bankAccountId);
+      if (!target) throw new BadRequestException("Active bank account not found");
+      if (target.iban && target.iban !== accounts[0].iban)
+        throw new BadRequestException(
+          "The chosen bank account has a different IBAN than the statement",
+        );
+    }
+    const analyzed = [];
+    for (const account of accounts) {
+      const bankAccount =
+        target ??
+        bankAccounts.find(({ iban }) => iban !== null && iban === account.iban) ??
+        null;
+      if (bankAccount && bankAccount.currency !== account.currency)
+        throw new BadRequestException(
+          `Statement currency ${account.currency} does not match bank account ${bankAccount.name}`,
+        );
+      const existing = bankAccount
+        ? await this.tenant.db.bankTransaction.findMany({
+            where: {
+              ...scope,
+              bankAccountId: bankAccount.id,
+              externalId: {
+                in: account.movements.map(({ externalId }) => externalId),
+              },
+            },
+            select: { externalId: true },
+          })
+        : [];
+      analyzed.push({
+        account,
+        bankAccount,
+        existing: new Set(existing.map(({ externalId }) => externalId)),
+      });
+    }
+    return {
+      fileSha256: createHash("sha256").update(file.buffer).digest("hex"),
+      accounts: analyzed,
+    };
+  }
+
   private async requireTransaction(id: string) {
     const transaction = await this.tenant.db.bankTransaction.findFirst({
       where: { id, ...this.scope() },
@@ -319,6 +531,18 @@ export class BankingService {
     if (!companyId) throw new BadRequestException("x-company-id is required");
     return { organizationId, companyId };
   }
+}
+
+function centsToAmount(cents: number) {
+  const absolute = Math.abs(cents);
+  return `${cents < 0 ? "-" : ""}${Math.floor(absolute / 100)}.${String(absolute % 100).padStart(2, "0")}`;
+}
+
+function movementStatus(movement: Norma43Movement, existing: Set<string>) {
+  if (movement.amountCents === 0) return "SKIPPED" as const;
+  return existing.has(movement.externalId)
+    ? ("DUPLICATE" as const)
+    : ("NEW" as const);
 }
 
 function shiftDays(date: Date, days: number) {

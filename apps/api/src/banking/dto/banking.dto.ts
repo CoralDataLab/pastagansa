@@ -55,6 +55,15 @@ export class ImportBankTransactionsDto {
   transactions!: BankTransactionDto[];
 }
 
+export class PreviewNorma43Dto {
+  /** Target for a single-account statement whose IBAN is not linked to any bank account. */
+  @IsOptional() @IsUUID() bankAccountId?: string;
+}
+
+export class ImportNorma43Dto extends PreviewNorma43Dto {
+  @Matches(/^[0-9a-fA-F]{64}$/) fileSha256!: string;
+}
+
 export class ListBankTransactionsDto {
   @IsOptional() @IsUUID() bankAccountId?: string;
   @IsOptional() @IsEnum(BankTransactionStatus) status?: BankTransactionStatus;
