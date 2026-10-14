@@ -26,6 +26,9 @@ export class PurchaseOcrEngine implements OnModuleDestroy {
     return createWorker("spa", OEM.LSTM_ONLY, {
       langPath: join(packageRoot, "4.0.0"),
       cacheMethod: "none",
+      // Without a handler tesseract.js rethrows failed jobs from its message
+      // listener, crashing the process; the job promise already rejects.
+      errorHandler: () => undefined,
     });
   }
 }
