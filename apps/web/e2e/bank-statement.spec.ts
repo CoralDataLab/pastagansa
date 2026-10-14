@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { norma43Statement } from "../../api/test/support/norma43-statement";
+import path from "node:path";
 import { expectNoSeriousAccessibilityViolations } from "./accessibility";
+
+// One account, a credit with a concept record and a fee; generated with
+// apps/api/test/support/norma43-statement.ts.
+const statement = path.join(import.meta.dirname, "fixtures/extracto-septiembre.n43");
 
 test("imports a Norma 43 statement once from treasury", async ({ page }) => {
   test.setTimeout(60_000);
@@ -31,27 +35,6 @@ test("imports a Norma 43 statement once from treasury", async ({ page }) => {
   await page.getByRole("button", { name: "Crear cuenta bancaria" }).click();
   await expect(page.getByRole("status")).toContainText("Cuenta operativa ya está lista");
 
-  const statement = {
-    name: "extracto-septiembre.n43",
-    mimeType: "text/plain",
-    buffer: Buffer.from(
-      norma43Statement([
-        {
-          holder: "PASTAGANSA EXTRACTOS SL",
-          movements: [
-            {
-              cents: 12_100,
-              date: "260903",
-              reference2: "F2026-00001",
-              concepts: ["TRANSFERENCIA DE CLIENTE E2E"],
-            },
-            { cents: -4_550, commonConcept: "17", date: "260910" },
-          ],
-        },
-      ]),
-      "latin1",
-    ),
-  };
   await page.getByText("Importar extracto bancario (Norma 43)").click();
   await page.getByLabel("Fichero Norma 43 del banco").setInputFiles(statement);
   await page.getByRole("button", { name: "Revisar extracto" }).click();
