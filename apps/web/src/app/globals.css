@@ -930,6 +930,11 @@ a {
 .bank-import .wide {
   grid-column: span 2;
 }
+/* Statement columns can be long; let the grid shrink selects instead of overflowing. */
+.bank-import form > *,
+.bank-import select {
+  min-width: 0;
+}
 .reconciliation-layout {
   display: grid;
   gap: 1rem;

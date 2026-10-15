@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import { spanishIbanFromParts } from "../common/iban";
+import { movementIdentifier, StatementMovement } from "./statement";
 
 /**
  * Parser for AEB "Cuaderno 43" (Norma 43) bank statements: fixed 80-character
@@ -45,15 +45,7 @@ export class Norma43FormatError extends Error {
   }
 }
 
-export type Norma43Movement = {
-  externalId: string;
-  operationDate: string;
-  valueDate: string;
-  /** Signed: negative for debits (cargos), positive for credits (abonos). */
-  amountCents: number;
-  description: string;
-  reference: string | null;
-};
+export type Norma43Movement = StatementMovement & { valueDate: string };
 
 export type Norma43Account = {
   bankCode: string;
@@ -81,7 +73,7 @@ type ParsedAccount = Omit<Norma43Account, "movements"> & {
 
 export function parseNorma43(content: Buffer): Norma43Account[] {
   const accounts: Norma43Account[] = [];
-  const occurrences = new Map<string, number>();
+  const identify = movementIdentifier("n43");
   let account: ParsedAccount | undefined;
   let movement: ParsedMovement | undefined;
   let movementCount = 0;
@@ -119,7 +111,7 @@ export function parseNorma43(content: Buffer): Norma43Account[] {
     } else if (code === "33") {
       if (!account)
         throw new Norma43FormatError("Account totals 33 found outside an account block", line);
-      accounts.push(closeAccount(account, text, line, occurrences));
+      accounts.push(closeAccount(account, text, line, identify));
       account = undefined;
       movement = undefined;
     } else if (code === "88") {
@@ -227,7 +219,7 @@ function closeAccount(
   account: ParsedAccount,
   text: string,
   line: number,
-  occurrences: Map<string, number>,
+  identify: (key: string) => string,
 ): Norma43Account {
   if (
     text.slice(2, 6) !== account.bankCode ||
@@ -261,19 +253,14 @@ function closeAccount(
   return {
     ...account,
     closingBalanceCents,
-    movements: account.movements.map((movement) => {
-      // Identical movements on the same day keep distinct, stable IDs by order of appearance.
-      const occurrence = occurrences.get(movement.key) ?? 0;
-      occurrences.set(movement.key, occurrence + 1);
-      return {
-        externalId: `n43:${createHash("sha256").update(`${movement.key}|${occurrence}`).digest("hex")}`,
-        operationDate: movement.operationDate,
-        valueDate: movement.valueDate,
-        amountCents: movement.amountCents,
-        description: description(movement),
-        reference: movement.reference,
-      };
-    }),
+    movements: account.movements.map((movement) => ({
+      externalId: identify(movement.key),
+      operationDate: movement.operationDate,
+      valueDate: movement.valueDate,
+      amountCents: movement.amountCents,
+      description: description(movement),
+      reference: movement.reference,
+    })),
   };
 }
 
