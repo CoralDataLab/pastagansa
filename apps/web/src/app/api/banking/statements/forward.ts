@@ -3,25 +3,24 @@ import { translateStatementError } from "@/lib/banking";
 import { normalizeApiError } from "@/lib/session";
 import { SessionError, tenantApiRequest } from "@/lib/server-session";
 
-const fields = {
-  preview: ["bankAccountId"],
-  import: ["bankAccountId", "fileSha256"],
-} as const;
-
-/** Forwards a Norma 43 upload, with the fields its step accepts, to the API. */
-export async function forwardNorma43(request: Request, step: keyof typeof fields) {
+/** Forwards a statement upload, with only the fields its API step accepts. */
+export async function forwardStatement(
+  request: Request,
+  step: string,
+  fields: readonly string[],
+) {
   const incoming = await request.formData().catch(() => undefined);
   const file = incoming?.get("file");
   if (!(file instanceof File) || file.size === 0)
-    return NextResponse.json({ error: "Selecciona un fichero Norma 43." }, { status: 400 });
+    return NextResponse.json({ error: "Selecciona un fichero de extracto." }, { status: 400 });
   const body = new FormData();
   body.set("file", file, file.name);
-  for (const field of fields[step]) {
+  for (const field of fields) {
     const value = incoming?.get(field);
     if (typeof value === "string" && value) body.set(field, value);
   }
   try {
-    const response = await tenantApiRequest(`/v1/banking/statements/norma43/${step}`, {
+    const response = await tenantApiRequest(`/v1/banking/statements/${step}`, {
       method: "POST",
       body,
     });

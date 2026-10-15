@@ -1,0 +1,7 @@
+Cuenta;Cuenta operativa
+Periodo;01/10/2026 - 31/10/2026
+
+Fecha operación;Fecha valor;Concepto;Beneficiario;Importe;Saldo
+02/10/2026;02/10/2026;TRANSFERENCIA RECIBIDA;CLIENTE OCTUBRE SL;2.420,00;3.495,50
+15/10/2026;15/10/2026;RECIBO LUZ;;-80,25;3.415,25
+;;Saldo final;;;3.415,25

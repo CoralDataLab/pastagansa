@@ -51,21 +51,23 @@ export interface ReconciliationSuggestion {
 export interface StatementMovement {
   externalId: string;
   bookingDate: string;
-  valueDate: string;
+  valueDate: string | null;
   amount: string;
   description: string;
   reference: string | null;
+  counterpartyName: string | null;
   status: "NEW" | "DUPLICATE" | "SKIPPED";
 }
 
+/** One account of a statement; CSV and Excel files carry neither dates range nor balances when empty. */
 export interface StatementAccountPreview {
   iban: string | null;
   holderName: string;
   currency: string;
-  startDate: string;
-  endDate: string;
-  openingBalance: string;
-  closingBalance: string;
+  startDate: string | null;
+  endDate: string | null;
+  openingBalance: string | null;
+  closingBalance: string | null;
   bankAccount: { id: string; name: string; iban: string | null } | null;
   newCount: number;
   duplicateCount: number;
@@ -76,6 +78,60 @@ export interface StatementAccountPreview {
 export interface StatementPreview {
   fileSha256: string;
   accounts: StatementAccountPreview[];
+  /** CSV and Excel only. */
+  errors?: Array<{ row: number; message: string }>;
+  errorCount?: number;
+  ignoredCount?: number;
+}
+
+export interface TableMapping {
+  headerRow: number;
+  delimiter?: string;
+  dateColumn: string;
+  valueDateColumn?: string;
+  amountMode: "SIGNED" | "SPLIT";
+  amountColumn?: string;
+  debitColumn?: string;
+  creditColumn?: string;
+  decimalSeparator: "," | ".";
+  descriptionColumns: string[];
+  referenceColumn?: string;
+  counterpartyColumn?: string;
+}
+
+export interface TableInspection {
+  fileSha256: string;
+  format: "CSV" | "XLSX" | "XLS";
+  delimiter: string | null;
+  rows: string[][];
+  mapping: TableMapping;
+  savedMapping: boolean;
+}
+
+/** Header names as the API resolves them: blanks get a position and repeats a suffix. */
+export function tableColumns(row: string[] = []) {
+  const seen = new Map<string, number>();
+  return row.map((cell, index) => {
+    const name = cell.trim() || `Columna ${index + 1}`;
+    const count = (seen.get(name) ?? 0) + 1;
+    seen.set(name, count);
+    return count === 1 ? name : `${name} (${count})`;
+  });
+}
+
+export function completeMapping(mapping: TableMapping) {
+  return Boolean(
+    mapping.dateColumn &&
+      mapping.descriptionColumns[0] &&
+      (mapping.amountMode === "SIGNED"
+        ? mapping.amountColumn
+        : mapping.debitColumn && mapping.creditColumn),
+  );
+}
+
+/** Norma 43 files start with an account header: 11 + bank, branch and account digits. */
+export function isNorma43(head: string) {
+  return /^﻿?\s*11\d{18}/.test(head);
 }
 
 export interface StatementImportResult {
@@ -149,23 +205,55 @@ const statementErrors: Array<[RegExp, (...groups: string[]) => string]> = [
   [/^Unsupported currency code "(.*)"$/, (code) => `La divisa «${code}» no está admitida.`],
 ];
 
-/** Spanish wording for the API's Norma 43 errors; unknown messages pass through. */
+const tableErrors: Array<[RegExp, (...groups: string[]) => string]> = [
+  [/^The CSV has an unclosed quoted field$/, () => "Hay un campo entre comillas sin cerrar."],
+  [/^The spreadsheet cannot be read$/, () => "La hoja de cálculo no se puede abrir."],
+  [/^The spreadsheet has no sheets$/, () => "La hoja de cálculo no tiene hojas."],
+  [/^The file exceeds (\d+) (rows|movements)$/, (limit, kind) => `El fichero supera ${kind === "rows" ? `las ${limit} filas` : `los ${limit} movimientos`}.`],
+  [/^Column "(.*)" is not in the header row$/, (name) => `La columna «${name}» no está en la fila de cabecera.`],
+  [/^Row (\d+) has no columns to use as headers$/, (row) => `La fila ${row} no tiene columnas para usar como cabecera.`],
+  [/^The mapping does not say which columns hold the amount$/, () => "Indica qué columnas contienen el importe."],
+];
+
+const rowErrors: Array<[RegExp, (...groups: string[]) => string]> = [
+  [/^The date "(.*)" is not a valid DD\/MM\/YYYY or YYYY-MM-DD date$/, (value) => `La fecha «${value}» no es válida (DD/MM/AAAA o AAAA-MM-DD).`],
+  [/^The value date "(.*)" is not a valid DD\/MM\/YYYY or YYYY-MM-DD date$/, (value) => `La fecha valor «${value}» no es válida (DD/MM/AAAA o AAAA-MM-DD).`],
+  [/^The (value date|date) "(.*)" is not valid$/, (kind, value) => `La ${kind === "date" ? "fecha" : "fecha valor"} «${value}» no es válida.`],
+  [/^The amount is empty$/, () => "Falta el importe."],
+  [/^The amount is not a number$/, () => "El importe no es un número."],
+  [/^The amount "(.*)" is not valid$/, (value) => `El importe «${value}» no es válido. Revisa el separador decimal.`],
+  [/^Both the debit and the credit are empty$/, () => "Faltan el cargo y el abono."],
+];
+
+function translateWith(table: Array<[RegExp, (...groups: string[]) => string]>, message: string) {
+  const match = table.find(([pattern]) => pattern.test(message));
+  return match ? match[1](...match[0].exec(message)!.slice(1)) : message;
+}
+
+/** Spanish wording for a CSV or Excel row error. */
+export function translateRowError(message: string) {
+  return translateWith(rowErrors, message);
+}
+
+/** Spanish wording for the API's statement errors; unknown messages pass through. */
 export function translateStatementError(message: string) {
   const invalid = /^Invalid Norma 43 file\. (?:Line (\d+): )?(.*)$/.exec(message);
   if (invalid) {
     const [, line, reason] = invalid;
-    const match = statementErrors.find(([pattern]) => pattern.test(reason));
-    const detail = match ? match[1](...match[0].exec(reason)!.slice(1)) : reason;
-    return `El fichero no es un Norma 43 válido${line ? ` (línea ${line})` : ""}. ${detail}`;
+    return `El fichero no es un Norma 43 válido${line ? ` (línea ${line})` : ""}. ${translateWith(statementErrors, reason)}`;
   }
-  const unlinked = /^Statement account (\S+) is not linked to an active bank account$/.exec(message);
+  const unreadable = /^Invalid statement file\. (.*)$/.exec(message);
+  if (unreadable) return `No podemos leer el extracto. ${translateWith(tableErrors, unreadable[1])}`;
+  const rows = /^The statement has (\d+) rows with errors$/.exec(message);
+  if (rows) return `El extracto tiene ${rows[1]} ${rows[1] === "1" ? "fila" : "filas"} con errores. Corrígelas antes de importar.`;
+  const unlinked = /^Statement account (.+) is not linked to an active bank account$/.exec(message);
   if (unlinked)
-    return `La cuenta ${unlinked[1]} del extracto no está vinculada a ninguna cuenta bancaria activa. Créala con ese IBAN antes de importar.`;
+    return `La cuenta ${unlinked[1] === "without IBAN" ? "sin IBAN" : unlinked[1]} del extracto no está vinculada a ninguna cuenta bancaria activa. Créala con ese IBAN antes de importar.`;
   const currency = /^Statement currency (\S+) does not match bank account (.+)$/.exec(message);
   if (currency) return `La divisa ${currency[1]} del extracto no coincide con la de la cuenta ${currency[2]}.`;
   const translations: Record<string, string> = {
-    "A Norma 43 file is required": "Selecciona un fichero Norma 43.",
-    "The Norma 43 upload is incomplete": "El fichero no se ha subido completo. Vuelve a intentarlo.",
+    "A statement file is required": "Selecciona un fichero de extracto.",
+    "The statement upload is incomplete": "El fichero no se ha subido completo. Vuelve a intentarlo.",
     "The statement file differs from the previewed one": "El fichero ha cambiado desde la vista previa. Revísalo de nuevo.",
     "Bank transactions were imported concurrently; preview the statement again": "Se han importado movimientos a la vez desde otra sesión. Revisa de nuevo el extracto.",
     "A target bank account can only be chosen for a single-account statement": "Solo puedes elegir la cuenta de destino si el extracto tiene una única cuenta.",
