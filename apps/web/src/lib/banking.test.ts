@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   bankAccountInputSchema,
   bankImportInputSchema,
+  completeMapping,
+  isNorma43,
   maskedIban,
   reconcileInputSchema,
   statementImportNotice,
+  tableColumns,
+  translateRowError,
   translateStatementError,
 } from "./banking";
 
@@ -84,5 +88,44 @@ describe("banking helpers", () => {
       "El fichero ha cambiado desde la vista previa. Revísalo de nuevo.",
     );
     expect(translateStatementError("Something else")).toBe("Something else");
+  });
+
+  it("explains CSV and Excel errors in Spanish", () => {
+    expect(
+      translateStatementError('Invalid statement file. Column "Fecha operación" is not in the header row'),
+    ).toBe("No podemos leer el extracto. La columna «Fecha operación» no está en la fila de cabecera.");
+    expect(translateStatementError("Invalid statement file. The file exceeds 10000 movements")).toBe(
+      "No podemos leer el extracto. El fichero supera los 10000 movimientos.",
+    );
+    expect(translateStatementError("The statement has 1 rows with errors")).toBe(
+      "El extracto tiene 1 fila con errores. Corrígelas antes de importar.",
+    );
+    expect(translateRowError('The date "31/02/2026" is not a valid DD/MM/YYYY or YYYY-MM-DD date')).toBe(
+      "La fecha «31/02/2026» no es válida (DD/MM/AAAA o AAAA-MM-DD).",
+    );
+    expect(translateRowError('The amount "diez" is not valid')).toBe(
+      "El importe «diez» no es válido. Revisa el separador decimal.",
+    );
+  });
+
+  it("names columns like the API and recognizes Norma 43 files", () => {
+    expect(tableColumns(["Fecha", " ", "Importe", "Importe"])).toEqual([
+      "Fecha",
+      "Columna 2",
+      "Importe",
+      "Importe (2)",
+    ]);
+    expect(isNorma43("112100041802000513322609")).toBe(true);
+    expect(isNorma43("11/09/2026;Transferencia;12,00")).toBe(false);
+    expect(
+      completeMapping({
+        headerRow: 0,
+        dateColumn: "Fecha",
+        amountMode: "SPLIT",
+        debitColumn: "Cargo",
+        decimalSeparator: ",",
+        descriptionColumns: ["Concepto"],
+      }),
+    ).toBe(false);
   });
 });

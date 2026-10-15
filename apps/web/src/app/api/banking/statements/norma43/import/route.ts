@@ -1,5 +1,5 @@
-import { forwardNorma43 } from "../forward";
+import { forwardStatement } from "../../forward";
 
 export async function POST(request: Request) {
-  return forwardNorma43(request, "import");
+  return forwardStatement(request, "norma43/import", ["bankAccountId", "fileSha256"]);
 }
